@@ -1,0 +1,50 @@
+{
+  "name": "127.0.0.1",
+  "normal": {
+    "knife_zero": {
+      "host": "127.0.0.1"
+    },
+    "tags": [
+
+    ]
+  },
+  "default": {
+    "mumble-server": {
+      "welcometext": "\"<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />\"",
+      "serverpassword": "",
+      "bandwidth": 72000,
+      "users": 100,
+      "opusthreshold": 100,
+      "root_channel_name": "Mumble Server"
+    }
+  },
+  "automatic": {
+    "fqdn": "ubuntu-xenial",
+    "os": "linux",
+    "os_version": "4.4.0-137-generic",
+    "hostname": "ubuntu-xenial",
+    "ipaddress": "10.0.2.15",
+    "roles": [
+
+    ],
+    "recipes": [
+      "calusari::mumble-server"
+    ],
+    "platform": "ubuntu",
+    "platform_version": "16.04",
+    "cloud": null,
+    "chef_packages": {
+      "chef": {
+        "version": "14.5.33",
+        "chef_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/chef-14.5.33/lib"
+      },
+      "ohai": {
+        "version": "14.5.4",
+        "ohai_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/ohai-14.5.4/lib/ohai"
+      }
+    }
+  },
+  "run_list": [
+    "recipe[calusari::mumble-server]"
+  ]
+}

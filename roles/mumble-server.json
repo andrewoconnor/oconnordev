@@ -1,0 +1,14 @@
+{
+  "name": "mumble-server",
+  "default_attributes": {
+    "mumble-server": {
+      "welcometext": "",
+      "bandwidth": 150000,
+      "opusthreshold": 0,
+      "root_channel_name": "Choir Boy Grooming Room"
+    }
+  },
+  "run_list": [
+    "recipe[calusari::mumble-server]"
+  ]
+}
