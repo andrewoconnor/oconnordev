@@ -12,10 +12,10 @@
     "mumble-server": {
       "welcometext": "\"<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />\"",
       "serverpassword": "",
-      "bandwidth": 72000,
+      "bandwidth": 150000,
       "users": 100,
-      "opusthreshold": 100,
-      "root_channel_name": "Mumble Server"
+      "opusthreshold": 0,
+      "root_channel_name": "Choir Boy Grooming Room"
     }
   },
   "automatic": {
@@ -25,7 +25,7 @@
     "hostname": "ubuntu-xenial",
     "ipaddress": "10.0.2.15",
     "roles": [
-
+      "mumble-server"
     ],
     "recipes": [
       "calusari::mumble-server"
@@ -45,6 +45,6 @@
     }
   },
   "run_list": [
-    "recipe[calusari::mumble-server]"
+    "role[mumble-server]"
   ]
 }

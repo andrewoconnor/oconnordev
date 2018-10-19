@@ -11,7 +11,7 @@ end
 
 calusari_mumble_install 'mumble-server' do
   welcometext node['mumble-server']['welcometext']
-  serverpassword '' #data_bag_item('passwords', 'mumble-server', IO.read('/etc/chef/encrypted_data_bag_secret'))[:serverpassword]
+  serverpassword data_bag_item('passwords', 'mumble-server')['serverpassword']
   bandwidth node['mumble-server']['bandwidth']
   users node['mumble-server']['users']
   opusthreshold node['mumble-server']['opusthreshold']
