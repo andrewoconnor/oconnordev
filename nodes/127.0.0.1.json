@@ -9,13 +9,30 @@
     ]
   },
   "default": {
-    "mumble-server": {
-      "welcometext": "\"<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />\"",
-      "serverpassword": "",
-      "bandwidth": 150000,
+    "acme": {
+      "contact": [
+
+      ],
+      "endpoint": "https://acme-v01.api.letsencrypt.org",
+      "renew": 30,
+      "source_ips": [
+        "66.133.109.36",
+        "64.78.149.164"
+      ],
+      "private_key": null,
+      "gem_version": "0.6.2",
+      "key_size": 2048
+    },
+    "murmur": {
+      "welcome_text": "\"<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />\"",
+      "server_password": "",
+      "bandwidth": 130000,
       "users": 100,
-      "opusthreshold": 0,
-      "root_channel_name": "Choir Boy Grooming Room"
+      "opus_threshold": 0,
+      "register_name": "Choir Boy Grooming Room",
+      "ssl_cert": "",
+      "ssl_key": "",
+      "ssl_ca": ""
     }
   },
   "automatic": {
@@ -25,14 +42,15 @@
     "hostname": "ubuntu-xenial",
     "ipaddress": "10.0.2.15",
     "roles": [
-      "mumble-server"
+      "murmur",
+      "caddy"
     ],
     "recipes": [
-      "calusari::mumble-server"
+      "calusari::murmur",
+      "calusari::caddy"
     ],
     "platform": "ubuntu",
     "platform_version": "16.04",
-    "cloud": null,
     "chef_packages": {
       "chef": {
         "version": "14.5.33",
@@ -45,6 +63,7 @@
     }
   },
   "run_list": [
-    "role[mumble-server]"
+    "role[murmur]",
+    "role[caddy]"
   ]
 }

@@ -117,7 +117,7 @@ pidfile=/var/run/mumble-server/mumble-server.pid
 ; Welcome message sent to clients when they connect.
 ; If the welcome message is set to an empty string,
 ; no welcome message will be sent to clients.
-welcometext=<%= @welcometext %>
+welcometext=<%= @welcome_text %>
 
 ; Port to bind TCP and UDP sockets to.
 port=64738
@@ -127,7 +127,7 @@ port=64738
 ;host=
 
 ; Password to join server.
-serverpassword=<%= @serverpassword %>
+serverpassword=<%= @server_password %>
 
 ; Maximum bandwidth (in bits per second) clients are allowed
 ; to send speech at.
@@ -157,7 +157,7 @@ allowping=true
 
 ; Amount of users with Opus support needed to force Opus usage, in percent.
 ; 0 = Always enable Opus, 100 = enable Opus if it's supported by all clients.
-opusthreshold=<%= @opusthreshold %>
+opusthreshold=<%= @opus_threshold %>
 
 ; Maximum depth of channel nesting. Note that some databases like MySQL using
 ; InnoDB will fail when operating on deeply nested channels.
@@ -198,7 +198,7 @@ opusthreshold=<%= @opusthreshold %>
 ; addresses.
 ; Only uncomment the 'registerName' parameter if you wish to give your "Root" channel a custom name.
 ;
-registerName=<%= @registerName %>
+registerName=<%= @register_name %>
 ;registerPassword=secret
 ;registerUrl=http://www.mumble.info/
 ;registerHostname=
@@ -212,8 +212,9 @@ registerName=<%= @registerName %>
 
 ; If you have a proper SSL certificate, you can provide the filenames here.
 ; Otherwise, Murmur will create its own certificate automatically.
-;sslCert=
-;sslKey=
+<%= ';sslCert='.tap { |s| s.concat(@ssl_cert).slice!(0) unless @ssl_cert&.empty? } %>
+<%= ';sslKey='.tap { |s| s.concat(@ssl_key).slice!(0) unless @ssl_key&.empty? } %>
+<%= ';sslCA='.tap { |s| s.concat(@ssl_ca).slice!(0) unless @ssl_ca&.empty? } %>
 
 ; The sslDHParams option allows you to specify a PEM-encoded file with
 ; Diffie-Hellman parameters, which will be used as the default Diffie-

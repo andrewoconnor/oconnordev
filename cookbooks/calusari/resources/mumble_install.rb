@@ -4,12 +4,15 @@
 #
 # Copyright:: 2018, The Authors, All Rights Reserved.
 
-property :welcometext, String, default: '"<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />"'
-property :serverpassword, String, default: ''
+property :welcome_text, String, default: '"<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />"'
+property :server_password, String, default: ''
 property :bandwidth, Integer, default: 72000
 property :users, Integer, default: 100
-property :opusthreshold, Integer, default: 100
-property :root_channel_name, String, default: 'Mumble Server'
+property :opus_threshold, Integer, default: 100
+property :register_name, String, default: 'Mumble Server'
+property :ssl_cert, String
+property :ssl_key, String
+property :ssl_ca, String
 
 action :install do
   apt_repository 'mumble' do
@@ -23,14 +26,17 @@ action :install do
   end
 
   template '/etc/mumble-server.ini' do
-    source 'mumble-server.ini.erb'
+    source 'murmur.ini.erb'
     variables(
-      welcometext: new_resource.welcometext,
-      serverpassword: new_resource.serverpassword,
+      welcome_text: new_resource.welcome_text,
+      server_password: new_resource.server_password,
       bandwidth: new_resource.bandwidth,
       users: new_resource.users,
-      opusthreshold: new_resource.opusthreshold,
-      registerName: new_resource.root_channel_name
+      opus_threshold: new_resource.opus_threshold,
+      register_name: new_resource.register_name,
+      ssl_cert: new_resource.ssl_cert,
+      ssl_key: new_resource.ssl_key,
+      ssl_ca: new_resource.ssl_ca
     )
     notifies :restart, 'service[mumble-server]'
   end

@@ -1,0 +1,16 @@
+{
+  "name": "murmur",
+  "default_attributes": {
+    "murmur": {
+      "bandwidth": 130000,
+      "opus_threshold": 0,
+      "register_name": "Choir Boy Grooming Room",
+      "ssl_cert": "",
+      "ssl_key": "",
+      "ssl_ca": ""
+    }
+  },
+  "run_list": [
+    "recipe[calusari::murmur]"
+  ]
+}

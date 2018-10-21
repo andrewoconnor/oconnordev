@@ -1,0 +1,6 @@
+{
+  "name": "caddy",
+  "run_list": [
+    "recipe[calusari::caddy]"
+  ]
+}
