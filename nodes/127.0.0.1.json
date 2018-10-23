@@ -1,5 +1,13 @@
 {
   "name": "127.0.0.1",
+  "override": {
+    "acme": {
+      "contact": [
+        "mailto:andrewoconnor@outlook.com"
+      ],
+      "endpoint": "https://acme-staging.api.letsencrypt.org"
+    }
+  },
   "normal": {
     "knife_zero": {
       "host": "127.0.0.1"
@@ -43,14 +51,18 @@
     "ipaddress": "10.0.2.15",
     "roles": [
       "murmur",
-      "caddy"
+      "caddy",
+      "acme"
     ],
     "recipes": [
       "calusari::murmur",
-      "calusari::caddy"
+      "calusari::caddy",
+      "calusari::acme",
+      "acme::default"
     ],
     "platform": "ubuntu",
     "platform_version": "16.04",
+    "cloud": null,
     "chef_packages": {
       "chef": {
         "version": "14.5.33",
@@ -64,6 +76,7 @@
   },
   "run_list": [
     "role[murmur]",
-    "role[caddy]"
+    "role[caddy]",
+    "role[acme]"
   ]
 }

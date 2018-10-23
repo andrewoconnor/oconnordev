@@ -8,14 +8,15 @@ Wants=network-online.target systemd-networkd-wait-online.service
 Restart=on-abnormal
 
 ; User and group the process will run as.
-User=caddy
-Group=caddy
+User=www-data
+Group=www-data
 
 ; Letsencrypt-issued certificates will be written to this directory.
 Environment=CADDYPATH=/etc/ssl/caddy
 
 ; Always set "-root" to something safe in case it gets forgotten in the Caddyfile.
 ExecStart=/usr/local/bin/caddy -log stdout -agree=true -conf=/etc/caddy/Caddyfile -root=/var/tmp
+; -ca=https://acme-staging-v02.api.letsencrypt.org/directory
 ExecReload=/bin/kill -USR1 $MAINPID
 
 ; Use graceful shutdown with a reasonable timeout
@@ -31,7 +32,7 @@ LimitNPROC=512
 ; Use private /tmp and /var/tmp, which are discarded after caddy stops.
 PrivateTmp=true
 ; Use a minimal /dev (May bring additional security if switched to 'true', but it may not work on Raspberry Pi's or other devices, so it has been disabled in this dist.)
-PrivateDevices=false
+PrivateDevices=true
 ; Hide /home, /root, and /run/user. Nobody will steal your SSH-keys.
 ProtectHome=true
 ; Make /usr, /boot, /etc and possibly some more folders read-only.
@@ -43,9 +44,9 @@ ReadWriteDirectories=/etc/ssl/caddy
 ; The following additional security directives only work with systemd v229 or later.
 ; They further restrict privileges that can be gained by caddy. Uncomment if you like.
 ; Note that you may have to add capabilities required by any plugins in use.
-CapabilityBoundingSet=CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_BIND_SERVICE
-NoNewPrivileges=true
+; CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+; AmbientCapabilities=CAP_NET_BIND_SERVICE
+; NoNewPrivileges=true
 
 [Install]
 WantedBy=multi-user.target

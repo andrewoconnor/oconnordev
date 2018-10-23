@@ -5,9 +5,9 @@
       "bandwidth": 130000,
       "opus_threshold": 0,
       "register_name": "Choir Boy Grooming Room",
-      "ssl_cert": "",
-      "ssl_key": "",
-      "ssl_ca": ""
+      "ssl_cert": "/etc/ssl/local_certs/calusari.net.crt",
+      "ssl_key": "/etc/ssl/local_certs/private/calusari.net.key",
+      "ssl_ca": "/etc/ssl/local_certs/calusari.net.pem"
     }
   },
   "run_list": [

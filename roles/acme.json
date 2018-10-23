@@ -1,0 +1,6 @@
+{
+  "name": "acme",
+  "run_list": [
+    "recipe[calusari::acme]"
+  ]
+}

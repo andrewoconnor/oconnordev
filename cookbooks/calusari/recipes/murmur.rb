@@ -4,11 +4,6 @@
 #
 # Copyright:: 2018, The Authors, All Rights Reserved.
 
-service 'mumble-server' do
-  supports :status => true, :start => true, :stop => true, :restart => true
-  action [:enable, :start]
-end
-
 calusari_mumble_install 'murmur' do
   welcome_text node['murmur']['welcome_text']
   server_password data_bag_item('passwords', 'murmur')['server_password']
