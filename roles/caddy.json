@@ -1,5 +1,12 @@
 {
   "name": "caddy",
+  "default_attributes": {
+    "caddy": {
+      "bin": "/usr/local/bin/caddy",
+      "download_url": "https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off",
+      "checksum": "9764f6e95746f5a57128e4f33169ce520615c56726e2c56724e2a7c72f8d68a8"
+    }
+  },
   "run_list": [
     "recipe[calusari::caddy]"
   ]

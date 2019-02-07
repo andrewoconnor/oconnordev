@@ -26,13 +26,13 @@ group 'ssl-cert' do
   append true
 end
 
-tar_extract 'caddy.tar.gz'  do
+tar_extract 'caddy.tar.gz' do
   source 'https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off'
   target_dir caddy_path
   creates caddy_bin
-  checksum '5e701b6ea4df276dc2814e082b47d633c311637b02baae96feba0c7f0169d556'
+  checksum node['caddy']['checksum']
   tar_flags '-po caddy'
-  notifies :restart, 'service[caddy]'
+  notifies :restart, 'systemd_unit[caddy.service]'
 end
 
 execute "setcap 'cap_net_bind_service=+ep' #{caddy_bin}" do
@@ -65,40 +65,36 @@ directory '/soft/calusari' do
   action :create
 end
 
-# systemd_unit 'caddy.service' do
-#   triggers_reload true
-#   content(
-#     Unit: {
-#       Description: 'Caddy HTTP/2 web server',
-#       Documentation: 'https://caddyserver.com/docs',
-#       After: 'network-online.target',
-#       Wants: 'network-online.target systemd-networkd-wait-online.service'
-#     },
-#     Service: {
-#       Restart: 'on-abnormal',
-#       User: 'www-data',
-#       Group: 'www-data',
-#       Environment: 'CADDYPATH=/etc/ssl/caddy',
-#       ExecStart: '/usr/local/bin/caddy -log stdout -agree=true -conf=/etc/caddy/Caddyfile -root=/var/tmp',
-#       ExecReload: '/bin/kill -USR1 $MAINPID',
-#       KillMode: 'mixed',
-#       KillSignal: 'SIGQUIT',
-#       TimeoutStopSec: '5s'
-#     },
-#     Install: {
-#       WantedBy: 'multi-user.target'
-#     }
-#   )
-# end
-
-systemd = template '/etc/systemd/system/caddy.service' do
-  source 'caddy.service.erb'
-  mode '644'
-  only_if { node['platform'] == 'ubuntu' && node['platform_version'] >= '15.04' }
-end
-
-service 'caddy' do
-  action [:enable, :start]
-  supports :status => true, :start => true, :stop => true, :restart => true
-  subscribes :restart, systemd, :immediately
+systemd_unit 'caddy.service' do
+  triggers_reload true
+  content(
+    Unit: {
+      Description: 'Caddy HTTP/2 web server',
+      Documentation: 'https://caddyserver.com/docs',
+      After: 'network-online.target',
+      Wants: 'network-online.target systemd-networkd-wait-online.service'
+    },
+    Service: {
+      Restart: 'on-abnormal',
+      User: 'www-data',
+      Group: 'www-data',
+      Environment: 'CADDYPATH=/etc/ssl/caddy',
+      ExecStart: '/usr/local/bin/caddy -log stdout -agree=true -conf=/etc/caddy/Caddyfile -root=/var/tmp',
+      ExecReload: '/bin/kill -USR1 $MAINPID',
+      KillMode: 'mixed',
+      KillSignal: 'SIGQUIT',
+      TimeoutStopSec: '5s',
+      LimitNOFILE: '1048576',
+      LimitNPROC: '512',
+      PrivateTmp: 'true',
+      PrivateDevices: 'true',
+      ProtectHome: 'true',
+      ProtectSystem: 'full',
+      ReadWriteDirectories: '/etc/ssl/caddy'
+    },
+    Install: {
+      WantedBy: 'multi-user.target'
+    }
+  )
+  action [:create, :enable, :start]
 end

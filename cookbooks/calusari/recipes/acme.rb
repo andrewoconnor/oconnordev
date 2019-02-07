@@ -25,13 +25,13 @@ directory '/etc/ssl/local_certs/private' do
 end
 
 # Generate a self-signed if we don't have a cert to prevent bootstrap problems
-acme_selfsigned "#{site}" do
+acme_selfsigned site do
   crt     "/etc/ssl/local_certs/#{site}.crt"
   key     "/etc/ssl/local_certs/private/#{site}.key"
   chain   "/etc/ssl/local_certs/#{site}.pem"
   owner   'root'
   group   'ssl-cert'
-  notifies :restart, 'service[caddy]', :immediate
+  notifies :restart, 'systemd_unit[caddy.service]', :immediate
 end
 
 file "/etc/ssl/local_certs/private/#{site}.key" do
@@ -41,11 +41,11 @@ end
 # Set up your webserver here...
 
 # Get and auto-renew the certificate from Let's Encrypt
-acme_certificate "#{site}" do
+acme_certificate site do
   crt                "/etc/ssl/local_certs/#{site}.crt"
   key                "/etc/ssl/local_certs/private/#{site}.key"
   chain              "/etc/ssl/local_certs/#{site}.pem"
-  wwwroot            "/soft/calusari"
-  notifies :restart, 'service[caddy]'
+  wwwroot            '/soft/calusari'
+  notifies :restart, 'systemd_unit[caddy.service]'
   alt_names sans
 end
