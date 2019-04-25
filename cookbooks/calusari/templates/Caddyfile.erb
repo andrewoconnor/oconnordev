@@ -1,21 +1,21 @@
-calusari.net:80, calusari.net:443 {
-    root /soft/calusari
+<%= @site %>:80, <%= @site %>:443 {
+    root <%= @wwwroot %>
  
     redir 301 {
       if {scheme} not https
       / https://{host}{uri}
     }
 
-    tls /etc/ssl/local_certs/calusari.net.crt /etc/ssl/local_certs/private/calusari.net.key
+    tls /etc/ssl/local_certs/<%= @site %>.crt /etc/ssl/local_certs/private/<%= @site %>.key
 
     log stdout 
     errors stderr
 }
 
-www.calusari.net:80, www.calusari.net:443 {
-    redir https://calusari.net{uri}
+www.<%= @site %>:80, www.<%= @site %>:443 {
+    redir https://<%= @site %>{uri}
 }
 
 http://*/.well-known {
-    root /soft/calusari/.well-known
+    root <%= @wwwroot %>/.well-known
 }

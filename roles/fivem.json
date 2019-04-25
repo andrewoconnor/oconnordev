@@ -1,0 +1,15 @@
+{
+  "name": "fivem",
+  "default_attributes": {
+    "fivem": {
+      "download_url": "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/1141-8cded82ebff9053946e778016cb496acd0e250b0/fx.tar.xz",
+      "hostname": "oconnordev",
+      "admin": "identifier.steam:110000101054b0f",
+      "license_key": "e1o73zw2s442xewqut9qltuxw48t97ne",
+      "vmenu_url": "https://github.com/TomGrobbe/vMenu/releases/download/v3.0.2/vMenu-v3.0.2.zip"
+    }
+  },
+  "run_list": [
+    "recipe[oconnordev::fivem]"
+  ]
+}

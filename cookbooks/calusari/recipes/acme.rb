@@ -1,14 +1,17 @@
+#
+# Cookbook:: oconnordev
+# Recipe:: acme
+#
+# Copyright:: 2018, The Authors, All Rights Reserved.
+
 # Include the recipe to install the gems
+include_recipe 'oconnordev::gai'
+include_recipe 'oconnordev::caddy'
+include_recipe 'oconnordev::murmur'
 include_recipe 'acme'
 
-# Set up contact information. Note the mailto: notation
-node.override['acme']['contact'] = ['mailto:andrewoconnor@outlook.com']
-# Real certificates please...
-node.override['acme']['endpoint'] = 'https://acme-v01.api.letsencrypt.org'
-# node.override['acme']['endpoint'] = 'https://acme-staging.api.letsencrypt.org'
-
-site = 'calusari.net'
-sans = ["www.#{site}"]
+site = node['acme']['site']
+sans = node['acme']['sans']
 
 directory '/etc/ssl/local_certs' do
   owner 'root'
@@ -45,7 +48,8 @@ acme_certificate site do
   crt                "/etc/ssl/local_certs/#{site}.crt"
   key                "/etc/ssl/local_certs/private/#{site}.key"
   chain              "/etc/ssl/local_certs/#{site}.pem"
-  wwwroot            '/soft/calusari'
+  wwwroot            node['acme']['wwwroot']
   notifies :restart, 'systemd_unit[caddy.service]'
+  notifies :restart, 'service[mumble-server]'
   alt_names sans
 end

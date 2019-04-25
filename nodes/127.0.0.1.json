@@ -30,9 +30,9 @@
       "users": 100,
       "opus_threshold": 0,
       "register_name": "Choir Boy Grooming Room",
-      "ssl_cert": "/etc/ssl/local_certs/calusari.net.crt",
-      "ssl_key": "/etc/ssl/local_certs/private/calusari.net.key",
-      "ssl_ca": "/etc/ssl/local_certs/calusari.net.pem"
+      "ssl_cert": "/etc/ssl/local_certs/oconnordev.net.crt",
+      "ssl_key": "/etc/ssl/local_certs/private/oconnordev.net.key",
+      "ssl_ca": "/etc/ssl/local_certs/oconnordev.net.pem"
     },
     "caddy": {
       "download_url": "https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off",
@@ -51,8 +51,8 @@
       "caddy"
     ],
     "recipes": [
-      "calusari::murmur",
-      "calusari::caddy"
+      "oconnordev::murmur",
+      "oconnordev::caddy"
     ],
     "platform": "ubuntu",
     "platform_version": "16.04",

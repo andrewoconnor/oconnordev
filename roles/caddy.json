@@ -4,10 +4,12 @@
     "caddy": {
       "bin": "/usr/local/bin/caddy",
       "download_url": "https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off",
-      "checksum": "9764f6e95746f5a57128e4f33169ce520615c56726e2c56724e2a7c72f8d68a8"
+      "checksum": "a2c1a10476670c5baa94b585701b44337f65e79cc794943cfc33f673d31d1200",
+      "wwwroot": "/soft/oconnordev",
+      "site": "oconnor.dev"
     }
   },
   "run_list": [
-    "recipe[calusari::caddy]"
+    "recipe[oconnordev::caddy]"
   ]
 }

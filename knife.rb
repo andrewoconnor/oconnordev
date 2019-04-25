@@ -28,7 +28,7 @@ knife[:automatic_attribute_whitelist] = %w[
 ]
 
 cookbook_path [
-  File.expand_path('../cookbooks/calusari/berks-cookbooks', __FILE__)
+  File.expand_path('../cookbooks/oconnordev/berks-cookbooks', __FILE__)
 ]
 
 # knife[:before_bootstrap] = "berks vendor"

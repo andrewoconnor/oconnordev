@@ -1,0 +1,127 @@
+{
+  "name": "server1.oconnor.dev",
+  "override": {
+    "getaddrinfo": {
+      "precedences": {
+        "Prefer IPv4": {
+          "mask": "::ffff:0:0/96",
+          "value": 100
+        }
+      }
+    }
+  },
+  "normal": {
+    "tags": [
+
+    ],
+    "acme": {
+      "private_key": "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAsDfxnK6eLcO2M6+TzMCkUahBvex/+OLlfs6q8FuPe5oTqMko\n62inN/27u3yDjTpLbnCgX1KCYfnencNTt+S4ctcltIBFzuEqdHCHtQG/DVzT2fH3\n18ZN9fQ0xdiESiH+FxmiPkurRWVmlKCnho+/X/x1I824KItd78of1mGHghZhFUHJ\nPv52QPxoljIEUEPPhxJBLzQRgiYcGNcsclV/tuomZl7rRONUvbAcDaDecn473yix\nmceuDpTtvynG3nhbSRR0fHSsYrv0cAd9WeY2wG9aTSioiaM9e9wBwP7MWdxzRuSO\nqYIsrp1lDYCbbm3Cw+Nsp15sF34D1cxJr2Mn4QIDAQABAoIBAEVXrlbmi84cbo1G\nMRXoVIDhggU3lGAfAQn2T2PH091ikwvfJKAGDY9F5GLxq16equIppaH8+NuPFN/l\n5gK+GSrvqKGvvEidaDRrt6stpb2fYqonwkyBd1oqn72e5ue5GqCCcMqswhfLwCMK\nWQHlfPxLftj48dfah7t9QSv+MvGoL2tKktTBBm/j3p5613Gf2HOD04TVvS5eTG25\ngzuQlU9w13hrEl1RrlNkWaWU+GG2B2dy3kuefahZeXUhprHVRoJGXo87bBONMXDk\ng0BU5h/tKsqY15q/Vt4XxrJf4jwOUl8Ar8gZMJYUg3czJwkF2CqQQtSmCoRqGcHW\njSNdu8ECgYEA3091uTjKcnJgQjC9xN0stElnU0tzaQzWYUMUOA8WKk8fKt7QhFYg\n5fz7pS2S9AvrJ1zWjtYJJN7e3vrvM+PiK8uMKA1wlpjH9tFtdbPrcY8qb71brEEP\nuV+g9IReUuRtJBZCyLX6beyn47yvklIvFsL5dULbREoyDW6AaGgC0ikCgYEAygO4\nU7sonfrM9unSfilzdrtY2E1rfJdOQLTYW2gGIxtGutWk8qMoPpj4tcqYuywr7jUC\nRyavmnXfMiY0UnDDtL24QZPp6kzanjufdVcPithQIuDYlnqtSiTXNf6Rt6Fdasr9\n4qbMC0euRorfKzyTyqSuO8JAZY0vEvaYaknCjvkCgYEAwa0g5SwkKW6Znc64R+2r\nwBGJ0+w0hH/lzyVme9hZ2QgWeBAXuS8aCV6IwpHsSk2r/c+/JtLry1ag5bOtksuq\ndWFshbBiXbrUc3TgAp2xLiSFIbSRtawX/ya5alkDldEX95x2/60VLhF660HS5Izy\n2kLwKIt7sJbJIm0cYXEUQUECgYBh8E3EIl+9v6LxLklDqxr0fD3FmDs9SynACy09\nm4AmMwomeH+gtuNC/ezOTeugCvk9Ymu5TRMjonPUH1uMgGkRTk1vVaO5WQtAXY2g\nWNYLLXYkgrfetJkg8h14avQAf/YHWWSfJtiTu2vNfXRWxOat/wsNo86OrVUeL3mT\nRjFSGQKBgFI8hgvqCfIpKlLxXE07Htyz2liUNawt4Sqje6e+oHQuJSfreMS49hO9\nS15EtwANHxdNNelkiWcGbPLGEtrqdXxrffB2jfPWI1yjD6wz4Zb1ikrwbyL+9JyV\nmzpzeeUHj5V7zuNSjpcYqL0yo4e6ViGKWZZ3zH9ePlLyarsju6ze\n-----END RSA PRIVATE KEY-----\n"
+    },
+    "knife_zero": {
+      "host": "server1.oconnor.dev"
+    }
+  },
+  "default": {
+    "acme": {
+      "contact": [
+        "mailto:andrewoconnor@outlook.com"
+      ],
+      "endpoint": "https://acme-v01.api.letsencrypt.org",
+      "renew": 30,
+      "source_ips": [
+        "66.133.109.36",
+        "64.78.149.164"
+      ],
+      "private_key": null,
+      "gem_version": "0.6.2",
+      "key_size": 2048,
+      "site": "oconnor.dev",
+      "sans": [
+        "www.oconnor.dev"
+      ],
+      "wwwroot": "/soft/oconnordev"
+    },
+    "getaddrinfo": {
+      "labels": {
+
+      },
+      "precedences": {
+
+      },
+      "scopes": {
+
+      }
+    },
+    "murmur": {
+      "welcome_text": "<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />",
+      "server_password": "",
+      "bandwidth": 130000,
+      "users": 100,
+      "opus_threshold": 0,
+      "register_name": "Choir Boy Grooming Room",
+      "ssl_cert": "/etc/ssl/local_certs/oconnor.dev.crt",
+      "ssl_key": "/etc/ssl/local_certs/private/oconnor.dev.key",
+      "ssl_ca": "/etc/ssl/local_certs/oconnor.dev.pem"
+    },
+    "caddy": {
+      "download_url": "https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off",
+      "checksum": "a2c1a10476670c5baa94b585701b44337f65e79cc794943cfc33f673d31d1200",
+      "wwwroot": "/soft/oconnordev",
+      "site": "oconnor.dev",
+      "bin": "/usr/local/bin/caddy"
+    },
+    "fivem": {
+      "download_url": "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/1141-8cded82ebff9053946e778016cb496acd0e250b0/fx.tar.xz",
+      "tags": "default",
+      "hostname": "oconnordev",
+      "admin": "identifier.steam:110000101054b0f",
+      "license_key": "e1o73zw2s442xewqut9qltuxw48t97ne",
+      "vmenu_url": "https://github.com/TomGrobbe/vMenu/releases/download/v3.0.2/vMenu-v3.0.2.zip"
+    }
+  },
+  "automatic": {
+    "fqdn": "server1.oconnor.dev",
+    "os": "linux",
+    "os_version": "2.6.32-042stab133.2",
+    "hostname": "server1",
+    "ipaddress": "107.161.173.120",
+    "roles": [
+      "gai",
+      "apache",
+      "caddy",
+      "murmur",
+      "fivem",
+      "acme"
+    ],
+    "recipes": [
+      "oconnordev::gai",
+      "oconnordev::apache",
+      "oconnordev::caddy",
+      "oconnordev::murmur",
+      "oconnordev::fivem",
+      "oconnordev::acme",
+      "acme::default"
+    ],
+    "platform": "ubuntu",
+    "platform_version": "16.04",
+    "cloud": null,
+    "chef_packages": {
+      "ohai": {
+        "version": "14.8.10",
+        "ohai_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/ohai-14.8.10/lib/ohai"
+      },
+      "chef": {
+        "version": "14.11.21",
+        "chef_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/chef-14.11.21/lib"
+      }
+    }
+  },
+  "run_list": [
+    "role[gai]",
+    "role[apache]",
+    "role[caddy]",
+    "role[murmur]",
+    "role[fivem]",
+    "role[acme]"
+  ]
+}

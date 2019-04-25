@@ -1,5 +1,5 @@
 #
-# Cookbook:: calusari
+# Cookbook:: oconnordev
 # Resource:: mumble_install
 #
 # Copyright:: 2018, The Authors, All Rights Reserved.
@@ -25,15 +25,15 @@ action :install do
     action :install
   end
 
-  service 'mumble-server' do
-    supports :status => true, :start => true, :stop => true, :restart => true
-    action [:enable, :start]
-  end
-
   group 'ssl-cert' do
     system true
     members 'mumble-server'
     append true
+  end
+
+  service 'mumble-server' do
+    supports status: true, start: true, stop: true, restart: true
+    action [:enable, :start]
   end
 
   template '/etc/mumble-server.ini' do

@@ -20,7 +20,7 @@ bin/*
 Berksfile.lock
 .zero-knife.rb
 Policyfile.lock.json
-cookbooks/calusari/berks-cookbooks/*
+cookbooks/oconnordev/berks-cookbooks/*
 
 # OS
 */.DS_Store

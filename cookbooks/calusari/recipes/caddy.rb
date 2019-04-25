@@ -1,8 +1,10 @@
 #
-# Cookbook:: calusari
+# Cookbook:: oconnordev
 # Recipe:: caddy
 #
 # Copyright:: 2018, The Authors, All Rights Reserved.
+
+include_recipe 'oconnordev::gai'
 
 caddy_path = '/usr/local/bin'
 caddy_bin = '/usr/local/bin/caddy'
@@ -15,7 +17,7 @@ user 'www-data' do
   uid 33
   gid 33
   system true
-  home '/soft/calusari'
+  home node['caddy']['wwwroot']
   manage_home false
   shell '/usr/sbin/nologin'
 end
@@ -27,7 +29,7 @@ group 'ssl-cert' do
 end
 
 tar_extract 'caddy.tar.gz' do
-  source 'https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off'
+  source node['caddy']['download_url']
   target_dir caddy_path
   creates caddy_bin
   checksum node['caddy']['checksum']
@@ -49,6 +51,10 @@ end
 template '/etc/caddy/Caddyfile' do
   source 'Caddyfile.erb'
   mode '644'
+  variables(
+    site: node['caddy']['site'],
+    wwwroot: node['caddy']['wwwroot']
+  )
 end
 
 directory '/etc/ssl/caddy' do
@@ -57,7 +63,7 @@ directory '/etc/ssl/caddy' do
   mode '770'
 end
 
-directory '/soft/calusari' do
+directory node['caddy']['wwwroot'] do
   owner 'www-data'
   group 'www-data'
   mode '555'

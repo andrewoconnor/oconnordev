@@ -24,6 +24,8 @@ KillMode=mixed
 KillSignal=SIGQUIT
 TimeoutStopSec=5s
 
+SyslogIdentifier=caddy
+
 ; Limit the number of file descriptors; see `man systemd.exec` for more limit settings.
 LimitNOFILE=1048576
 ; Unmodified caddy is not expected to use more than that.

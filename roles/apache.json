@@ -1,0 +1,6 @@
+{
+  "name": "apache",
+  "run_list": [
+    "recipe[oconnordev::apache]"
+  ]
+}
