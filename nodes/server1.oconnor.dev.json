@@ -61,7 +61,7 @@
       "tags": "default",
       "hostname": "oconnordev",
       "admin": "identifier.steam:110000101054b0f",
-      "steam_web_api_key": "42D677ACD3E3F14979CC980CD9CCC207",
+      "steam_web_api_key": "",
       "license_key": "e1o73zw2s442xewqut9qltuxw48t97ne",
       "vmenu_url": "https://github.com/TomGrobbe/vMenu/releases/download/v3.1.2/vMenu-v3.1.2.zip"
     }

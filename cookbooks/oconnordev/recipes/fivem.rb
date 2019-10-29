@@ -90,7 +90,7 @@ template '/opt/fivem/server-data/server.cfg' do
     tags: node['fivem']['tags'],
     hostname: node['fivem']['hostname'],
     admin: node['fivem']['admin'],
-    steam_web_api_key: node['fivem']['steam_web_api_key'],
+    steam_web_api_key: data_bag_item('passwords', 'fivem')['steam_web_api_key'],
     license_key: node['fivem']['license_key']
   )
   notifies :restart, 'systemd_unit[fivem.service]'
