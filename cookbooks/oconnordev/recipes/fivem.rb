@@ -90,6 +90,7 @@ template '/opt/fivem/server-data/server.cfg' do
     tags: node['fivem']['tags'],
     hostname: node['fivem']['hostname'],
     admin: node['fivem']['admin'],
+    steam_web_api_key: node['fivem']['steam_web_api_key'],
     license_key: node['fivem']['license_key']
   )
   notifies :restart, 'systemd_unit[fivem.service]'
@@ -108,10 +109,6 @@ systemd_unit 'fivem.service' do
       Group: 'fivem',
       WorkingDirectory: '/opt/fivem/server-data',
       ExecStart: '/usr/bin/screen -c /opt/fivem/screen.conf -DmS fivem /opt/fivem/server/run.sh "+exec server.cfg"',
-      PrivateTmp: 'true',
-      PrivateDevices: 'true',
-      ProtectHome: 'true',
-      ProtectSystem: 'full',
       ReadWriteDirectories: '/opt/fivem'
     },
     Install: {

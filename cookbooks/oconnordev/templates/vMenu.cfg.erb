@@ -65,9 +65,6 @@ setr vmenu_log_ban_actions true
 # Log kick actions to the "vmenu.log" file?
 setr vmenu_log_kick_actions true
 
-# Notify players when vMenu is outdated?
-setr vmenu_outdated_version_notify_players true
-
 # This option will enable compatibility mode for els and other siren-control scripts by 
 # disabling vMenu's control over vehicle sirens completely.
 setr vmenu_use_els_compatibility_mode false
@@ -96,10 +93,6 @@ setr vmenu_teleport_to_wp_keybind_key 168 # 168 / F7 by default
 # This does NOT disable the "restore player appearance" option for non-mp peds.
 setr vmenu_disable_spawning_as_default_character false
 
-# When set to true, then the update checks that automatically happen every 24 hours will be disabled.
-# Update checks will still occur whenever (re)starting the server/resource, regardless of this setting.
-setr vmenu_disable_daily_update_checks false
-
 # Recommended to leave this disabled, but if you REALLY want to use animals as player peds then go ahead and enable this.
 # You have been warned, this WILL cause game crashes to occur regularly.
 setr vmenu_enable_animals_spawn_menu false
@@ -118,6 +111,10 @@ setr vmenu_player_names_distance 500.0
 
 # Disables the entity model outlines, model hashes, entity handles development tools section.
 setr vmenu_disable_entity_outlines_tool false
+
+# This message gets added at the end of all ban messages, use this to show users where they can contact the server staff team in case
+# they want to appeal it or if they have any questions.
+setr vmenu_default_ban_message_information "Please contact the staff team by going (support url) if you want to appeal this ban"
 
 
 #######################################################################################################################################################
@@ -327,6 +324,7 @@ add_ace builtin.everyone "vMenu.PersonalVehicle.All" allow
 #add_ace builtin.everyone "vMenu.PersonalVehicle.ToggleLights" allow
 #add_ace builtin.everyone "vMenu.PersonalVehicle.KickPassengers" allow
 #add_ace builtin.everyone "vMenu.PersonalVehicle.LockDoors" allow # This grants both locking and unlocking the doors.
+#add_ace builtin.everyone "vMenu.PersonalVehicle.Doors" allow
 #add_ace builtin.everyone "vMenu.PersonalVehicle.SoundHorn" allow
 #add_ace builtin.everyone "vMenu.PersonalVehicle.ToggleAlarm" allow
 #add_ace builtin.everyone "vMenu.PersonalVehicle.AddBlip" allow # Adds a blip for your personal vehicle only.
@@ -488,23 +486,25 @@ add_ace builtin.everyone "vMenu.WeaponLoadouts.All" allow
 ####################################
 # There is no vMenu.MiscSettings.Menu permission on purpose, some options in the misc settings menu
 # should *ALWAYS* be allowed, so you can't restrict the opening of this menu!
-add_ace builtin.everyone "vMenu.MiscSettings.All" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.ClearArea" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.TeleportToWp" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.ShowCoordinates" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.ShowLocation" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.JoinQuitNotifs" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.DeathNotifs" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.NightVision" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.ThermalVision" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.LocationBlips" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.OverheadNames" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.PlayerBlips" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.TeleportLocations" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.ConnectionMenu" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.RestoreAppearance" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.RestoreWeapons" allow
-#add_ace builtin.everyone "vMenu.MiscSettings.DriftMode" allow
+#add_ace builtin.everyone "vMenu.MiscSettings.All" allow
+add_ace builtin.everyone "vMenu.MiscSettings.ClearArea" allow
+add_ace builtin.everyone "vMenu.MiscSettings.TeleportToWp" allow
+add_ace builtin.everyone "vMenu.MiscSettings.TeleportToCoord" allow
+add_ace builtin.everyone "vMenu.MiscSettings.ShowCoordinates" allow
+add_ace builtin.everyone "vMenu.MiscSettings.ShowLocation" allow
+add_ace builtin.everyone "vMenu.MiscSettings.JoinQuitNotifs" allow
+add_ace builtin.everyone "vMenu.MiscSettings.DeathNotifs" allow
+add_ace builtin.everyone "vMenu.MiscSettings.NightVision" allow
+add_ace builtin.everyone "vMenu.MiscSettings.ThermalVision" allow
+add_ace builtin.everyone "vMenu.MiscSettings.LocationBlips" allow
+add_ace builtin.everyone "vMenu.MiscSettings.OverheadNames" allow
+add_ace builtin.everyone "vMenu.MiscSettings.PlayerBlips" allow
+add_ace builtin.everyone "vMenu.MiscSettings.TeleportLocations" allow
+add_ace group.moderator "vMenu.MiscSettings.TeleportSaveLocation" allow # Only allowed for moderators by default
+add_ace builtin.everyone "vMenu.MiscSettings.ConnectionMenu" allow
+add_ace builtin.everyone "vMenu.MiscSettings.RestoreAppearance" allow
+add_ace builtin.everyone "vMenu.MiscSettings.RestoreWeapons" allow
+add_ace builtin.everyone "vMenu.MiscSettings.DriftMode" allow
 
 ####################################
 #     VOICE CHAT OPTIONS MENU      #
@@ -533,3 +533,4 @@ add_ace resource.vMenu command.sets allow
 # add_ace identifier.license:4510587c13e0b645eb8d24bc104601792277ab98 command.vmenuserver allow
 # add_ace identifier.license:4510587c13e0b645eb8d24bc104601792277ab98 command.vmenuclient allow
 # add_ace identifier.license:4510587c13e0b645eb8d24bc104601792277ab98 vMenu.Dev allow
+

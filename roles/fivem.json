@@ -2,11 +2,12 @@
   "name": "fivem",
   "default_attributes": {
     "fivem": {
-      "download_url": "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/1141-8cded82ebff9053946e778016cb496acd0e250b0/fx.tar.xz",
+      "download_url": "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/1681-c00343af64dde203bf4a037bbcc46624ae69408d/fx.tar.xz",
       "hostname": "oconnordev",
       "admin": "identifier.steam:110000101054b0f",
+      "steam_web_api_key": "42D677ACD3E3F14979CC980CD9CCC207",
       "license_key": "e1o73zw2s442xewqut9qltuxw48t97ne",
-      "vmenu_url": "https://github.com/TomGrobbe/vMenu/releases/download/v3.0.2/vMenu-v3.0.2.zip"
+      "vmenu_url": "https://github.com/TomGrobbe/vMenu/releases/download/v3.1.2/vMenu-v3.1.2.zip"
     }
   },
   "run_list": [

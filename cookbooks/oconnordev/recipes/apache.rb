@@ -9,6 +9,8 @@ include_recipe 'oconnordev::gai'
 apache = %w[
   apache2
   apache2-bin
+  apache2-data
+  apache2-doc
   apache2-utils
   apache2.2-bin
   apache2.2-common

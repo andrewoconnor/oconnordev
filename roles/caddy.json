@@ -4,7 +4,7 @@
     "caddy": {
       "bin": "/usr/local/bin/caddy",
       "download_url": "https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off",
-      "checksum": "a2c1a10476670c5baa94b585701b44337f65e79cc794943cfc33f673d31d1200",
+      "checksum": "4f9ffbe9342dc9626e40fa1d17fcc66dfa8e4f399bbe194314d579502eebe024",
       "wwwroot": "/soft/oconnordev",
       "site": "oconnor.dev"
     }
