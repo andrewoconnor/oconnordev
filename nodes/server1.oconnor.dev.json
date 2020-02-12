@@ -16,20 +16,20 @@
       "contact": [
 
       ],
-      "endpoint": "https://acme-staging.api.letsencrypt.org",
+      "dir": "https://acme-v02.api.letsencrypt.org/directory",
       "renew": 30,
       "source_ips": [
         "66.133.109.36",
         "64.78.149.164"
       ],
       "private_key": null,
-      "gem_version": "0.6.2",
+      "gem_version": "2.0.3",
       "key_size": 2048,
-      "site": "",
+      "site": "oconnor.dev",
       "sans": [
-
+        "www.oconnor.dev"
       ],
-      "wwwroot": ""
+      "wwwroot": "/soft/oconnordev"
     },
     "getaddrinfo": {
       "labels": {
@@ -45,54 +45,67 @@
     "murmur": {
       "welcome_text": "<br />Welcome to this server running <b>Murmur</b>.<br />Enjoy your stay!<br />",
       "server_password": "",
-      "bandwidth": 72000,
+      "bandwidth": 130000,
       "users": 100,
-      "opus_threshold": 100,
-      "register_name": "Mumble Server"
+      "opus_threshold": 0,
+      "register_name": "Choir Boy Grooming Room",
+      "ssl_cert": "/etc/ssl/local_certs/oconnor.dev.crt",
+      "ssl_key": "/etc/ssl/local_certs/private/oconnor.dev.key",
+      "ssl_ca": "/etc/ssl/local_certs/oconnor.dev.pem"
     },
     "caddy": {
-      "download_url": "https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off",
-      "checksum": "",
-      "wwwroot": "",
-      "site": ""
+      "download_url": "https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.13/caddy2_beta13_linux_amd64",
+      "checksum": "412214adf295ee4702e6bd47a7c607d9d76e3769dfcd1ed33419940129d53f88",
+      "wwwroot": "/soft/oconnordev",
+      "site": "oconnor.dev",
+      "ssl_cert": "/etc/ssl/local_certs/oconnor.dev.crt",
+      "ssl_key": "/etc/ssl/local_certs/private/oconnor.dev.key",
+      "bin": "/usr/local/bin/caddy"
     },
     "fivem": {
-      "download_url": "https://runtime.fivem.net/artifacts/fivem/build_proot_linux/master/1681-c00343af64dde203bf4a037bbcc46624ae69408d/fx.tar.xz",
+      "download_url": "",
       "tags": "default",
-      "hostname": "oconnordev",
-      "admin": "identifier.steam:110000101054b0f",
+      "hostname": "My new FXServer!",
+      "admin": "identifier.steam:110000112345678",
       "steam_web_api_key": "",
-      "license_key": "e1o73zw2s442xewqut9qltuxw48t97ne",
-      "vmenu_url": "https://github.com/TomGrobbe/vMenu/releases/download/v3.1.2/vMenu-v3.1.2.zip"
+      "license_key": "",
+      "vmenu_url": ""
     }
   },
   "automatic": {
     "fqdn": "server1.oconnor.dev",
     "os": "linux",
-    "os_version": "2.6.32-042stab138.1",
+    "os_version": "4.15.0",
     "hostname": "server1",
     "ipaddress": "107.161.173.120",
     "roles": [
-      "fivem"
+      "caddy",
+      "acme",
+      "murmur"
     ],
     "recipes": [
-      "oconnordev::fivem"
+      "oconnordev::caddy",
+      "oconnordev::acme",
+      "oconnordev::murmur",
+      "acme::default"
     ],
     "platform": "ubuntu",
-    "platform_version": "16.04",
+    "platform_version": "18.04",
     "cloud": null,
     "chef_packages": {
+      "chef": {
+        "version": "14.14.29",
+        "chef_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/chef-14.14.29/lib"
+      },
       "ohai": {
         "version": "14.14.0",
         "ohai_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/ohai-14.14.0/lib/ohai"
-      },
-      "chef": {
-        "version": "14.14.25",
-        "chef_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/chef-14.14.25/lib"
       }
     }
   },
   "run_list": [
-    "role[fivem]"
+    "role[caddy]",
+    "role[acme]",
+    "role[murmur]"
   ]
 }

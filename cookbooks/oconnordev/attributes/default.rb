@@ -10,14 +10,18 @@ default['murmur']['bandwidth'] = 72_000
 default['murmur']['users'] = 100
 default['murmur']['opus_threshold'] = 100
 default['murmur']['register_name'] = 'Mumble Server'
+default['murmur']['ssl_cert'] = ''
+default['murmur']['ssl_key'] = ''
+default['murmur']['ssl_ca'] = ''
 
 default['caddy']['download_url'] = 'https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off'
 default['caddy']['checksum'] = ''
 default['caddy']['wwwroot'] = ''
 default['caddy']['site'] = ''
+default['caddy']['ssl_cert'] = ''
+default['caddy']['ssl_key'] = ''
 
 default['acme']['contact'] = []
-default['acme']['endpoint'] = 'https://acme-staging.api.letsencrypt.org'
 default['acme']['site'] = ''
 default['acme']['sans'] = []
 default['acme']['wwwroot'] = ''

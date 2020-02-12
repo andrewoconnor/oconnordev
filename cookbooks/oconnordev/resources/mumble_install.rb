@@ -10,9 +10,9 @@ property :bandwidth, Integer, default: 72000
 property :users, Integer, default: 100
 property :opus_threshold, Integer, default: 100
 property :register_name, String, default: 'Mumble Server'
-property :ssl_cert, String
-property :ssl_key, String
-property :ssl_ca, String
+property :ssl_cert, String, default: ''
+property :ssl_key, String, default: ''
+property :ssl_ca, String, default: ''
 
 action :install do
   apt_repository 'mumble' do
@@ -31,9 +31,13 @@ action :install do
     append true
   end
 
-  service 'mumble-server' do
-    supports status: true, start: true, stop: true, restart: true
+  # service 'mumble-server' do
+  #   supports status: true, start: true, stop: true, restart: true
+  #   action [:enable, :start]
+  # end
+  systemd_unit 'mumble-server.service' do
     action [:enable, :start]
+    subscribes :restart, "file[#{node['murmur']['ssl_cert']}]", :immediately
   end
 
   template '/etc/mumble-server.ini' do
@@ -49,6 +53,6 @@ action :install do
       ssl_key: new_resource.ssl_key,
       ssl_ca: new_resource.ssl_ca
     )
-    notifies :restart, 'service[mumble-server]'
+    notifies :restart, 'systemd_unit[mumble-server.service]'
   end
 end

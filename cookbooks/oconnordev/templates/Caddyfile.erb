@@ -1,21 +1,14 @@
-<%= @site %>:80, <%= @site %>:443 {
-    root <%= @wwwroot %>
- 
-    redir 301 {
-      if {scheme} not https
-      / https://{host}{uri}
+http://<%= @site %>/.well-known/*, http://www.<%= @site %>/.well-known/* {
+    file_server {
+        root <%= @wwwroot %>
     }
-
-    tls /etc/ssl/local_certs/<%= @site %>.crt /etc/ssl/local_certs/private/<%= @site %>.key
-
-    log stdout 
-    errors stderr
 }
 
-www.<%= @site %>:80, www.<%= @site %>:443 {
-    redir https://<%= @site %>{uri}
+www.<%= @site %> {
+    tls <%= @ssl_cert %> <%= @ssl_key %>
 }
 
-http://*/.well-known {
-    root <%= @wwwroot %>/.well-known
+<%= @site %> {
+    tls <%= @ssl_cert %> <%= @ssl_key %>
+    redir https://www.<%= @site %>{uri} permanent
 }

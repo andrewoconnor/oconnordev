@@ -4,8 +4,6 @@
 #
 # Copyright:: 2018, The Authors, All Rights Reserved.
 
-include_recipe 'oconnordev::gai'
-
 oconnordev_mumble_install 'murmur' do
   welcome_text node['murmur']['welcome_text']
   server_password data_bag_item('passwords', 'murmur')['server_password']
@@ -19,7 +17,13 @@ oconnordev_mumble_install 'murmur' do
   action :install
 end
 
-service 'mumble-server' do
-  supports status: true, start: true, stop: true, restart: true
-  action [:enable, :start]
-end
+# service 'mumble-server' do
+#   supports status: true, start: true, stop: true, restart: true
+#   action [:enable, :start]
+#   subscribes :restart, "file[#{node['murmur']['ssl_cert']}]", :immediately
+# end
+
+# systemd_unit 'mumble-server.service' do
+#   action [:enable, :start]
+#   subscribes :restart, "file[#{node['murmur']['ssl_cert']}]", :immediately
+# end

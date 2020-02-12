@@ -3,10 +3,12 @@
   "default_attributes": {
     "caddy": {
       "bin": "/usr/local/bin/caddy",
-      "download_url": "https://caddyserver.com/download/linux/amd64?license=personal&telemetry=off",
-      "checksum": "4f9ffbe9342dc9626e40fa1d17fcc66dfa8e4f399bbe194314d579502eebe024",
+      "download_url": "https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.13/caddy2_beta13_linux_amd64",
+      "checksum": "412214adf295ee4702e6bd47a7c607d9d76e3769dfcd1ed33419940129d53f88",
       "wwwroot": "/soft/oconnordev",
-      "site": "oconnor.dev"
+      "site": "oconnor.dev",
+      "ssl_cert": "/etc/ssl/local_certs/oconnor.dev.crt",
+      "ssl_key": "/etc/ssl/local_certs/private/oconnor.dev.key"
     }
   },
   "run_list": [

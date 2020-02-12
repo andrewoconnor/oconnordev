@@ -4,8 +4,6 @@
 #
 # Copyright:: 2018, The Authors, All Rights Reserved.
 
-include_recipe 'oconnordev::gai'
-
 apache = %w[
   apache2
   apache2-bin

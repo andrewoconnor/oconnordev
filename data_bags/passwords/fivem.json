@@ -1,9 +1,9 @@
 {
   "id": "fivem",
   "steam_web_api_key": {
-    "encrypted_data": "u9dFVC7v9arL19oJKQBDSaelg4STW3LyUkrImyfQnrJa7fs1GkPOYr5qzCWv\nCoUYtfzN\n",
-    "iv": "rttF7rGNWY1tbJMC\n",
-    "auth_tag": "kiJOIBMGYt5IUYIAOrfjtw==\n",
+    "encrypted_data": "zGeeTTD7piPucRgdzq00BJMCrOHWe9b1BQ9VZ1fe+2mgDFMpIMMgS1hfEAXW\nf17tvaBO\n",
+    "iv": "C78XJgTB7ceWyqpH\n",
+    "auth_tag": "C554DoYxvgLzWIInNsaXvg==\n",
     "version": 3,
     "cipher": "aes-256-gcm"
   }

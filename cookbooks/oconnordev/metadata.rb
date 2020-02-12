@@ -19,7 +19,7 @@ chef_version '>= 12.14' if respond_to?(:chef_version)
 #
 # source_url 'https://github.com/<insert_org_here>/oconnordev'
 
-depends 'acme', '~> 4.0.0'
+depends 'acme', '~> 4.1.1'
 depends 'tar', '~> 2.2.0'
 depends 'zipfile', '~> 0.2.0'
 depends 'getaddrinfo', '~> 0.1.0'

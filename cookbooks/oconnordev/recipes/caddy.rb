@@ -4,9 +4,7 @@
 #
 # Copyright:: 2018, The Authors, All Rights Reserved.
 
-include_recipe 'oconnordev::gai'
-
-caddy_path = '/usr/local/bin'
+caddy_dir = '/usr/local/bin'
 caddy_bin = '/usr/local/bin/caddy'
 
 group 'www-data' do
@@ -28,13 +26,9 @@ group 'ssl-cert' do
   append true
 end
 
-tar_extract 'caddy.tar.gz' do
+remote_file caddy_bin do
   source node['caddy']['download_url']
-  target_dir caddy_path
-  creates caddy_bin
-  checksum node['caddy']['checksum']
-  tar_flags '-po caddy'
-  notifies :restart, 'systemd_unit[caddy.service]'
+  mode '755'
 end
 
 execute "setcap 'cap_net_bind_service=+ep' #{caddy_bin}" do
@@ -53,8 +47,11 @@ template '/etc/caddy/Caddyfile' do
   mode '644'
   variables(
     site: node['caddy']['site'],
-    wwwroot: node['caddy']['wwwroot']
+    wwwroot: node['caddy']['wwwroot'],
+    ssl_cert: node['caddy']['ssl_cert'],
+    ssl_key: node['caddy']['ssl_key'] 
   )
+  notifies :reload, 'systemd_unit[caddy.service]'
 end
 
 directory '/etc/ssl/caddy' do
@@ -85,8 +82,9 @@ systemd_unit 'caddy.service' do
       User: 'www-data',
       Group: 'www-data',
       Environment: 'CADDYPATH=/etc/ssl/caddy',
-      ExecStart: '/usr/local/bin/caddy -log stdout -agree=true -conf=/etc/caddy/Caddyfile -root=/var/tmp',
-      ExecReload: '/bin/kill -USR1 $MAINPID',
+      ExecStart: '/usr/local/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile',
+      ExecReload: '/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile',
+      ExecStop: '/usr/local/bin/caddy stop',
       KillMode: 'mixed',
       KillSignal: 'SIGQUIT',
       TimeoutStopSec: '5s',
@@ -96,11 +94,15 @@ systemd_unit 'caddy.service' do
       PrivateDevices: 'true',
       ProtectHome: 'true',
       ProtectSystem: 'full',
-      ReadWriteDirectories: '/etc/ssl/caddy'
+      ReadWriteDirectories: '/etc/ssl/caddy',
+      CapabilityBoundingSet: 'CAP_NET_BIND_SERVICE',
+      AmbientCapabilities: 'CAP_NET_BIND_SERVICE',
+      NoNewPrivileges: 'true'
     },
     Install: {
       WantedBy: 'multi-user.target'
     }
   )
   action [:create, :enable, :start]
+  subscribes :reload, "file[#{node['caddy']['ssl_cert']}]", :immediately
 end

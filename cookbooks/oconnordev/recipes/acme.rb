@@ -5,9 +5,7 @@
 # Copyright:: 2018, The Authors, All Rights Reserved.
 
 # Include the recipe to install the gems
-include_recipe 'oconnordev::gai'
-include_recipe 'oconnordev::caddy'
-include_recipe 'oconnordev::murmur'
+
 include_recipe 'acme'
 
 site = node['acme']['site']
@@ -34,7 +32,6 @@ acme_selfsigned site do
   chain   "/etc/ssl/local_certs/#{site}.pem"
   owner   'root'
   group   'ssl-cert'
-  notifies :restart, 'systemd_unit[caddy.service]', :immediate
 end
 
 file "/etc/ssl/local_certs/private/#{site}.key" do
@@ -45,11 +42,9 @@ end
 
 # Get and auto-renew the certificate from Let's Encrypt
 acme_certificate site do
-  crt                "/etc/ssl/local_certs/#{site}.crt"
-  key                "/etc/ssl/local_certs/private/#{site}.key"
-  chain              "/etc/ssl/local_certs/#{site}.pem"
-  wwwroot            node['acme']['wwwroot']
-  notifies :restart, 'systemd_unit[caddy.service]'
-  notifies :restart, 'service[mumble-server]'
-  alt_names sans
+  crt        "/etc/ssl/local_certs/#{site}.crt"
+  key        "/etc/ssl/local_certs/private/#{site}.key"
+  chain      "/etc/ssl/local_certs/#{site}.pem"
+  wwwroot    node['acme']['wwwroot']
+  alt_names  sans
 end

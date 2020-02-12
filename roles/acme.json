@@ -2,8 +2,6 @@
   "name": "acme",
   "default_attributes": {
     "acme": {
-      "contact": ["mailto:andrewoconnor@outlook.com"],
-      "endpoint": "https://acme-v01.api.letsencrypt.org",
       "wwwroot": "/soft/oconnordev",
       "site": "oconnor.dev",
       "sans": ["www.oconnor.dev"]
