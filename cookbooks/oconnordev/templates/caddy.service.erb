@@ -15,7 +15,7 @@ Group=www-data
 Environment=CADDYPATH=/etc/ssl/caddy
 
 ; Always set "-root" to something safe in case it gets forgotten in the Caddyfile.
-ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile
+ExecStart=/usr/local/bin/caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --resume --environ
 ExecReload=/usr/local/bin/caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile
 ExecStop=/usr/local/bin/caddy stop
 

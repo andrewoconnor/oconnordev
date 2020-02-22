@@ -3,7 +3,7 @@
   "default_attributes": {
     "caddy": {
       "bin": "/usr/local/bin/caddy",
-      "download_url": "https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.13/caddy2_beta13_linux_amd64",
+      "download_url": "https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.14/caddy2_beta14_linux_amd64",
       "checksum": "412214adf295ee4702e6bd47a7c607d9d76e3769dfcd1ed33419940129d53f88",
       "wwwroot": "/soft/oconnordev",
       "site": "oconnor.dev",

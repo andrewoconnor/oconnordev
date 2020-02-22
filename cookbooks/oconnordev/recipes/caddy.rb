@@ -63,7 +63,7 @@ end
 directory node['caddy']['wwwroot'] do
   owner 'www-data'
   group 'www-data'
-  mode '555'
+  mode '755'
   recursive true
   action :create
 end

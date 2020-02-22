@@ -4,11 +4,10 @@ http://<%= @site %>/.well-known/*, http://www.<%= @site %>/.well-known/* {
     }
 }
 
-www.<%= @site %> {
+<%= @site %> {
     tls <%= @ssl_cert %> <%= @ssl_key %>
 }
 
-<%= @site %> {
-    tls <%= @ssl_cert %> <%= @ssl_key %>
-    redir https://www.<%= @site %>{uri} permanent
+www.<%= @site %> {
+    redir https://<%= @site %>{path}
 }
