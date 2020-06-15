@@ -3,8 +3,8 @@
   "default_attributes": {
     "caddy": {
       "bin": "/usr/local/bin/caddy",
-      "download_url": "https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.14/caddy2_beta14_linux_amd64",
-      "checksum": "412214adf295ee4702e6bd47a7c607d9d76e3769dfcd1ed33419940129d53f88",
+      "download_url": "https://github.com/caddyserver/caddy/releases/download/v2.1.0-beta.1/caddy_2.1.0-beta.1_linux_amd64.tar.gz",
+      "checksum": "d524666610232e74dee2796fdfa438a7ac4eb922b17d147ad7fbc385d8f75908",
       "wwwroot": "/soft/oconnordev",
       "site": "oconnor.dev",
       "ssl_cert": "/etc/ssl/local_certs/oconnor.dev.crt",

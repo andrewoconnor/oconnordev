@@ -26,9 +26,13 @@ group 'ssl-cert' do
   append true
 end
 
-remote_file caddy_bin do
+tar_extract 'caddy.tar.gz' do
   source node['caddy']['download_url']
-  mode '755'
+  target_dir caddy_dir
+  creates caddy_bin
+  checksum node['caddy']['checksum']
+  tar_flags '-po caddy'
+  notifies :restart, 'systemd_unit[caddy.service]'
 end
 
 execute "setcap 'cap_net_bind_service=+ep' #{caddy_bin}" do
