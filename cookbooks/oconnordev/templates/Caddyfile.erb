@@ -6,6 +6,48 @@ http://<%= @site %>/.well-known/*, http://www.<%= @site %>/.well-known/* {
 
 <%= @site %> {
     tls <%= @ssl_cert %> <%= @ssl_key %>
+    root * <%= @wwwroot %>
+    file_server
+
+    @gzHtml {
+        path *.html
+        path /
+        file {
+            try_files {uri}.gz {uri}/index.html.gz
+        }
+    }
+
+    route @gzHtml {
+        rewrite {http.matchers.file.relative}
+        header Content-Type text/html
+        header Content-Encoding gzip
+    }
+
+    @gzJs {
+        path *.js
+        file {
+            try_files {uri}.gz
+        }
+    }
+
+    route @gzJs {
+       rewrite {http.matchers.file.relative}
+       header Content-Type application/js
+       header Content-Encoding gzip
+    } 
+
+    @gzCss {
+        path *.css
+        file {
+            try_files {uri}.gz
+        }
+    }
+
+    route @gzCss {
+       rewrite {http.matchers.file.relative}
+       header Content-Type text/css
+       header Content-Encoding gzip
+    }
 }
 
 www.<%= @site %> {

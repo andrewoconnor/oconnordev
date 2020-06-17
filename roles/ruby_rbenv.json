@@ -1,0 +1,7 @@
+{
+  "name": "ruby_rbenv",
+  "default_attributes": {},
+  "run_list": [
+    "recipe[oconnordev::ruby_rbenv]"
+  ]
+}

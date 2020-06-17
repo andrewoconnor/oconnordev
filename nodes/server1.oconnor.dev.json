@@ -23,7 +23,7 @@
         "64.78.149.164"
       ],
       "private_key": null,
-      "gem_version": "2.0.3",
+      "gem_version": "2.0.6",
       "key_size": 2048,
       "site": "oconnor.dev",
       "sans": [
@@ -79,14 +79,16 @@
     "hostname": "server1",
     "ipaddress": "107.161.173.120",
     "roles": [
-      "caddy",
       "acme",
-      "murmur"
+      "caddy",
+      "murmur",
+      "ruby_rbenv"
     ],
     "recipes": [
-      "oconnordev::caddy",
       "oconnordev::acme",
+      "oconnordev::caddy",
       "oconnordev::murmur",
+      "oconnordev::ruby_rbenv",
       "acme::default"
     ],
     "platform": "ubuntu",
@@ -94,18 +96,19 @@
     "cloud": null,
     "chef_packages": {
       "chef": {
-        "version": "14.14.29",
-        "chef_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/chef-14.14.29/lib"
+        "version": "14.15.6",
+        "chef_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/chef-14.15.6/lib"
       },
       "ohai": {
-        "version": "14.14.0",
-        "ohai_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/ohai-14.14.0/lib/ohai"
+        "version": "14.15.0",
+        "ohai_root": "/opt/chef/embedded/lib/ruby/gems/2.5.0/gems/ohai-14.15.0/lib/ohai"
       }
     }
   },
   "run_list": [
-    "role[caddy]",
     "role[acme]",
-    "role[murmur]"
+    "role[caddy]",
+    "role[murmur]",
+    "role[ruby_rbenv]"
   ]
 }
