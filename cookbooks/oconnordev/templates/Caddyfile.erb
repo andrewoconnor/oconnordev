@@ -32,7 +32,7 @@ http://<%= @site %>/.well-known/*, http://www.<%= @site %>/.well-known/* {
 
     route @gzJs {
        rewrite {http.matchers.file.relative}
-       header Content-Type application/js
+       header Content-Type application/javascript
        header Content-Encoding gzip
     } 
 

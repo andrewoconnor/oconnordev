@@ -8,6 +8,11 @@
 
 include_recipe 'acme'
 
+# node.rm('acme', 'private_key')
+
+node.override['acme']['contact'] = ['mailto:andrewoconnor@outlook.com']
+node.override['acme']['endpoint'] = 'https://acme-v01.api.letsencrypt.org'
+
 site = node['acme']['site']
 sans = node['acme']['sans']
 
