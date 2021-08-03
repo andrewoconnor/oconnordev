@@ -31,6 +31,7 @@
     state: directory
     owner: "{{ murmur_user }}"
     group: "{{ murmur_user }}"
+    mode: 0700
   when: murmur_user != 'root'
 
 - name: check if user is lingering
@@ -51,15 +52,15 @@
     state: directory
     owner: "{{ murmur_user }}"
     group: "{{ murmur_user }}"
-    mode: 0755
+    mode: 0750
   loop: "{{ murmur_volumes }}"
 
-- name: check if cert exists
+- name: check if certificate exists
   stat:
     path: "{{ cert_path }}"
   register: fullchain_cert
 
-- name: copy certificate to murmur volume
+- name: copy certificate material to murmur volume
   copy:
     remote_src: true
     src: "{{ item.src }}"
@@ -77,7 +78,7 @@
     dest: "{{ murmur_config_file.dest }}"
     owner: "{{ murmur_user }}"
     group: "{{ murmur_user }}"
-    mode: 0644
+    mode: 0640
 
 - name: chown directories for rootless container user
   become: true

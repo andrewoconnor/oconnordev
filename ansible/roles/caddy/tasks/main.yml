@@ -27,12 +27,12 @@
     group: "{{ caddy_user }}"
     mode: 755
 
-- name: check if cert exists
+- name: check if certificate exists
   stat:
     path: "{{ cert_path }}"
   register: public_cert
 
-- name: copy certs
+- name: copy certificate material to caddy volume
   copy:
     remote_src: true
     src: "{{ item.src }}"
@@ -50,7 +50,7 @@
     dest: "{{ caddy_config_file.dest }}"
     owner: "{{ caddy_user }}"
     group: "{{ caddy_user }}"
-    mode: 0644
+    mode: 0640
 
 - name: stop and disable caddy service
   ignore_errors: true
