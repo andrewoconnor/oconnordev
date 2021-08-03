@@ -1,0 +1,71 @@
+---
+# tasks file for letsencrypt
+
+- name: upgrade pip
+  pip:
+    name: pip
+    executable: pip3
+    state: latest
+
+- name: install python packages
+  pip:
+    name:
+      - wheel
+      - setuptools_rust
+      - pyopenssl
+
+- name: generate private key for letsencrypt account
+  openssl_privatekey:
+    path: "{{ letsencrypt_account_key }}"
+
+- name: generate private key for certificate
+  openssl_privatekey:
+    path: "{{ letsencrypt_private_key }}"
+
+- name: generate certificate request
+  openssl_csr:
+    path: "{{ letsencrypt_csr }}"
+    privatekey_path: "{{ letsencrypt_private_key }}"
+    subject_alt_name: "{{ letsencrypt_san }}"
+
+- name: create challenge directory
+  file:
+    path: "{{ letsencrypt_challenge_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+
+- name: create a challenge
+  community.crypto.acme_certificate:
+    acme_directory: "{{ letsencrypt_acme_dir }}"
+    acme_version: "{{ letsencrypt_acme_version }}"
+    account_key_src: "{{ letsencrypt_account_key }}"
+    account_email: "{{ letsencrypt_email }}"
+    challenge: "{{ letsencrypt_challenge }}"
+    csr: "{{ letsencrypt_csr }}"
+    dest: "{{ letsencrypt_dest }}"
+    fullchain_dest: "{{ letsencrypt_fullchain }}"
+    terms_agreed: yes
+  register: challenge_result
+
+- name: fulfill the challenge
+  copy:
+    content: "{{ item['value']['http-01']['resource_value'] }}"
+    dest: "{{ (www_root, item['value']['http-01']['resource']) | path_join }}"
+    setype: container_file_t
+  when: challenge_result is changed
+  with_dict: "{{ challenge_result['challenge_data'] }}"
+
+- name: validate challenge and retrieve the certificate
+  community.crypto.acme_certificate:
+    acme_directory: "{{ letsencrypt_acme_dir }}"
+    acme_version: "{{ letsencrypt_acme_version }}"
+    account_key_src: "{{ letsencrypt_account_key }}"
+    account_email: "{{ letsencrypt_email }}"
+    challenge: "{{ letsencrypt_challenge }}"
+    csr: "{{ letsencrypt_csr }}"
+    dest: "{{ letsencrypt_dest }}"
+    fullchain_dest: "{{ letsencrypt_fullchain }}"
+    terms_agreed: yes
+    data: "{{ challenge_result }}"

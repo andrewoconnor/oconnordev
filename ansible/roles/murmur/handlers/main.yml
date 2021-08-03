@@ -1,0 +1,33 @@
+---
+# handlers file for murmur
+
+# - name: systemctl reload
+#   become: true
+#   become_user: "{{ murmur_user }}"
+#   environment:
+#     XDG_RUNTIME_DIR: "{{ xdg_runtime_dir }}"
+#   systemd:
+#     daemon_reload: true
+#     scope: "{{ systemd_scope }}"
+
+- name: start and enable murmur service
+  become: true
+  become_user: "{{ murmur_user }}"
+  environment:
+    XDG_RUNTIME_DIR: "{{ xdg_runtime_dir }}"
+  systemd:
+    name: "{{ murmur_svc }}"
+    scope: "{{ systemd_scope }}"
+    daemon_reload: true
+    state: started
+    enabled: true
+
+# - name: enable murmur service
+#   become: true
+#   become_user: "{{ murmur_user }}"
+#   environment:
+#     XDG_RUNTIME_DIR: "{{ xdg_runtime_dir }}"
+#   systemd:
+#     name: "{{ murmur_svc }}"
+#     enabled: true
+#     scope: "{{ systemd_scope }}"

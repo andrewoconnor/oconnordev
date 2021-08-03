@@ -1,0 +1,19 @@
+oconnor.dev:80, www.oconnor.dev:80 {
+    handle /.well-known/* {
+        root * /srv
+        file_server
+    }
+    handle {
+        redir https://www.oconnor.dev{uri}
+    }
+}
+
+oconnor.dev:443 {
+    redir https://www.oconnor.dev{uri}
+}
+
+www.oconnor.dev:443 {
+    tls /cert/oconnor.dev.crt /cert/oconnor.dev.key
+    root * /srv
+    file_server
+}

@@ -1,0 +1,6 @@
+oconnor.dev:80, www.oconnor.dev:80 {
+    handle /.well-known/* {
+        root * /srv
+        file_server
+    }
+}

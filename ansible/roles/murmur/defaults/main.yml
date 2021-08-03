@@ -1,0 +1,45 @@
+---
+# defaults file for murmur
+murmur_user: murmur
+murmur_home: "/home/{{ murmur_user }}"
+murmur_container_image: docker.io/goofball222/murmur
+murmur_container_name: murmur
+murmur_root: /var/local/murmur
+murmur_volumes:
+  - config
+  - cert
+  - data
+  - log
+murmur_container_root: /opt/murmur
+murmur_time_vol: '/etc/localtime:/etc/localtime:ro'
+murmur_config_vol: "{{ (murmur_root, 'config') | path_join }}:{{ (murmur_container_root, 'config') | path_join }}:Z"
+murmur_cert_vol: "{{ (murmur_root, 'cert') | path_join }}:{{ (murmur_container_root, 'cert') | path_join }}:Z"
+murmur_data_vol: "{{ (murmur_root, 'data') | path_join }}:{{ (murmur_container_root, 'data') | path_join }}:Z"
+murmur_log_vol: "{{ (murmur_root, 'log') | path_join }}:{{ (murmur_container_root, 'log') | path_join }}:Z"
+murmur_container_volumes:
+  - "{{ (true) | ternary(murmur_time_vol, '') }}"
+  - "{{ (true) | ternary(murmur_config_vol, '') }}"
+  - "{{ (fullchain_cert.stat.exists) | ternary(murmur_cert_vol, '') }}"
+  - "{{ (true) | ternary(murmur_data_vol, '') }}"
+  - "{{ (true) | ternary(murmur_log_vol, '') }}"
+murmur_port: 64738
+murmur_container_port: 64738
+murmur_container_ports:
+  - "{{ murmur_port }}:{{ murmur_container_port }}"
+  - "{{ murmur_port }}:{{ murmur_container_port }}/udp"
+murmur_container_internal: '999:999'
+murmur_svc: container-murmur.service
+murmur_root_channel_name:  Choir Boy Grooming Room
+murmur_bandwidth: 100000
+cert_path: '/etc/pki/tls/certs/oconnor.dev-fullchain.crt'
+key_path: '/etc/pki/tls/private/oconnor.dev.key'
+murmur_cert_path: "{{ (murmur_root, 'cert', 'fullchain.pem') | path_join }}"
+murmur_key_path: "{{ (murmur_root, 'cert', 'privkey.pem') | path_join }}"
+systemd_scope: "{{ (murmur_user == 'root') | ternary('system', 'user') }}"
+murmur_user_svc_dir: "{{ (murmur_home, '.config/systemd/user') | path_join }}"
+system_svc_dir: '/etc/systemd/system'
+murmur_svc_dir: "{{ (murmur_user == 'root') | ternary(system_svc_dir, murmur_user_svc_dir) }}"
+xdg_runtime_dir: "/run/user/{{ getent_passwd[murmur_user][1] }}"
+murmur_config_file:
+  src: murmur.ini
+  dest: "{{ (murmur_root, 'config', 'murmur.ini') | path_join }}"

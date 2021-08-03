@@ -1,0 +1,139 @@
+---
+# tasks file for murmur
+- name: include secrets
+  include_vars: secret.yml
+
+- name: open firewall ports to murmur
+  firewalld:
+    port: "{{ murmur_port }}/{{ item }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  loop:
+    - tcp
+    - udp
+
+- name: create murmur user
+  user:
+    name: "{{ murmur_user }}"
+    password: "{{ murmur_user_password }}"
+    state: present
+  when: murmur_user != 'root'
+
+- name: get murmur uid
+  getent:
+    database: passwd
+    key: "{{ murmur_user }}"
+
+- name: ensure user service unit dir exists
+  file:
+    path: "{{ murmur_user_svc_dir }}"
+    state: directory
+    owner: "{{ murmur_user }}"
+    group: "{{ murmur_user }}"
+  when: murmur_user != 'root'
+
+- name: check if user is lingering
+  stat:
+    path: "/var/lib/systemd/linger/{{ murmur_user }}"
+  register: murmur_lingering
+  when: murmur_user != 'root'
+
+- name: enable linger for user
+  command: "loginctl enable-linger {{ murmur_user }}"
+  when:
+    - murmur_user != 'root'
+    - not murmur_lingering.stat.exists
+
+- name: create murmur directories
+  file:
+    path: "{{ (murmur_root, item) | path_join }}"
+    state: directory
+    owner: "{{ murmur_user }}"
+    group: "{{ murmur_user }}"
+    mode: 0755
+  loop: "{{ murmur_volumes }}"
+
+- name: check if cert exists
+  stat:
+    path: "{{ cert_path }}"
+  register: fullchain_cert
+
+- name: copy certificate to murmur volume
+  copy:
+    remote_src: true
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ murmur_user }}"
+    group: "{{ murmur_user }}"
+  loop:
+    - { src: "{{ cert_path }}", dest: "{{ murmur_cert_path}}" }
+    - { src: "{{ key_path }}", dest: "{{ murmur_key_path}}" }
+  when: fullchain_cert.stat.exists
+
+- name: ensure murmur config file exists
+  template:
+    src: "{{ murmur_config_file.src }}"
+    dest: "{{ murmur_config_file.dest }}"
+    owner: "{{ murmur_user }}"
+    group: "{{ murmur_user }}"
+    mode: 0644
+
+- name: chown directories for rootless container user
+  become: true
+  become_user: "{{ murmur_user }}"
+  shell: "podman unshare chown {{ murmur_container_internal }} -R {{ (murmur_root, '*') | path_join }}"
+  when: murmur_user != 'root'
+
+- name: stop and disable murmur service
+  become: true
+  become_user: "{{ murmur_user }}"
+  ignore_errors: true
+  environment:
+    XDG_RUNTIME_DIR: "{{ xdg_runtime_dir }}"
+  systemd:
+    name: "{{ murmur_svc }}"
+    scope: "{{ systemd_scope }}"
+    daemon_reload: true
+    state: stopped
+    enabled: false
+  register: murmur_disabled
+  failed_when:
+    - murmur_disabled is failed
+    - "'Could not find the requested service' not in murmur_disabled.msg"
+
+- name: create murmur container
+  become: true
+  become_user: "{{ murmur_user }}"
+  containers.podman.podman_container:
+    name: "{{ murmur_container_name }}"
+    image: "{{ murmur_container_image }}"
+    state: present
+    recreate: yes
+    detach: yes
+    volume: "{{ murmur_container_volumes | select | list }}"
+    ports: "{{ murmur_container_ports }}"
+    env:
+      RUN_CHOWN: 'false'
+
+- name: stop murmur container
+  become: true
+  become_user: "{{ murmur_user }}"
+  containers.podman.podman_container:
+    name: "{{ murmur_container_name }}"
+    state: stopped
+
+- name: remove existing service file
+  file:
+    path: "{{ (murmur_svc_dir, murmur_svc) | path_join }}"
+    state: absent
+
+- name: create new service file
+  become: true
+  become_user: "{{ murmur_user }}"
+  command: "podman generate systemd --name {{ murmur_container_name }} --files"
+  args:
+    chdir: "{{ murmur_svc_dir }}"
+  notify:
+    - start and enable murmur service
+

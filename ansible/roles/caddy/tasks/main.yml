@@ -1,0 +1,92 @@
+---
+# tasks file for caddy
+- name: permit traffic in default zone for http/https services
+  firewalld:
+    service: "{{ item }}"
+    state: enabled
+    permanent: true
+    immediate: true
+  loop:
+    - http
+    - https
+
+- name: create caddy directories
+  file:
+    path: "{{ (caddy_root, item) | path_join }}"
+    state: directory
+    owner: "{{ caddy_user }}"
+    group: "{{ caddy_user }}"
+    mode: 0750
+  loop: "{{ caddy_volumes }}"
+
+- name: ensure www_root exists
+  file:
+    path: "{{ www_root }}"
+    state: directory
+    owner: "{{ caddy_user }}"
+    group: "{{ caddy_user }}"
+    mode: 755
+
+- name: check if cert exists
+  stat:
+    path: "{{ cert_path }}"
+  register: public_cert
+
+- name: copy certs
+  copy:
+    remote_src: true
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ caddy_user }}"
+    group: "{{ caddy_user }}"
+  loop:
+    - { src: "{{ cert_path }}", dest: caddy_cert_path }
+    - { src: "{{ key_path }}", dest: caddy_key_path }
+  when: public_cert.stat.exists
+
+- name: ensure caddy config file exists
+  template:
+    src: "{{ caddy_config_file.src }}"
+    dest: "{{ caddy_config_file.dest }}"
+    owner: "{{ caddy_user }}"
+    group: "{{ caddy_user }}"
+    mode: 0644
+
+- name: stop and disable caddy service
+  ignore_errors: true
+  systemd:
+    name: "{{ caddy_svc }}"
+    daemon_reload: true
+    state: stopped
+    enabled: false
+  register: caddy_disabled
+  failed_when:
+    - caddy_disabled is failed
+    - "'Could not find the requested service' not in caddy_disabled.msg"
+
+- name: create caddy container
+  containers.podman.podman_container:
+    name: "{{ caddy_container_name }}"
+    image: "{{ caddy_container_image }}"
+    state: started
+    detach: true
+    volume: "{{ caddy_container_volumes }}"
+    ports: "{{ caddy_container_ports }}"
+
+- name: stop caddy container
+  containers.podman.podman_container:
+    name: "{{ caddy_container_name }}"
+    state: stopped
+
+- name: remove existing service file
+  file:
+    path: "{{ (caddy_svc_dir, caddy_svc) | path_join }}"
+    state: absent
+
+- name: create new service file
+  command: "podman generate systemd --name {{ caddy_container_name }} --files"
+  args:
+    chdir: "{{ caddy_svc_dir }}"
+  notify:
+    - start and enable caddy service
+

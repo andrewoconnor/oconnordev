@@ -1,0 +1,19 @@
+---
+# defaults file for letsencrypt
+certs_path: /etc/pki/tls/certs/
+private_keys_path: /etc/pki/tls/private/
+
+letsencrypt_account_key: "{{ (private_keys_path, 'letsencrypt_account.key') | path_join }}"
+letsencrypt_private_key: "{{ (private_keys_path, 'oconnor.dev.key') | path_join }}"
+letsencrypt_csr: "{{ (certs_path, 'oconnor.dev.csr') | path_join }}"
+letsencrypt_dest: "{{ (certs_path, 'oconnor.dev.crt') | path_join }}"
+letsencrypt_fullchain: "{{ (certs_path, 'oconnor.dev-fullchain.crt') | path_join }}"
+letsencrypt_san: 'DNS:oconnor.dev,DNS:www.oconnor.dev'
+
+letsencrypt_acme_dir: https://acme-v02.api.letsencrypt.org/directory
+letsencrypt_acme_version: 2
+letsencrypt_challenge: http-01
+letsencrypt_email: andrewoconnor@outlook.com
+
+www_root: /srv/caddy/
+letsencrypt_challenge_path: "{{ (www_root, '.well-known/acme-challenge') | path_join }}"
