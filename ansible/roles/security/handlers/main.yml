@@ -8,4 +8,4 @@
 - name: restart ssh
   service:
     name: sshd
-    state: reloaded
+    state: restarted
