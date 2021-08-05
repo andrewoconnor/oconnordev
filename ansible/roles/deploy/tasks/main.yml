@@ -1,0 +1,9 @@
+---
+# tasks file for deploy
+- name: set system timezone
+  timezone:
+    name: "{{ deploy_timezone }}"
+    hwclock: UTC
+
+- name: install packages
+  include_tasks: packages.yml

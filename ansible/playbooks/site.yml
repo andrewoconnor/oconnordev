@@ -1,0 +1,12 @@
+---
+- name: configure the site
+  hosts: webservers
+  tasks:
+    - name: deploy
+      include_role:
+        name: deploy
+
+    - name: security
+      include_role:
+        name: security
+

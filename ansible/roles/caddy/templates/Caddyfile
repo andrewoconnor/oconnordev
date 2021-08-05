@@ -1,3 +1,5 @@
+# {{ ansible_managed }}
+
 oconnor.dev:80, www.oconnor.dev:80 {
     handle /.well-known/* {
         root * /srv
@@ -15,5 +17,7 @@ oconnor.dev:443 {
 www.oconnor.dev:443 {
     tls /cert/oconnor.dev.crt /cert/oconnor.dev.key
     root * /srv
-    file_server
+    file_server {
+        precompressed br gzip
+    }
 }

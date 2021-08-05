@@ -1,0 +1,7 @@
+---
+# tasks file for security
+- name: configure selinux
+  include_tasks: selinux.yml
+
+- name: configure ssh
+  include_tasks: ssh.yml

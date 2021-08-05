@@ -16,12 +16,13 @@ murmur_config_vol: "{{ (murmur_root, 'config') | path_join }}:{{ (murmur_contain
 murmur_cert_vol: "{{ (murmur_root, 'cert') | path_join }}:{{ (murmur_container_root, 'cert') | path_join }}:Z"
 murmur_data_vol: "{{ (murmur_root, 'data') | path_join }}:{{ (murmur_container_root, 'data') | path_join }}:Z"
 murmur_log_vol: "{{ (murmur_root, 'log') | path_join }}:{{ (murmur_container_root, 'log') | path_join }}:Z"
-murmur_container_volumes:
+murmur_unfiltered_container_volumes:
   - "{{ (true) | ternary(murmur_time_vol, '') }}"
   - "{{ (true) | ternary(murmur_config_vol, '') }}"
   - "{{ (fullchain_cert.stat.exists) | ternary(murmur_cert_vol, '') }}"
   - "{{ (true) | ternary(murmur_data_vol, '') }}"
   - "{{ (true) | ternary(murmur_log_vol, '') }}"
+murmur_container_volumes: "{{ murmur_unfiltered_container_volumes | select | list }}"
 murmur_port: 64738
 murmur_container_port: 64738
 murmur_container_ports:

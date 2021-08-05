@@ -1,3 +1,5 @@
+# {{ ansible_managed }}
+
 oconnor.dev:80, www.oconnor.dev:80 {
     handle /.well-known/* {
         root * /srv

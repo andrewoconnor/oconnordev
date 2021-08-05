@@ -1,0 +1,16 @@
+---
+# tasks file for ssh
+- name: add ssh public key for root
+  authorized_key:
+    user: root
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    state: present
+
+- name: add hardened ssh config
+  template:
+    src: sshd_config
+    dest: /etc/ssh/sshd_config
+    owner: root
+    group: root
+    mode: 0600
+  notify: restart ssh

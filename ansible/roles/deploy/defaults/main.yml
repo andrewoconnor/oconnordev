@@ -1,0 +1,9 @@
+---
+# defaults file for deploy
+deploy_timezone: America/New_York
+deploy_packages:
+  - '@container-tools'
+  - firewalld
+  - git
+  - openssl
+  - tmux

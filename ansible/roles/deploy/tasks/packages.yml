@@ -1,0 +1,11 @@
+---
+# tasks file for packages
+- name: upgrade all packages
+  yum:
+    name: '*'
+    state: latest
+
+- name: ensure packages are installed
+  yum:
+    name: "{{ deploy_packages }}"
+    state: latest

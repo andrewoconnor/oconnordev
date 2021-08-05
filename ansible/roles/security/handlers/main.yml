@@ -1,0 +1,11 @@
+---
+# handlers file for security
+- name: reload ssh
+  service:
+    name: sshd
+    state: reloaded
+
+- name: restart ssh
+  service:
+    name: sshd
+    state: reloaded

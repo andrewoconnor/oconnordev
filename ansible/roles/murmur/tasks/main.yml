@@ -20,6 +20,12 @@
     state: present
   when: murmur_user != 'root'
 
+- name: add ssh public key for murmur user
+  authorized_key:
+    user: "{{ murmur_user }}"
+    key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    state: present
+
 - name: get murmur uid
   getent:
     database: passwd
@@ -80,6 +86,16 @@
     group: "{{ murmur_user }}"
     mode: 0640
 
+- name: use self signed certificate if no fullchain exists
+  replace:
+    path: "{{ murmur_config_file.dest }}"
+    regexp: "(^{{ item }}.*)"
+    replace: ';\1'
+  loop:
+    - sslCert
+    - sslKey
+  when: not fullchain_cert.stat.exists
+
 - name: chown directories for rootless container user
   become: true
   become_user: "{{ murmur_user }}"
@@ -112,7 +128,7 @@
     state: present
     recreate: yes
     detach: yes
-    volume: "{{ murmur_container_volumes | select | list }}"
+    volume: "{{ murmur_container_volumes }}"
     ports: "{{ murmur_container_ports }}"
     env:
       RUN_CHOWN: 'false'

@@ -1,0 +1,20 @@
+---
+# tasks file for selinux
+- name: enforce selinux security policy
+  block:
+    - selinux:
+        policy: targeted
+        state: enforcing
+
+  rescue:
+    - name: check for failure for other reasons than required reboot
+      fail:
+      when: not reboot_required
+
+    - name: autorelabel filesystem if required reboot
+      file:
+        path: /.autorelabel
+      when: reboot_required
+
+    - name: restart managed host
+      reboot:
