@@ -6,7 +6,7 @@
     key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
     state: present
 
-- name: add hardened ssh config
+- name: add hardened sshd_config
   template:
     src: sshd_config
     dest: /etc/ssh/sshd_config

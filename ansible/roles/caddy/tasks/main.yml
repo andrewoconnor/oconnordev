@@ -40,8 +40,8 @@
     owner: "{{ caddy_user }}"
     group: "{{ caddy_user }}"
   loop:
-    - { src: "{{ cert_path }}", dest: caddy_cert_path }
-    - { src: "{{ key_path }}", dest: caddy_key_path }
+    - { src: "{{ cert_path }}", dest: "{{ caddy_cert_path }}" }
+    - { src: "{{ key_path }}", dest: "{{ caddy_key_path }}" }
   when: public_cert.stat.exists
 
 - name: ensure caddy config file exists

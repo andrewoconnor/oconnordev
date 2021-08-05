@@ -10,3 +10,6 @@
       include_role:
         name: security
 
+    - name: caddy
+      include_role:
+        name: caddy
