@@ -7,3 +7,9 @@
 
 - name: install packages
   include_tasks: packages.yml
+
+- name: disable unneeded services
+  service:
+    name: mcelog
+    state: stopped
+    enabled: false

@@ -10,6 +10,11 @@
     - http
     - https
 
+# - name: create caddy user
+#   user:
+#     name: caddy
+#     state: present
+
 - name: create caddy directories
   file:
     path: "{{ (caddy_root, item) | path_join }}"

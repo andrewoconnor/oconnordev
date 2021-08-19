@@ -52,13 +52,28 @@
     - murmur_user != 'root'
     - not murmur_lingering.stat.exists
 
+- name: slurp /etc/subuid
+  slurp:
+    src: /etc/subuid
+  register: subuid_file
+
+- name: slurp /etc/subgid
+  slurp:
+    src: /etc/subgid
+  register: subgid_file
+
+- name: show murmur_container_owner
+  debug:
+    var: murmur_container_owner
+
 - name: create murmur directories
   file:
     path: "{{ (murmur_root, item) | path_join }}"
     state: directory
-    owner: "{{ murmur_user }}"
-    group: "{{ murmur_user }}"
+    owner: "{{ murmur_container_owner }}"
+    group: "{{ murmur_container_group }}"
     mode: 0750
+    setype: container_file_t
   loop: "{{ murmur_volumes }}"
 
 - name: check if certificate exists
@@ -71,8 +86,8 @@
     remote_src: true
     src: "{{ item.src }}"
     dest: "{{ item.dest }}"
-    owner: "{{ murmur_user }}"
-    group: "{{ murmur_user }}"
+    owner: "{{ murmur_container_owner }}"
+    group: "{{ murmur_container_group }}"
   loop:
     - { src: "{{ cert_path }}", dest: "{{ murmur_cert_path}}" }
     - { src: "{{ key_path }}", dest: "{{ murmur_key_path}}" }
@@ -82,8 +97,8 @@
   template:
     src: "{{ murmur_config_file.src }}"
     dest: "{{ murmur_config_file.dest }}"
-    owner: "{{ murmur_user }}"
-    group: "{{ murmur_user }}"
+    owner: "{{ murmur_container_owner }}"
+    group: "{{ murmur_container_group }}"
     mode: 0640
 
 - name: use self signed certificate if no fullchain exists

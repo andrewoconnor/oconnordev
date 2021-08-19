@@ -28,7 +28,14 @@ murmur_container_port: 64738
 murmur_container_ports:
   - "{{ murmur_port }}:{{ murmur_container_port }}"
   - "{{ murmur_port }}:{{ murmur_container_port }}/udp"
-murmur_container_internal: '999:999'
+murmur_container_user:
+  uid: 999
+  gid: 999
+murmur_container_internal: "{{ murmur_container_user.uid }}:{{ murmur_container_user.gid }}"
+subuid: "{{ subuid_file.content | b64decode | regex_search('^murmur:(\\d+):\\d+', '\\1') | first }}"
+subgid: "{{ subgid_file.content | b64decode | regex_search('^murmur:(\\d+):\\d+', '\\1') | first }}"
+murmur_container_owner: "{{ subuid | int + murmur_container_user.uid | int - 1 }}"
+murmur_container_group: "{{ subgid | int + murmur_container_user.gid | int - 1 }}"
 murmur_svc: container-murmur.service
 murmur_root_channel_name:  Choir Boy Grooming Room
 murmur_bandwidth: 100000
