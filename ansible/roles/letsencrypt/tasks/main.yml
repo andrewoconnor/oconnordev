@@ -1,18 +1,24 @@
 ---
 # tasks file for letsencrypt
+- name: install pip
+  yum:
+    name: python3-pip
+    state: latest
 
 - name: upgrade pip
   pip:
     name: pip
-    executable: pip3
+    executable: /usr/local/bin/pip
     state: latest
 
 - name: install python packages
   pip:
+    executable: /usr/local/bin/pip
     name:
       - wheel
       - setuptools_rust
       - pyopenssl
+    state: latest
 
 - name: generate private key for letsencrypt account
   openssl_privatekey:
