@@ -26,7 +26,7 @@
 
 - name: ensure www_root exists
   file:
-    path: "{{ www_root }}"
+    path: "{{ caddy_www_root }}"
     state: directory
     owner: "{{ caddy_user }}"
     group: "{{ caddy_user }}"
@@ -34,8 +34,8 @@
 
 - name: check if certificate exists
   stat:
-    path: "{{ cert_path }}"
-  register: public_cert
+    path: "{{ caddy_cert_src }}"
+  register: caddy_fullchain
 
 - name: copy certificate material to caddy volume
   copy:
@@ -45,9 +45,9 @@
     owner: "{{ caddy_user }}"
     group: "{{ caddy_user }}"
   loop:
-    - { src: "{{ cert_path }}", dest: "{{ caddy_cert_path }}" }
-    - { src: "{{ key_path }}", dest: "{{ caddy_key_path }}" }
-  when: public_cert.stat.exists
+    - { src: "{{ caddy_cert_src }}", dest: "{{ caddy_cert_dest }}" }
+    - { src: "{{ caddy_key_src }}", dest: "{{ caddy_key_dest }}" }
+  when: caddy_fullchain.stat.exists
 
 - name: ensure caddy config file exists
   template:

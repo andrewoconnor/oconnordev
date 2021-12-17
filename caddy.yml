@@ -1,0 +1,5 @@
+---
+- name: configure caddy web server
+  hosts: webservers
+  roles:
+    - caddy

@@ -4,14 +4,14 @@ caddy_user: root
 caddy_container_name: caddy
 caddy_container_image: docker.io/library/caddy
 # caddy_container_image: 0b36305c4573
-www_root: /srv/caddy/
+caddy_www_root: /srv/caddy/
 caddy_root: /var/local/caddy
 caddy_volumes:
   - config
   - data
   - cert
 caddy_container_volumes:
-  - "{{ www_root }}:/srv:Z"
+  - "{{ caddy_www_root }}:/srv:Z"
   - "{{ (caddy_root, 'config') | path_join }}:/config:Z"
   - "{{ (caddy_root, 'Caddyfile') | path_join }}:/etc/caddy/Caddyfile:Z"
   - "{{ (caddy_root, 'data') | path_join }}:/data:Z"
@@ -30,10 +30,10 @@ caddy_container_ports:
 #   - '443:8443'
 caddy_svc: container-caddy.service
 caddy_svc_dir: '/etc/systemd/system'
-cert_path: '/etc/pki/tls/certs/oconnor.dev-fullchain.crt'
-key_path: '/etc/pki/tls/private/oconnor.dev.key'
-caddy_cert_path: "{{ (caddy_root, 'cert', 'oconnor.dev.crt') | path_join }}"
-caddy_key_path: "{{ (caddy_root, 'cert', 'oconnor.dev.key') | path_join }}"
+caddy_cert_src: '/etc/pki/tls/certs/oconnor.dev-fullchain.crt'
+caddy_key_src: '/etc/pki/tls/private/oconnor.dev.key'
+caddy_cert_dest: "{{ (caddy_root, 'cert', 'oconnor.dev.crt') | path_join }}"
+caddy_key_dest: "{{ (caddy_root, 'cert', 'oconnor.dev.key') | path_join }}"
 caddy_config_file:
-  src: "{{ (public_cert.stat.exists) | ternary('Caddyfile', 'Caddyfile_http') }}"
+  src: "{{ (caddy_fullchain.stat.exists) | ternary('Caddyfile', 'Caddyfile_http') }}"
   dest: "{{ (caddy_root, 'Caddyfile') | path_join }}"

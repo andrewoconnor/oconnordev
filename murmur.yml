@@ -1,0 +1,5 @@
+---
+- name: configure murmur server
+  hosts: webservers
+  roles:
+    - murmur

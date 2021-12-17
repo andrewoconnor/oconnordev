@@ -1,7 +1,5 @@
 ---
 # tasks file for murmur
-- name: include secrets
-  include_vars: secret.yml
 
 - name: open firewall ports to murmur
   firewalld:
@@ -55,12 +53,12 @@
 - name: slurp /etc/subuid
   slurp:
     src: /etc/subuid
-  register: subuid_file
+  register: murmur_subuid_file
 
 - name: slurp /etc/subgid
   slurp:
     src: /etc/subgid
-  register: subgid_file
+  register: murmur_subgid_file
 
 - name: show murmur_container_owner
   debug:
@@ -78,8 +76,8 @@
 
 - name: check if certificate exists
   stat:
-    path: "{{ cert_path }}"
-  register: fullchain_cert
+    path: "{{ murmur_cert_src }}"
+  register: murmur_fullchain_cert
 
 - name: copy certificate material to murmur volume
   copy:
@@ -89,9 +87,9 @@
     owner: "{{ murmur_container_owner }}"
     group: "{{ murmur_container_group }}"
   loop:
-    - { src: "{{ cert_path }}", dest: "{{ murmur_cert_path}}" }
-    - { src: "{{ key_path }}", dest: "{{ murmur_key_path}}" }
-  when: fullchain_cert.stat.exists
+    - { src: "{{ murmur_cert_src }}", dest: "{{ murmur_cert_dest }}" }
+    - { src: "{{ murmur_key_src }}", dest: "{{ murmur_key_dest }}" }
+  when: murmur_fullchain_cert.stat.exists
 
 - name: ensure murmur config file exists
   template:
@@ -109,7 +107,7 @@
   loop:
     - sslCert
     - sslKey
-  when: not fullchain_cert.stat.exists
+  when: not murmur_fullchain_cert.stat.exists
 
 - name: chown directories for rootless container user
   become: true
@@ -122,10 +120,10 @@
   become_user: "{{ murmur_user }}"
   ignore_errors: true
   environment:
-    XDG_RUNTIME_DIR: "{{ xdg_runtime_dir }}"
+    XDG_RUNTIME_DIR: "{{ murmur_xdg_runtime_dir }}"
   systemd:
     name: "{{ murmur_svc }}"
-    scope: "{{ systemd_scope }}"
+    scope: "{{ murmur_systemd_scope }}"
     daemon_reload: true
     state: stopped
     enabled: false
@@ -168,4 +166,3 @@
     chdir: "{{ murmur_svc_dir }}"
   notify:
     - start and enable murmur service
-

@@ -53,15 +53,15 @@
     dest: "{{ letsencrypt_dest }}"
     fullchain_dest: "{{ letsencrypt_fullchain }}"
     terms_agreed: yes
-  register: challenge_result
+  register: letsencrypt_challenge_result
 
 - name: fulfill the challenge
   copy:
     content: "{{ item['value']['http-01']['resource_value'] }}"
-    dest: "{{ (www_root, item['value']['http-01']['resource']) | path_join }}"
+    dest: "{{ (letsencrypt_www_root, item['value']['http-01']['resource']) | path_join }}"
     setype: container_file_t
-  when: challenge_result is changed
-  with_dict: "{{ challenge_result['challenge_data'] }}"
+  when: letsencrypt_challenge_result is changed
+  with_dict: "{{ letsencrypt_challenge_result['challenge_data'] }}"
 
 - name: validate challenge and retrieve the certificate
   community.crypto.acme_certificate:
@@ -74,4 +74,4 @@
     dest: "{{ letsencrypt_dest }}"
     fullchain_dest: "{{ letsencrypt_fullchain }}"
     terms_agreed: yes
-    data: "{{ challenge_result }}"
+    data: "{{ letsencrypt_challenge_result }}"

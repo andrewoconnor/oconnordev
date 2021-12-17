@@ -1,0 +1,5 @@
+---
+webservers:
+  hosts:
+    webserver1:
+      ansible_host: oconnor.dev

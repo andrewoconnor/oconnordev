@@ -14,10 +14,10 @@
   become: true
   become_user: "{{ murmur_user }}"
   environment:
-    XDG_RUNTIME_DIR: "{{ xdg_runtime_dir }}"
+    XDG_RUNTIME_DIR: "{{ murmur_xdg_runtime_dir }}"
   systemd:
     name: "{{ murmur_svc }}"
-    scope: "{{ systemd_scope }}"
+    scope: "{{ murmur_systemd_scope }}"
     daemon_reload: true
     state: started
     enabled: true

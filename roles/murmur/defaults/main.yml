@@ -19,7 +19,7 @@ murmur_log_vol: "{{ (murmur_root, 'log') | path_join }}:{{ (murmur_container_roo
 murmur_unfiltered_container_volumes:
   - "{{ (true) | ternary(murmur_time_vol, '') }}"
   - "{{ (true) | ternary(murmur_config_vol, '') }}"
-  - "{{ (fullchain_cert.stat.exists) | ternary(murmur_cert_vol, '') }}"
+  - "{{ (murmur_fullchain_cert.stat.exists) | ternary(murmur_cert_vol, '') }}"
   - "{{ (true) | ternary(murmur_data_vol, '') }}"
   - "{{ (true) | ternary(murmur_log_vol, '') }}"
 murmur_container_volumes: "{{ murmur_unfiltered_container_volumes | select | list }}"
@@ -32,22 +32,22 @@ murmur_container_user:
   uid: 999
   gid: 999
 murmur_container_internal: "{{ murmur_container_user.uid }}:{{ murmur_container_user.gid }}"
-subuid: "{{ subuid_file.content | b64decode | regex_search('^murmur:(\\d+):\\d+', '\\1') | first }}"
-subgid: "{{ subgid_file.content | b64decode | regex_search('^murmur:(\\d+):\\d+', '\\1') | first }}"
-murmur_container_owner: "{{ subuid | int + murmur_container_user.uid | int - 1 }}"
-murmur_container_group: "{{ subgid | int + murmur_container_user.gid | int - 1 }}"
+murmur_subuid: "{{ murmur_subuid_file.content | b64decode | regex_search('^murmur:(\\d+):\\d+', '\\1') | first }}"
+murmur_subgid: "{{ murmur_subgid_file.content | b64decode | regex_search('^murmur:(\\d+):\\d+', '\\1') | first }}"
+murmur_container_owner: "{{ murmur_subuid | int + murmur_container_user.uid | int - 1 }}"
+murmur_container_group: "{{ murmur_subgid | int + murmur_container_user.gid | int - 1 }}"
 murmur_svc: container-murmur.service
-murmur_root_channel_name:  Choir Boy Grooming Room
+murmur_root_channel_name: Choir Boy Grooming Room
 murmur_bandwidth: 100000
-cert_path: '/etc/pki/tls/certs/oconnor.dev-fullchain.crt'
-key_path: '/etc/pki/tls/private/oconnor.dev.key'
-murmur_cert_path: "{{ (murmur_root, 'cert', 'fullchain.pem') | path_join }}"
-murmur_key_path: "{{ (murmur_root, 'cert', 'privkey.pem') | path_join }}"
-systemd_scope: "{{ (murmur_user == 'root') | ternary('system', 'user') }}"
+murmur_cert_src: '/etc/pki/tls/certs/oconnor.dev-fullchain.crt'
+murmur_key_src: '/etc/pki/tls/private/oconnor.dev.key'
+murmur_cert_dest: "{{ (murmur_root, 'cert', 'fullchain.pem') | path_join }}"
+murmur_key_dest: "{{ (murmur_root, 'cert', 'privkey.pem') | path_join }}"
+murmur_systemd_scope: "{{ (murmur_user == 'root') | ternary('system', 'user') }}"
 murmur_user_svc_dir: "{{ (murmur_home, '.config/systemd/user') | path_join }}"
-system_svc_dir: '/etc/systemd/system'
-murmur_svc_dir: "{{ (murmur_user == 'root') | ternary(system_svc_dir, murmur_user_svc_dir) }}"
-xdg_runtime_dir: "/run/user/{{ getent_passwd[murmur_user][1] }}"
+murmur_system_svc_dir: '/etc/systemd/system'
+murmur_svc_dir: "{{ (murmur_user == 'root') | ternary(murmur_system_svc_dir, murmur_user_svc_dir) }}"
+murmur_xdg_runtime_dir: "/run/user/{{ getent_passwd[murmur_user][1] }}"
 murmur_config_file:
   src: murmur.ini
   dest: "{{ (murmur_root, 'config', 'murmur.ini') | path_join }}"
