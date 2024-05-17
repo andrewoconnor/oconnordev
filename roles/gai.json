@@ -1,6 +1,0 @@
-{
-  "name": "gai",
-  "run_list": [
-    "recipe[oconnordev::gai]"
-  ]
-}
