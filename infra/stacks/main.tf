@@ -6,6 +6,10 @@ terraform {
   }
 }
 
+provider "aws" {
+  region = "us-east-1"
+}
+
 data "spacelift_current_stack" "this" {}
 
 resource "spacelift_stack" "oconnordev_general" {
