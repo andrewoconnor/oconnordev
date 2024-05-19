@@ -70,13 +70,13 @@ resource "aws_iam_role" "spacelift" {
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [
+    Statement = [jsondecode(
       replace(
-        jsondecode(data.spacelift_aws_integration_attachment_external_id.oconnordev_general.assume_role_policy_statement),
-        "oconnordev",
+        data.spacelift_aws_integration_attachment_external_id.oconnordev_general.assume_role_policy_statement,
+        spacelift_stack.oconnordev_general.id,
         "*"
       )
-    ]
+    )]
   })
 }
 
