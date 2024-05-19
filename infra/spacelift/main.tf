@@ -13,7 +13,7 @@ provider "aws" {
 data "spacelift_current_stack" "this" {}
 
 resource "spacelift_space" "oconnordev" {
-  name = "development"
+  name = "oconnordev"
 
   # Every account has a root space that serves as the root for the space tree.
   # Except for the root space, all the other spaces must define their parents.
