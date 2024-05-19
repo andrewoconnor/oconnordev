@@ -40,7 +40,7 @@ resource "spacelift_stack" "oconnordev" {
 
   administrative        = true
   autodeploy            = false
-  github_action_deploy  = true
+  github_action_deploy  = false
   protect_from_deletion = true
 
   terraform_workflow_tool      = "OPEN_TOFU"
