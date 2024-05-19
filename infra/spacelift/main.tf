@@ -56,10 +56,10 @@ resource "spacelift_aws_integration" "oconnordev" {
   space_id                       = spacelift_space.oconnordev.id
 }
 
-data "spacelift_aws_integration_attachment_external_id" "general" {
+data "spacelift_aws_integration_attachment_external_id" "all" {
   integration_id = spacelift_aws_integration.oconnordev.id
 
-  stack_id       = "oconnordev-general"
+  stack_id       = "*"
   read           = true
   write          = true
 }
