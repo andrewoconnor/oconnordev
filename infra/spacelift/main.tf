@@ -27,7 +27,7 @@ resource "spacelift_stack" "oconnordev_general" {
   name        = "oconnordev-general"
   description = "general account"
 
-  repository   = "andrewoconnor/oconnordev"
+  repository   = "oconnordev"
   branch       = "master"
   project_root = "infra/envs/general"
 
