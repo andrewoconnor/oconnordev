@@ -56,28 +56,31 @@ resource "spacelift_aws_integration" "oconnordev" {
   space_id                       = spacelift_space.oconnordev.id
 }
 
-data "spacelift_aws_integration_attachment_external_id" "oconnordev_general" {
-  integration_id = spacelift_aws_integration.oconnordev.id
 
-  stack_id       = spacelift_stack.oconnordev_general.id
-  read           = true
-  write          = true
+data "aws_iam_policy_document" "spacelift" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::324880187172:root"]
+    }
+
+    actions = ["sts:AssumeRole"]
+
+    condition {
+      test     = "StringLike"
+      variable = "sts:ExternalId"
+      values   = ["andrewoconnor@*"]
+    }
+  }
 }
 
 # Create the IAM role, using the `assume_role_policy_statement` from the data source.
 resource "aws_iam_role" "spacelift" {
   name = local.role_name
 
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [jsondecode(
-      replace(
-        data.spacelift_aws_integration_attachment_external_id.oconnordev_general.assume_role_policy_statement,
-        spacelift_stack.oconnordev_general.id,
-        "*"
-      )
-    )]
-  })
+  assume_role_policy = data.aws_iam_policy_document.spacelift.json
 }
 
 resource "aws_iam_role_policy_attachment" "spacelift" {
