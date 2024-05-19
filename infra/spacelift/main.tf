@@ -12,6 +12,17 @@ provider "aws" {
 
 data "spacelift_current_stack" "this" {}
 
+resource "spacelift_space" "oconnordev" {
+  name = "development"
+
+  # Every account has a root space that serves as the root for the space tree.
+  # Except for the root space, all the other spaces must define their parents.
+  parent_space_id = "root"
+
+  # An optional description of a space.
+  description = "oconnordev infrastructure"
+}
+
 resource "spacelift_stack" "oconnordev_general" {
   github_enterprise {
     namespace = "andrewoconnor"
@@ -46,7 +57,7 @@ resource "spacelift_aws_integration" "oconnordev" {
   # We need to set the ARN manually rather than referencing the role to avoid a circular dependency
   role_arn                       = local.role_arn
   generate_credentials_in_worker = false
-  space_id                       = "root"
+  space_id                       = spacelift_space.oconnordev.id
 }
 
 data "spacelift_aws_integration_attachment_external_id" "general" {
@@ -75,6 +86,18 @@ resource "aws_iam_role_policy_attachment" "spacelift" {
 }
 
 # Attach the integration to any stacks or modules that need to use it
+resource "spacelift_aws_integration_attachment" "oconnordev_terraform_starter" {
+  integration_id = spacelift_aws_integration.oconnordev.id
+  stack_id       = data.spacelift_current_stack.this.id}
+  read           = true
+  write          = true
+
+  # The role needs to exist before we attach since we test role assumption during attachment.
+  depends_on = [
+    aws_iam_role.spacelift
+  ]
+}
+
 resource "spacelift_aws_integration_attachment" "oconnordev_general" {
   integration_id = spacelift_aws_integration.oconnordev.id
   stack_id       = spacelift_stack.oconnordev_general.id
