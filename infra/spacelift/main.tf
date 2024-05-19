@@ -38,10 +38,14 @@ resource "spacelift_stack" "oconnordev" {
   branch       = "master"
   project_root = "infra/spacelift"
 
-  autodeploy = false
+  administrative        = true
+  autodeploy            = false
+  github_action_deploy  = true
+  protect_from_deletion = true
 
-  terraform_workflow_tool = "OPEN_TOFU"
-  terraform_version       = "1.7.1"
+  terraform_workflow_tool      = "OPEN_TOFU"
+  terraform_version            = "1.7.1"
+  terraform_smart_sanitization = true
 }
 
 resource "spacelift_stack" "oconnordev_general" {
