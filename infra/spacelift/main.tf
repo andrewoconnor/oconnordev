@@ -71,7 +71,7 @@ data "aws_iam_policy_document" "spacelift" {
     condition {
       test     = "StringLike"
       variable = "sts:ExternalId"
-      values   = ["andrewoconnor@*"]
+      values   = ["andrewoconnor@${spacelift_aws_integration.oconnordev.id}@*"]
     }
   }
 }
