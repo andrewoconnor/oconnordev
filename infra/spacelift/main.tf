@@ -56,7 +56,7 @@ resource "spacelift_aws_integration" "oconnordev" {
   space_id                       = spacelift_space.oconnordev.id
 }
 
-data "spacelift_aws_integration_attachment_external_id" "all" {
+data "spacelift_aws_integration_attachment_external_id" "oconnordev" {
   integration_id = spacelift_aws_integration.oconnordev.id
 
   stack_id       = "*"
@@ -71,7 +71,7 @@ resource "aws_iam_role" "spacelift" {
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      jsondecode(data.spacelift_aws_integration_attachment_external_id.general.assume_role_policy_statement),
+      jsondecode(data.spacelift_aws_integration_attachment_external_id.oconnordev.assume_role_policy_statement),
     ]
   })
 }
