@@ -12,7 +12,6 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 data "spacelift_account" "current" {}
-data "spacelift_current_stack" "this" {}
 
 locals {
   role_name = "spacelift"
@@ -54,7 +53,7 @@ resource "spacelift_stack" "oconnordev_general" {
 
   repository   = "oconnordev"
   branch       = "master"
-  project_root = "infra/envs/general"
+  project_root = "infra/stacks/general"
 
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
