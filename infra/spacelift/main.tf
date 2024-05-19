@@ -10,6 +10,8 @@ provider "aws" {
   region = "us-east-1"
 }
 
+data "aws_caller_identity" "current" {}
+data "spacelift_account" "current" {}
 data "spacelift_current_stack" "this" {}
 
 resource "spacelift_space" "oconnordev" {
@@ -37,9 +39,6 @@ resource "spacelift_stack" "oconnordev_general" {
   terraform_workflow_tool = "OPEN_TOFU"
 }
 
-# Needed for generating the correct role ARNs
-data "aws_caller_identity" "current" {}
-
 locals {
   role_name = "spacelift"
   role_arn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
@@ -55,7 +54,6 @@ resource "spacelift_aws_integration" "oconnordev" {
   generate_credentials_in_worker = false
   space_id                       = spacelift_space.oconnordev.id
 }
-
 
 data "aws_iam_policy_document" "spacelift" {
   statement {
