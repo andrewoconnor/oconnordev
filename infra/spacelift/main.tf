@@ -14,6 +14,11 @@ data "aws_caller_identity" "current" {}
 data "spacelift_account" "current" {}
 data "spacelift_current_stack" "this" {}
 
+locals {
+  role_name = "spacelift"
+  role_arn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
+}
+
 resource "spacelift_space" "oconnordev" {
   name = "oconnordev"
 
@@ -25,6 +30,20 @@ resource "spacelift_space" "oconnordev" {
   description = "oconnordev infrastructure"
 }
 
+resource "spacelift_stack" "oconnordev" {
+  name        = "oconnordev"
+  description = "administrative stack"
+
+  repository   = "oconnordev"
+  branch       = "master"
+  project_root = "infra/spacelift"
+
+  autodeploy = false
+
+  terraform_workflow_tool = "OPEN_TOFU"
+  terraform_version       = "1.7.1"
+}
+
 resource "spacelift_stack" "oconnordev_general" {
   name        = "oconnordev-general"
   description = "general account"
@@ -33,15 +52,10 @@ resource "spacelift_stack" "oconnordev_general" {
   branch       = "master"
   project_root = "infra/envs/general"
 
-  autodeploy = true
-  labels     = ["managed", "depends-on:${data.spacelift_current_stack.this.id}"]
+  autodeploy = false
+  labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
   terraform_workflow_tool = "OPEN_TOFU"
-}
-
-locals {
-  role_name = "spacelift"
-  role_arn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
 }
 
 # Create the AWS integration before creating your IAM role. The integration needs to exist
@@ -87,9 +101,9 @@ resource "aws_iam_role_policy_attachment" "spacelift" {
 }
 
 # Attach the integration to any stacks or modules that need to use it
-resource "spacelift_aws_integration_attachment" "oconnordev_terraform_starter" {
+resource "spacelift_aws_integration_attachment" "oconnordev" {
   integration_id = spacelift_aws_integration.oconnordev.id
-  stack_id       = data.spacelift_current_stack.this.id
+  stack_id       = spacelift_stack.oconnordev.id
   read           = true
   write          = true
 
