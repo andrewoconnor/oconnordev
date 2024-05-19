@@ -63,7 +63,7 @@ data "aws_iam_policy_document" "spacelift" {
 
     principals {
       type        = "AWS"
-      identifiers = ["arn:aws:iam::324880187172:root"]
+      identifiers = ["arn:aws:iam::${data.spacelift_account.current.aws_account_id}:root"]
     }
 
     actions = ["sts:AssumeRole"]
