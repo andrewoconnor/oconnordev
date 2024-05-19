@@ -24,14 +24,10 @@ resource "spacelift_space" "oconnordev" {
 }
 
 resource "spacelift_stack" "oconnordev_general" {
-  github_enterprise {
-    namespace = "andrewoconnor"
-  }
-
   name        = "oconnordev-general"
   description = "general account"
 
-  repository   = "oconnordev"
+  repository   = "andrewoconnor/oconnordev"
   branch       = "master"
   project_root = "infra/envs/general"
 
