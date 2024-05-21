@@ -118,17 +118,6 @@ resource "aws_iam_role_policy_attachment" "spacelift" {
 }
 
 # Attach the integration to any stacks or modules that need to use it
-resource "spacelift_aws_integration_attachment" "oconnordev" {
-  integration_id = spacelift_aws_integration.oconnordev.id
-  stack_id       = spacelift_stack.oconnordev.id
-  read           = true
-  write          = true
-
-  # The role needs to exist before we attach since we test role assumption during attachment.
-  depends_on = [
-    aws_iam_role.spacelift
-  ]
-}
 
 resource "spacelift_aws_integration_attachment" "oconnordev_general" {
   integration_id = spacelift_aws_integration.oconnordev.id
