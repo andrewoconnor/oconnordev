@@ -61,6 +61,20 @@ resource "spacelift_stack" "oconnordev_general" {
   terraform_workflow_tool = "OPEN_TOFU"
 }
 
+resource "spacelift_stack" "oconnordev_production" {
+  name        = "oconnordev-production"
+  description = "production account"
+
+  repository   = "oconnordev"
+  branch       = "master"
+  project_root = "infra/stacks/production"
+
+  autodeploy = false
+  labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
+
+  terraform_workflow_tool = "OPEN_TOFU"
+}
+
 # Create the AWS integration before creating your IAM role. The integration needs to exist
 # in order to generate the external ID used for role assumption.
 resource "spacelift_aws_integration" "oconnordev" {
@@ -119,6 +133,18 @@ resource "spacelift_aws_integration_attachment" "oconnordev" {
 resource "spacelift_aws_integration_attachment" "oconnordev_general" {
   integration_id = spacelift_aws_integration.oconnordev.id
   stack_id       = spacelift_stack.oconnordev_general.id
+  read           = true
+  write          = true
+
+  # The role needs to exist before we attach since we test role assumption during attachment.
+  depends_on = [
+    aws_iam_role.spacelift
+  ]
+}
+
+resource "spacelift_aws_integration_attachment" "oconnordev_production" {
+  integration_id = spacelift_aws_integration.oconnordev.id
+  stack_id       = spacelift_stack.oconnordev_production.id
   read           = true
   write          = true
 
