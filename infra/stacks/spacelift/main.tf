@@ -51,6 +51,8 @@ resource "spacelift_stack" "oconnordev_general" {
   name        = "oconnordev-general"
   description = "general account"
 
+  space_id = spacelift_space.oconnordev.id
+
   repository   = "oconnordev"
   branch       = "master"
   project_root = "infra/stacks/general"
@@ -58,12 +60,16 @@ resource "spacelift_stack" "oconnordev_general" {
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
-  terraform_workflow_tool = "OPEN_TOFU"
+  terraform_workflow_tool      = "OPEN_TOFU"
+  terraform_version            = "1.7.1"
+  terraform_smart_sanitization = true
 }
 
 resource "spacelift_stack" "oconnordev_production" {
   name        = "oconnordev-production"
   description = "production account"
+
+  space_id = spacelift_space.oconnordev.id
 
   repository   = "oconnordev"
   branch       = "master"
@@ -72,7 +78,9 @@ resource "spacelift_stack" "oconnordev_production" {
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
-  terraform_workflow_tool = "OPEN_TOFU"
+  terraform_workflow_tool      = "OPEN_TOFU"
+  terraform_version            = "1.7.1"
+  terraform_smart_sanitization = true
 }
 
 # Create the AWS integration before creating your IAM role. The integration needs to exist
