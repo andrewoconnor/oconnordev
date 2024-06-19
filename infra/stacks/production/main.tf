@@ -158,6 +158,8 @@ resource "aws_s3_bucket_public_access_block" "web" {
 
 data "aws_iam_policy_document" "web_tls" {
   statement {
+    sid = "Enforce TLS"
+
     effect = "Deny"
 
     actions = [
@@ -178,6 +180,31 @@ data "aws_iam_policy_document" "web_tls" {
     principals {
       type        = "*"
       identifiers = ["*"]
+    }
+  }
+
+  statement {
+    sid = "AllowCloudFrontServicePrincipal"
+
+    effect = "Allow"
+
+    actions = [
+      "s3:GetObject"
+    ]
+
+    resources = [
+      "${aws_s3_bucket.web.arn}/*"
+    ]
+
+    condition {
+      test     = "StringEquals"
+      variable = "AWS:SourceArn"
+      values   = [aws_cloudfront_distribution.oconnordev.arn]
+    }
+
+    principals {
+      type        = "Service"
+      identifiers = ["cloudfront.amazonaws.com"]
     }
   }
 }
@@ -271,5 +298,17 @@ resource "aws_cloudfront_distribution" "oconnordev" {
     acm_certificate_arn      = aws_acm_certificate.oconnordev.arn
     minimum_protocol_version = "TLSv1.2_2021"
     ssl_support_method       = "sni-only"
+  }
+}
+
+resource "aws_route53_record" "www" {
+  zone_id = aws_route53_zone.oconnordev.zone_id
+  name    = "www.${local.zone_name}"
+  type    = "A"
+
+  alias {
+    name                   = aws_cloudfront_distribution.oconnordev.domain_name
+    zone_id                = aws_cloudfront_distribution.oconnordev.hosted_zone_id
+    evaluate_target_health = false
   }
 }
