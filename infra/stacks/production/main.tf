@@ -50,11 +50,16 @@ data "aws_iam_policy_document" "dnssec" {
 }
 
 resource "aws_kms_key" "dnssec" {
-  description              = "Asymmetric KMS key with ECC_NIST_P256 for DNSSSEC"
+  description              = "Asymmetric KMS key with ECC_NIST_P256 for DNSSEC"
   key_usage                = "SIGN_VERIFY"
   customer_master_key_spec = "ECC_NIST_P256"
 
   policy = data.aws_iam_policy_document.dnssec.json
+}
+
+resource "aws_kms_alias" "dnssec" {
+  name          = "alias/dnssec"
+  target_key_id = aws_kms_key.dnssec.key_id
 }
 
 resource "aws_s3_bucket" "web" {
