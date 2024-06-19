@@ -32,10 +32,14 @@ resource "aws_route53_zone" "oconnordev" {
 
 data "aws_iam_policy_document" "dnssec" {
   statement {
+    sid = "Allow Route 53 DNSSEC Service"
+
     effect = "Allow"
 
     actions = [
-      "kms:*"
+      "kms:DescribeKey",
+      "kms:GetPublicKey",
+      "kms:Sign"
     ]
 
     resources = [
@@ -43,8 +47,33 @@ data "aws_iam_policy_document" "dnssec" {
     ]
 
     principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+      type        = "Service"
+      identifiers = ["dnssec-route53.amazonaws.com"]
+    }
+  }
+
+  statement {
+    sid = "Allow Route 53 DNSSEC to CreateGrant"
+
+    effect = "Allow"
+
+    actions = [
+      "kms:CreateGrant"
+    ]
+
+    resources = [
+      "*"
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "kms:GrantIsForAWSResource"
+      values   = ["true"]
+    }
+
+    principals {
+      type        = "Service"
+      identifiers = ["dnssec-route53.amazonaws.com"]
     }
   }
 }
