@@ -63,6 +63,12 @@ data "aws_iam_policy_document" "dnssec" {
       "*"
     ]
 
+    condition {
+      test     = "StringEquals"
+      variable = "aws:SourceAccount"
+      values   = [data.aws_caller_identity.current.account_id]
+    }
+
     principals {
       type        = "Service"
       identifiers = ["dnssec-route53.amazonaws.com"]
@@ -99,6 +105,7 @@ resource "aws_kms_key" "dnssec" {
   description              = "Asymmetric KMS key with ECC_NIST_P256 for DNSSEC"
   key_usage                = "SIGN_VERIFY"
   customer_master_key_spec = "ECC_NIST_P256"
+  deletion_window_in_days  = 7
 
   policy = data.aws_iam_policy_document.dnssec.json
 }
@@ -106,6 +113,19 @@ resource "aws_kms_key" "dnssec" {
 resource "aws_kms_alias" "dnssec" {
   name          = "alias/dnssec"
   target_key_id = aws_kms_key.dnssec.key_id
+}
+
+resource "aws_route53_key_signing_key" "oconnordev" {
+  hosted_zone_id             = aws_route53_zone.oconnordev.id
+  key_management_service_arn = aws_kms_key.dnssec.arn
+  name                       = local.zone_name
+}
+
+resource "aws_route53_hosted_zone_dnssec" "oconnordev" {
+  depends_on = [
+    aws_route53_key_signing_key.oconnordev
+  ]
+  hosted_zone_id = aws_route53_key_signing_key.oconnordev.hosted_zone_id
 }
 
 resource "aws_s3_bucket" "web" {
