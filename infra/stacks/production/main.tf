@@ -240,7 +240,7 @@ resource "aws_cloudfront_distribution" "oconnordev" {
   default_root_object = "index.html"
 
   default_cache_behavior {
-    allowed_methods  = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
     target_origin_id = local.s3_origin_id
 
@@ -268,6 +268,8 @@ resource "aws_cloudfront_distribution" "oconnordev" {
   }
 
   viewer_certificate {
-    acm_certificate_arn = aws_acm_certificate.oconnordev.arn
+    acm_certificate_arn      = aws_acm_certificate.oconnordev.arn
+    minimum_protocol_version = "TLSv1.2_2021"
+    ssl_support_method       = "sni-only"
   }
 }
