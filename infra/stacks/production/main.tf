@@ -19,17 +19,59 @@ provider "aws" {
   region = "us-east-1"
 }
 
-# Create a VPC
-resource "aws_vpc" "example" {
-  cidr_block = "10.18.0.0/16"
+locals {
+  web_bucket_name = "oconnordev-web"
 }
 
-resource "aws_subnet" "my_subnet" {
-  vpc_id            = aws_vpc.example.id
-  cidr_block        = "10.18.10.0/24"
-  availability_zone = "us-east-1a"
+resource "aws_s3_bucket" "web" {
+  bucket = local.web_bucket_name
+
+  server_side_encryption_configuration {
+    rule {
+      apply_server_side_encryption_by_default {
+        sse_algorithm = "AES256"
+      }
+    }
+  }
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 
   tags = {
-    Name = "tf-example"
+    Name = local.web_bucket_name
   }
+}
+
+data "aws_iam_policy_document" "web_tls" {
+  statement {
+    effect = "Deny"
+
+    actions = [
+      "s3:*"
+    ]
+
+    resources = [
+      aws_s3_bucket.web.arn,
+      "${aws_s3_bucket.web.arn}/*"
+    ]
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "web_tls" {
+  bucket = aws_s3_bucket.web.id
+
+  policy = data.aws_iam_policy_document.web_tls.json
 }
