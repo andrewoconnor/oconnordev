@@ -19,6 +19,8 @@ provider "aws" {
   region = "us-east-1"
 }
 
+data "aws_caller_identity" "current" {}
+
 locals {
   zone_name       = "oconnor.dev"
   web_bucket_name = "oconnordev-web"
@@ -26,6 +28,33 @@ locals {
 
 resource "aws_route53_zone" "oconnordev" {
   name = local.zone_name
+}
+
+data "aws_iam_policy_document" "dnssec" {
+  statement {
+    effect = "Allow"
+
+    actions = [
+      "kms:*"
+    ]
+
+    resources = [
+      "*"
+    ]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+  }
+}
+
+resource "aws_kms_key" "dnssec" {
+  description              = "Asymmetric KMS key with ECC_NIST_P256 for DNSSSEC"
+  key_usage                = "SIGN_VERIFY"
+  customer_master_key_spec = "ECC_NIST_P256"
+
+  policy = data.aws_iam_policy_document.dnssec.json
 }
 
 resource "aws_s3_bucket" "web" {
