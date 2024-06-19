@@ -266,6 +266,8 @@ resource "aws_cloudfront_distribution" "oconnordev" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
 
+  aliases = ["www.${local.zone_name}"]
+
   default_cache_behavior {
     allowed_methods  = ["GET", "HEAD"]
     cached_methods   = ["GET", "HEAD"]
