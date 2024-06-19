@@ -314,3 +314,15 @@ resource "aws_route53_record" "www" {
     evaluate_target_health = false
   }
 }
+
+resource "aws_route53_record" "apex" {
+  zone_id = aws_route53_zone.oconnordev.zone_id
+  name    = local.zone_name
+  type    = "A"
+
+  alias {
+    name                   = aws_route53_record.www.fqdn
+    zone_id                = aws_route53_zone.oconnordev.zone_id
+    evaluate_target_health = false
+  }
+}
