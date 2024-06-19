@@ -20,7 +20,12 @@ provider "aws" {
 }
 
 locals {
+  zone_name       = "oconnor.dev"
   web_bucket_name = "oconnordev-web"
+}
+
+resource "aws_route53_zone" "oconnordev" {
+  name = local.zone_name
 }
 
 resource "aws_s3_bucket" "web" {
