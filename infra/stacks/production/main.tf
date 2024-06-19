@@ -257,4 +257,17 @@ resource "aws_cloudfront_distribution" "oconnordev" {
     default_ttl            = 3600
     max_ttl                = 86400
   }
+
+  price_class = "PriceClass_100"
+
+  restrictions {
+    geo_restriction {
+      restriction_type = "whitelist"
+      locations        = ["US", "CA", "GB", "DE"]
+    }
+  }
+
+  viewer_certificate {
+    acm_certificate_arn = aws_acm_certificate.oconnordev.arn
+  }
 }
