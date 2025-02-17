@@ -43,7 +43,7 @@ resource "spacelift_stack" "oconnordev" {
   protect_from_deletion = true
 
   terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.7.2"
+  terraform_version            = "1.9.0"
   terraform_smart_sanitization = true
 }
 
