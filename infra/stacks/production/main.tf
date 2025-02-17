@@ -357,7 +357,7 @@ data "aws_iam_policy_document" "spacelift" {
 }
 
 resource "aws_iam_role" "spacelift" {
-  name = local.role_name
+  name = "spacelift"
 
   assume_role_policy = data.aws_iam_policy_document.spacelift.json
 }
