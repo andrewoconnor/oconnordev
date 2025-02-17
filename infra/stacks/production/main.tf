@@ -29,7 +29,7 @@ data "terraform_remote_state" "oconnordev_general" {
     organization = "andrewoconnor"
 
     workspaces = {
-      name = "oconnordev-general"
+      name = "oconnordev"
     }
   }
 }
