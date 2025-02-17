@@ -4,7 +4,7 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.50.0"
+      version = "~> 5.87.0"
     }
   }
 }
@@ -20,6 +20,19 @@ provider "aws" {
 }
 
 data "aws_caller_identity" "current" {}
+
+data "terraform_remote_state" "oconnordev_general" {
+  backend = "remote"
+
+  config = {
+    hostname     = "spacelift.io"
+    organization = "andrewoconnor"
+
+    workspaces = {
+      name = "oconnordev-general"
+    }
+  }
+}
 
 locals {
   zone_name       = "oconnor.dev"
@@ -328,4 +341,28 @@ resource "aws_route53_record" "apex" {
     zone_id                = aws_route53_zone.oconnordev.zone_id
     evaluate_target_health = false
   }
+}
+
+data "aws_iam_policy_document" "spacelift" {
+  statement {
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:aws:iam::${data.terraform_remote_state.oconnordev_general.outputs.account_id}:role/spacelift"]
+    }
+
+    actions = ["sts:AssumeRole"]
+  }
+}
+
+resource "aws_iam_role" "spacelift" {
+  name = local.role_name
+
+  assume_role_policy = data.aws_iam_policy_document.spacelift.json
+}
+
+import {
+  to = aws_iam_role.spacelift
+  id = "spacelift"
 }
