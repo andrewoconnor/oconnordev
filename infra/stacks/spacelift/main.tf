@@ -42,9 +42,10 @@ resource "spacelift_stack" "oconnordev" {
   github_action_deploy  = false
   protect_from_deletion = true
 
-  terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.9.0"
-  terraform_smart_sanitization = true
+  terraform_workflow_tool         = "OPEN_TOFU"
+  terraform_version               = "1.9.0"
+  terraform_smart_sanitization    = true
+  terraform_external_state_access = true
 }
 
 resource "spacelift_stack" "oconnordev_general" {
@@ -60,10 +61,9 @@ resource "spacelift_stack" "oconnordev_general" {
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
-  terraform_workflow_tool         = "OPEN_TOFU"
-  terraform_version               = "1.9.0"
-  terraform_smart_sanitization    = true
-  terraform_external_state_access = true
+  terraform_workflow_tool      = "OPEN_TOFU"
+  terraform_version            = "1.9.0"
+  terraform_smart_sanitization = true
 }
 
 resource "spacelift_stack" "oconnordev_production" {
@@ -150,4 +150,8 @@ resource "spacelift_aws_integration_attachment" "oconnordev_production" {
   depends_on = [
     aws_iam_role.spacelift
   ]
+}
+
+output "account_id" {
+  value = data.aws_caller_identity.current.account_id
 }
