@@ -348,8 +348,3 @@ resource "aws_iam_role" "spacelift" {
 
   assume_role_policy = data.aws_iam_policy_document.spacelift.json
 }
-
-import {
-  to = aws_iam_role.spacelift
-  id = "spacelift"
-}
