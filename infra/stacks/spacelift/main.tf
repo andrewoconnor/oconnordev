@@ -1,4 +1,13 @@
 terraform {
+  backend "remote" {
+    hostname     = "spacelift.io"
+    organization = "andrewoconnor"
+
+    workspaces {
+      name = "oconnordev"
+    }
+  }
+
   required_providers {
     spacelift = {
       source = "spacelift-io/spacelift"
