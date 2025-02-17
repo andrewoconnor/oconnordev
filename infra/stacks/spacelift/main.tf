@@ -61,7 +61,7 @@ resource "spacelift_stack" "oconnordev_general" {
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
   terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.7.2"
+  terraform_version            = "1.9.0"
   terraform_smart_sanitization = true
 }
 
@@ -79,7 +79,7 @@ resource "spacelift_stack" "oconnordev_production" {
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
   terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.7.2"
+  terraform_version            = "1.9.0"
   terraform_smart_sanitization = true
 }
 
