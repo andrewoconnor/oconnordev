@@ -60,9 +60,10 @@ resource "spacelift_stack" "oconnordev_general" {
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
-  terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.9.0"
-  terraform_smart_sanitization = true
+  terraform_workflow_tool         = "OPEN_TOFU"
+  terraform_version               = "1.9.0"
+  terraform_smart_sanitization    = true
+  terraform_external_state_access = true
 }
 
 resource "spacelift_stack" "oconnordev_production" {
