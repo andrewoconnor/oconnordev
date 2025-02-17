@@ -21,19 +21,6 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
-data "terraform_remote_state" "oconnordev_general" {
-  backend = "remote"
-
-  config = {
-    hostname     = "spacelift.io"
-    organization = "andrewoconnor"
-
-    workspaces = {
-      name = "oconnordev"
-    }
-  }
-}
-
 locals {
   zone_name       = "oconnor.dev"
   web_bucket_name = "oconnordev-web"
@@ -349,7 +336,7 @@ data "aws_iam_policy_document" "spacelift" {
 
     principals {
       type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.terraform_remote_state.oconnordev_general.outputs.account_id}:role/spacelift"]
+      identifiers = ["arn:aws:iam::905418422177:role/spacelift"]
     }
 
     actions = ["sts:AssumeRole"]
