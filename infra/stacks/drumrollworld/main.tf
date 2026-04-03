@@ -75,64 +75,64 @@ resource "aws_s3_bucket_public_access_block" "web" {
   restrict_public_buckets = true
 }
 
-data "aws_iam_policy_document" "web_tls" {
-  statement {
-    sid = "Enforce TLS"
-
-    effect = "Deny"
-
-    actions = [
-      "s3:*"
-    ]
-
-    resources = [
-      aws_s3_bucket.web.arn,
-      "${aws_s3_bucket.web.arn}/*"
-    ]
-
-    condition {
-      test     = "Bool"
-      variable = "aws:SecureTransport"
-      values   = ["false"]
-    }
-
-    principals {
-      type        = "*"
-      identifiers = ["*"]
-    }
-  }
-
-  statement {
-    sid = "AllowCloudFrontServicePrincipal"
-
-    effect = "Allow"
-
-    actions = [
-      "s3:GetObject"
-    ]
-
-    resources = [
-      "${aws_s3_bucket.web.arn}/*"
-    ]
-
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.drumrollworld.arn]
-    }
-
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "web_tls" {
-  bucket = aws_s3_bucket.web.id
-
-  policy = data.aws_iam_policy_document.web_tls.json
-}
+#data "aws_iam_policy_document" "web_tls" {
+#  statement {
+#    sid = "Enforce TLS"
+#
+#    effect = "Deny"
+#
+#    actions = [
+#      "s3:*"
+#    ]
+#
+#    resources = [
+#      aws_s3_bucket.web.arn,
+#      "${aws_s3_bucket.web.arn}/*"
+#    ]
+#
+#    condition {
+#      test     = "Bool"
+#      variable = "aws:SecureTransport"
+#      values   = ["false"]
+#    }
+#
+#    principals {
+#      type        = "*"
+#      identifiers = ["*"]
+#    }
+#  }
+#
+#  statement {
+#    sid = "AllowCloudFrontServicePrincipal"
+#
+#    effect = "Allow"
+#
+#    actions = [
+#      "s3:GetObject"
+#    ]
+#
+#    resources = [
+#      "${aws_s3_bucket.web.arn}/*"
+#    ]
+#
+#    condition {
+#      test     = "StringEquals"
+#      variable = "AWS:SourceArn"
+#      values   = [aws_cloudfront_distribution.drumrollworld.arn]
+#    }
+#
+#    principals {
+#      type        = "Service"
+#      identifiers = ["cloudfront.amazonaws.com"]
+#    }
+#  }
+#}
+#
+#resource "aws_s3_bucket_policy" "web_tls" {
+#  bucket = aws_s3_bucket.web.id
+#
+#  policy = data.aws_iam_policy_document.web_tls.json
+#}
 
 resource "aws_acm_certificate" "drumrollworld" {
   domain_name       = local.zone_name
