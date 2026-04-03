@@ -225,16 +225,26 @@ resource "aws_cloudfront_distribution" "drumrollworld" {
   }
 }
 
+#resource "aws_route53_record" "www" {
+#  zone_id = aws_route53_zone.drumrollworld.zone_id
+#  name    = "www.${local.zone_name}"
+#  type    = "A"
+#
+#  alias {
+#    name                   = aws_cloudfront_distribution.drumrollworld.domain_name
+#    zone_id                = aws_cloudfront_distribution.drumrollworld.hosted_zone_id
+#    evaluate_target_health = false
+#  }
+#}
+
 resource "aws_route53_record" "www" {
   zone_id = aws_route53_zone.drumrollworld.zone_id
   name    = "www.${local.zone_name}"
   type    = "A"
 
-  alias {
-    name                   = aws_cloudfront_distribution.drumrollworld.domain_name
-    zone_id                = aws_cloudfront_distribution.drumrollworld.hosted_zone_id
-    evaluate_target_health = false
-  }
+  # Standard records require a TTL (Time To Live)
+  ttl     = 300
+  records = ["1.1.1.1"]
 }
 
 resource "aws_route53_record" "apex" {
