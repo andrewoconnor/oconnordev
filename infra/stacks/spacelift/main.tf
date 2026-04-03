@@ -16,6 +16,7 @@ data "spacelift_account" "current" {}
 locals {
   role_name = "spacelift"
   role_arn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
+  tofu_version = "1.11.5"
 }
 
 resource "spacelift_space" "oconnordev" {
@@ -43,7 +44,7 @@ resource "spacelift_stack" "oconnordev" {
   protect_from_deletion = true
 
   terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.9.0"
+  terraform_version            = local.tofu_version
   terraform_smart_sanitization = true
 }
 
@@ -61,7 +62,7 @@ resource "spacelift_stack" "oconnordev_general" {
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
   terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.9.0"
+  terraform_version            = local.tofu_version
   terraform_smart_sanitization = true
 }
 
@@ -79,7 +80,7 @@ resource "spacelift_stack" "oconnordev_production" {
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
   terraform_workflow_tool      = "OPEN_TOFU"
-  terraform_version            = "1.9.0"
+  terraform_version            = local.tofu_version
   terraform_smart_sanitization = true
 }
 
