@@ -169,3 +169,15 @@ resource "spacelift_aws_integration_attachment" "oconnordev_production" {
     aws_iam_role.spacelift
   ]
 }
+
+resource "spacelift_aws_integration_attachment" "drumrollworld" {
+  integration_id = spacelift_aws_integration.oconnordev.id
+  stack_id       = spacelift_stack.drumrollworld.id
+  read           = true
+  write          = true
+
+  # The role needs to exist before we attach since we test role assumption during attachment.
+  depends_on = [
+    aws_iam_role.spacelift
+  ]
+}
