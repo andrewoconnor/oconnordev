@@ -1,6 +1,16 @@
 # Import and manage the existing AWS Organization from the management account.
 resource "aws_organizations_organization" "oconnordev" {
   feature_set = "ALL"
+
+  # Preserve existing organization integrations and governance while importing.
+  aws_service_access_principals = [
+    "iam.amazonaws.com",
+    "sso.amazonaws.com",
+  ]
+
+  enabled_policy_types = [
+    "SERVICE_CONTROL_POLICY",
+  ]
 }
 
 import {
