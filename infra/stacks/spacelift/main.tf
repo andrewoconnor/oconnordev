@@ -6,20 +6,12 @@ terraform {
   }
 }
 
-provider "aws" {
-  region = "us-east-1"
-}
-
-data "aws_caller_identity" "current" {}
 data "spacelift_account" "current" {}
-
 data "spacelift_role" "space_admin" {
   slug = "space-admin"
 }
 
 locals {
-  role_name = "spacelift"
-  role_arn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
   tofu_version = "1.12.6"
 }
 
@@ -116,60 +108,56 @@ resource "spacelift_stack" "drumrollworld" {
   terraform_smart_sanitization = true
 }
 
-# Create the AWS integration before creating your IAM role. The integration needs to exist
-# in order to generate the external ID used for role assumption.
+# The AWS IAM role is managed in the general account stack. Keep the Spacelift
+# integration here and pass its non-secret identifiers to the general stack.
 resource "spacelift_aws_integration" "oconnordev" {
   name = "oconnordev"
 
-  # We need to set the ARN manually rather than referencing the role to avoid a circular dependency
-  role_arn                       = local.role_arn
+  role_arn                       = "arn:aws:iam::905418422177:role/spacelift"
   generate_credentials_in_worker = false
   space_id                       = spacelift_space.oconnordev.id
 }
 
-data "aws_iam_policy_document" "spacelift" {
-  statement {
-    effect = "Allow"
+resource "spacelift_environment_variable" "general_spacelift_integration_id" {
+  stack_id    = spacelift_stack.oconnordev_general.id
+  name        = "TF_VAR_spacelift_integration_id"
+  value       = spacelift_aws_integration.oconnordev.id
+  write_only  = false
+  description = "Spacelift AWS integration ID used by the management-account IAM role trust policy"
+}
 
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::${data.spacelift_account.current.aws_account_id}:root"]
-    }
+resource "spacelift_environment_variable" "general_spacelift_account_id" {
+  stack_id    = spacelift_stack.oconnordev_general.id
+  name        = "TF_VAR_spacelift_account_id"
+  value       = data.spacelift_account.current.aws_account_id
+  write_only  = false
+  description = "Spacelift AWS account ID used by the management-account IAM role trust policy"
+}
 
-    actions = ["sts:AssumeRole"]
+# These AWS resources are imported into infra/stacks/general/spacelift-iam.tf.
+# Detach them from this stack's state without destroying the live IAM role or policy.
+removed {
+  from = aws_iam_role.spacelift
 
-    condition {
-      test     = "StringLike"
-      variable = "sts:ExternalId"
-      values   = ["andrewoconnor@${spacelift_aws_integration.oconnordev.id}@*"]
-    }
+  lifecycle {
+    destroy = false
   }
 }
 
-# Create the IAM role, using the `assume_role_policy_statement` from the data source.
-resource "aws_iam_role" "spacelift" {
-  name = local.role_name
+removed {
+  from = aws_iam_role_policy_attachment.spacelift
 
-  assume_role_policy = data.aws_iam_policy_document.spacelift.json
+  lifecycle {
+    destroy = false
+  }
 }
 
-resource "aws_iam_role_policy_attachment" "spacelift" {
-  role       = aws_iam_role.spacelift.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-}
-
-# Attach the integration to any stacks or modules that need to use it
-
+# Keep the Spacelift-provider attachments here; they bind the integration to stacks.
 resource "spacelift_aws_integration_attachment" "oconnordev_general" {
   integration_id = spacelift_aws_integration.oconnordev.id
   stack_id       = spacelift_stack.oconnordev_general.id
   read           = true
   write          = true
-
-  # The role needs to exist before we attach since we test role assumption during attachment.
-  depends_on = [
-    aws_iam_role.spacelift
-  ]
 }
 
 resource "spacelift_aws_integration_attachment" "oconnordev_production" {
@@ -177,11 +165,6 @@ resource "spacelift_aws_integration_attachment" "oconnordev_production" {
   stack_id       = spacelift_stack.oconnordev_production.id
   read           = true
   write          = true
-
-  # The role needs to exist before we attach since we test role assumption during attachment.
-  depends_on = [
-    aws_iam_role.spacelift
-  ]
 }
 
 resource "spacelift_aws_integration_attachment" "drumrollworld" {
@@ -189,9 +172,4 @@ resource "spacelift_aws_integration_attachment" "drumrollworld" {
   stack_id       = spacelift_stack.drumrollworld.id
   read           = true
   write          = true
-
-  # The role needs to exist before we attach since we test role assumption during attachment.
-  depends_on = [
-    aws_iam_role.spacelift
-  ]
 }
