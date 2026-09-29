@@ -88,6 +88,24 @@ resource "spacelift_stack" "oconnordev_production" {
   terraform_smart_sanitization = true
 }
 
+resource "spacelift_stack" "oconnordev_hermes" {
+  name        = "oconnordev-hermes"
+  description = "Hermes account"
+
+  space_id = spacelift_space.oconnordev.id
+
+  repository   = "oconnordev"
+  branch       = "master"
+  project_root = "infra/stacks/hermes"
+
+  autodeploy = false
+  labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
+
+  terraform_workflow_tool      = "OPEN_TOFU"
+  terraform_version            = local.tofu_version
+  terraform_smart_sanitization = true
+}
+
 resource "spacelift_stack" "drumrollworld" {
   name        = "drumrollworld"
   description = "drumrollworld"
@@ -143,6 +161,13 @@ resource "spacelift_aws_integration_attachment" "oconnordev_general" {
 resource "spacelift_aws_integration_attachment" "oconnordev_production" {
   integration_id = spacelift_aws_integration.oconnordev.id
   stack_id       = spacelift_stack.oconnordev_production.id
+  read           = true
+  write          = true
+}
+
+resource "spacelift_aws_integration_attachment" "oconnordev_hermes" {
+  integration_id = spacelift_aws_integration.oconnordev.id
+  stack_id       = spacelift_stack.oconnordev_hermes.id
   read           = true
   write          = true
 }
