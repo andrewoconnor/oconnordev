@@ -93,7 +93,7 @@ A config example for a future, manually reviewed Hermes profile can use a stdio 
 ## Bootstrap and migration sequence
 
 1. Review this branch and draft PR; run local tests and CI. Do not merge/apply from this PR description.
-2. In the existing Hermes Spacelift stack, configure `hermes_github_app_id` and `hermes_github_installation_id` (non-secret Terraform variables) and set `hermes_github_allowed_repositories` to the initial approved personal repository names. Keep the allowlist empty until reviewed.
+2. In the existing Hermes Spacelift stack, configure `hermes_github_app_id` and `hermes_github_installation_id` (non-secret Terraform variables) and set `hermes_github_allowed_repositories` to the initial approved personal repository names. The ID variables now default to empty so a bootstrap plan can run; the connector rejects every operation with `github_app_not_configured` until both IDs are set. The allowlist also defaults to empty/deny-all.
 3. Manually ensure the already-created Secrets Manager secret `/hermes/github/app-private-key` contains the correct PEM as a SecretString. Do not put that value in Terraform, code, or chat. Confirm its encryption key meets the IAM constraint above.
 4. Apply the reviewed Terraform through the existing Spacelift workflow only. This creates the Cognito M2M client secret in Terraform state. Protect Spacelift state and restrict who can view it.
 5. Read the non-secret outputs `hermes_github_gateway_url`, `hermes_github_cognito_token_url`, `hermes_github_cognito_client_id`, and `hermes_github_cognito_scope`. Securely provision the generated Cognito client secret into the local adapter environment. Do not copy it into this repository or Hermes YAML.

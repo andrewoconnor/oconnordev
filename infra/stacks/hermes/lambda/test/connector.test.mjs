@@ -247,6 +247,20 @@ test("reports Secrets Manager failure without exposing provider details", async 
   await assert.rejects(connector.invoke("repository_info", args()), { category: "secrets_manager_failure" });
 });
 
+test("empty App identifiers keep planning possible but disable every connector operation", async () => {
+  const fake = new FakeGitHub();
+  const logs = [];
+  const connector = createConnector({
+    config: { appId: "", installationId: "", allowedRepos: [REPO], owner: OWNER },
+    getPrivateKey: async () => { throw new Error("should not read a secret while disabled"); },
+    api: fake,
+    log: (entry) => logs.push(entry),
+  });
+  await assert.rejects(connector.invoke("repository_info", args()), { category: "github_app_not_configured" });
+  assert.equal(fake.tokenCalls.length, 0);
+  assert.equal(logs[0].category, "github_app_not_configured");
+});
+
 test("sanitizes GitHub authentication failure", async () => {
   const api = {
     async getInstallationToken() { throw new SafeError("github_authentication_failure", 502); },

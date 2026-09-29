@@ -6,22 +6,24 @@ data "aws_secretsmanager_secret" "github_app_private_key" {
 }
 
 variable "hermes_github_app_id" {
-  description = "Non-secret GitHub App ID used to mint short-lived App JWTs."
+  description = "Non-secret GitHub App ID used to mint short-lived App JWTs. Leave empty only for a deny-all infrastructure plan; set before enabling the connector."
   type        = string
+  default     = ""
 
   validation {
-    condition     = can(regex("^[0-9]+$", var.hermes_github_app_id))
-    error_message = "hermes_github_app_id must be a numeric GitHub App ID."
+    condition     = var.hermes_github_app_id == "" || can(regex("^[0-9]+$", var.hermes_github_app_id))
+    error_message = "hermes_github_app_id must be empty for a disabled plan or a numeric GitHub App ID."
   }
 }
 
 variable "hermes_github_installation_id" {
-  description = "Non-secret GitHub App installation ID for andrewoconnor's personal account."
+  description = "Non-secret GitHub App installation ID. Leave empty only for a deny-all infrastructure plan; set before enabling the connector."
   type        = string
+  default     = ""
 
   validation {
-    condition     = can(regex("^[0-9]+$", var.hermes_github_installation_id))
-    error_message = "hermes_github_installation_id must be a numeric GitHub installation ID."
+    condition     = var.hermes_github_installation_id == "" || can(regex("^[0-9]+$", var.hermes_github_installation_id))
+    error_message = "hermes_github_installation_id must be empty for a disabled plan or a numeric GitHub installation ID."
   }
 }
 

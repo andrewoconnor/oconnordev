@@ -364,7 +364,7 @@ export function createConnector({ config, getPrivateKey, fetchImpl, api: injecte
   if (owner !== OWNER) throw new Error("invalid trusted owner configuration");
   const appId = String(config.appId || "");
   const installationId = String(config.installationId || "");
-  if (!/^\d+$/.test(appId) || !/^\d+$/.test(installationId)) throw new Error("invalid application configuration");
+  if ((appId !== "" && !/^\d+$/.test(appId)) || (installationId !== "" && !/^\d+$/.test(installationId))) throw new Error("invalid application configuration");
   const allowedRepos = new Set((config.allowedRepos || []).map((name) => String(name).toLowerCase()));
   const api = injectedApi || createGitHubApi({ appId, installationId, getPrivateKey, fetchImpl, now });
 
@@ -400,6 +400,7 @@ export function createConnector({ config, getPrivateKey, fetchImpl, api: injecte
     let status = "error";
     let category = "internal_error";
     try {
+      if (!appId || !installationId) fail("github_app_not_configured", 503);
       const token = await tokenFor(repo);
       const metadata = await getRepository(api, token, owner, repo);
       const gh = createToolClient(api, token, owner, repo);
