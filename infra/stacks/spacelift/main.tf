@@ -34,7 +34,6 @@ resource "spacelift_stack" "oconnordev" {
   branch       = "master"
   project_root = "infra/stacks/spacelift"
 
-  administrative        = true
   autodeploy            = false
   github_action_deploy  = false
   protect_from_deletion = true
