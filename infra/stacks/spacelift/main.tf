@@ -1,20 +1,10 @@
 terraform {
   required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.39.0"
-    }
     spacelift = {
-      source = "spacelift-io/spacelift"
+      source  = "spacelift-io/spacelift"
+      version = "~> 1.55.0"
     }
   }
-}
-
-# Keep AWS configured during the non-destructive state handoff. OpenTofu must
-# refresh the AWS resources already recorded in this stack before `removed`
-# blocks can detach them without destroying the live objects.
-provider "aws" {
-  region = "us-east-1"
 }
 
 data "spacelift_account" "current" {}
@@ -58,11 +48,6 @@ resource "spacelift_role_attachment" "oconnordev_space_admin" {
   stack_id = spacelift_stack.oconnordev.id
   role_id  = data.spacelift_role.space_admin.id
   space_id = "root"
-}
-
-import {
-  to = spacelift_role_attachment.oconnordev_space_admin
-  id = "STACK/01KT1DP4RKQSG56846W5SC9EE6"
 }
 
 resource "spacelift_stack" "oconnordev_general" {
@@ -143,24 +128,6 @@ resource "spacelift_environment_variable" "general_spacelift_account_id" {
   value       = data.spacelift_account.current.aws_account_id
   write_only  = false
   description = "Spacelift AWS account ID used by the management-account IAM role trust policy"
-}
-
-# These AWS resources are imported into infra/stacks/general/spacelift-iam.tf.
-# Detach them from this stack's state without destroying the live IAM role or policy.
-removed {
-  from = aws_iam_role.spacelift
-
-  lifecycle {
-    destroy = false
-  }
-}
-
-removed {
-  from = aws_iam_role_policy_attachment.spacelift
-
-  lifecycle {
-    destroy = false
-  }
 }
 
 # Keep the Spacelift-provider attachments here; they bind the integration to stacks.

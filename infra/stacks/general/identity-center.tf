@@ -13,11 +13,6 @@ resource "aws_organizations_organization" "oconnordev" {
   ]
 }
 
-import {
-  to = aws_organizations_organization.oconnordev
-  id = "o-4eua3nehe1"
-}
-
 # IAM Identity Center must first be enabled as an organization instance in
 # us-east-1 from the AWS console. This data source then reads that instance.
 data "aws_ssoadmin_instances" "organization" {}
