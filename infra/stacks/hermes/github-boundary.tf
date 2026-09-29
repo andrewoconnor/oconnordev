@@ -46,8 +46,8 @@ locals {
   github_target_name    = "github"
   github_scope          = "hermes-github/invoke"
   cognito_domain_prefix = "hermes-github-${data.aws_caller_identity.current.account_id}"
-  cognito_issuer        = "https://cognito-idp.${data.aws_region.current.name}.amazonaws.com/${aws_cognito_user_pool.github.id}"
-  cognito_token_url     = "https://${aws_cognito_user_pool_domain.github.domain}.auth.${data.aws_region.current.name}.amazoncognito.com/oauth2/token"
+  cognito_issuer        = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.github.id}"
+  cognito_token_url     = "https://${aws_cognito_user_pool_domain.github.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
 }
 
 resource "aws_cloudwatch_log_group" "github_connector" {
@@ -77,7 +77,7 @@ data "aws_iam_policy_document" "github_connector_runtime" {
     sid       = "WriteOnlyToConnectorLogGroup"
     effect    = "Allow"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
-    resources = ["arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.github_connector.name}:*"]
+    resources = ["arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:${aws_cloudwatch_log_group.github_connector.name}:*"]
   }
 
   statement {
@@ -280,8 +280,8 @@ resource "aws_cognito_user_pool_client" "github" {
 }
 
 resource "aws_bedrockagentcore_gateway" "github" {
-  name           = local.github_gateway_name
-  role_arn       = aws_iam_role.github_gateway.arn
+  name            = local.github_gateway_name
+  role_arn        = aws_iam_role.github_gateway.arn
   authorizer_type = "CUSTOM_JWT"
   protocol_type   = "MCP"
 
@@ -337,9 +337,7 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
               }
             }
           }
-        }
 
-        tool_schema {
           inline_payload {
             name        = "read_files"
             description = "Read bounded text files from one allowlisted repository."
@@ -365,9 +363,7 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
               }
             }
           }
-        }
 
-        tool_schema {
           inline_payload {
             name        = "submit_change"
             description = "Create an idempotent feature branch and open a draft pull request against the configured default branch."
@@ -419,9 +415,7 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
               }
             }
           }
-        }
 
-        tool_schema {
           inline_payload {
             name        = "revise_change"
             description = "Revise files on an App-authored draft PR branch only when the expected head SHA matches."
@@ -468,9 +462,7 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
               }
             }
           }
-        }
 
-        tool_schema {
           inline_payload {
             name        = "change_status"
             description = "Read status of an App-authored Hermes draft pull request."
