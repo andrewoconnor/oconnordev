@@ -13,6 +13,10 @@ provider "aws" {
 data "aws_caller_identity" "current" {}
 data "spacelift_account" "current" {}
 
+data "spacelift_role" "space_admin" {
+  slug = "space-admin"
+}
+
 locals {
   role_name = "spacelift"
   role_arn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
@@ -38,7 +42,6 @@ resource "spacelift_stack" "oconnordev" {
   branch       = "master"
   project_root = "infra/stacks/spacelift"
 
-  administrative        = true
   autodeploy            = false
   github_action_deploy  = false
   protect_from_deletion = true
@@ -46,6 +49,12 @@ resource "spacelift_stack" "oconnordev" {
   terraform_workflow_tool      = "OPEN_TOFU"
   terraform_version            = local.tofu_version
   terraform_smart_sanitization = true
+}
+
+resource "spacelift_role_attachment" "oconnordev_space_admin" {
+  stack_id = spacelift_stack.oconnordev.id
+  role_id  = data.spacelift_role.space_admin.id
+  space_id = "root"
 }
 
 resource "spacelift_stack" "oconnordev_general" {
