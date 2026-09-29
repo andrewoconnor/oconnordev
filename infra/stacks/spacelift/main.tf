@@ -57,6 +57,11 @@ resource "spacelift_role_attachment" "oconnordev_space_admin" {
   space_id = "root"
 }
 
+import {
+  to = spacelift_role_attachment.oconnordev_space_admin
+  id = "STACK/01KT1DP4RKQSG56846W5SC9EE6"
+}
+
 resource "spacelift_stack" "oconnordev_general" {
   name        = "oconnordev-general"
   description = "general account"
