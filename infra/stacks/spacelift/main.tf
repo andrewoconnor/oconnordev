@@ -1,9 +1,20 @@
 terraform {
   required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 6.39.0"
+    }
     spacelift = {
       source = "spacelift-io/spacelift"
     }
   }
+}
+
+# Keep AWS configured during the non-destructive state handoff. OpenTofu must
+# refresh the AWS resources already recorded in this stack before `removed`
+# blocks can detach them without destroying the live objects.
+provider "aws" {
+  region = "us-east-1"
 }
 
 data "spacelift_account" "current" {}
