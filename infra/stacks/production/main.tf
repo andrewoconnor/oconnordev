@@ -333,22 +333,3 @@ resource "aws_route53_record" "apex" {
     evaluate_target_health = false
   }
 }
-
-data "aws_iam_policy_document" "spacelift" {
-  statement {
-    effect = "Allow"
-
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:aws:iam::905418422177:role/spacelift"]
-    }
-
-    actions = ["sts:AssumeRole"]
-  }
-}
-
-resource "aws_iam_role" "spacelift" {
-  name = "spacelift"
-
-  assume_role_policy = data.aws_iam_policy_document.spacelift.json
-}
