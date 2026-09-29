@@ -1,4 +1,6 @@
 terraform {
+  required_version = ">= 1.12.0, < 2.0.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
@@ -10,8 +12,6 @@ terraform {
 provider "aws" {
   region = "us-east-1"
 }
-
-data "aws_caller_identity" "current" {}
 
 #resource "aws_budgets_budget" "cost" {
 #  budget_type  = "COST"

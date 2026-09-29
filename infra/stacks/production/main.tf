@@ -1,6 +1,10 @@
-variable "spacelift_run_id" {}
+variable "spacelift_run_id" {
+  type = string
+}
 
 terraform {
+  required_version = ">= 1.12.0, < 2.0.0"
+
   required_providers {
     aws = {
       source  = "hashicorp/aws"
