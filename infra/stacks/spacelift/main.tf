@@ -6,6 +6,7 @@ terraform {
   }
 }
 
+data "spacelift_account" "current" {}
 data "spacelift_role" "space_admin" {
   slug = "space-admin"
 }
@@ -33,6 +34,7 @@ resource "spacelift_stack" "oconnordev" {
   branch       = "master"
   project_root = "infra/stacks/spacelift"
 
+  administrative        = true
   autodeploy            = false
   github_action_deploy  = false
   protect_from_deletion = true
