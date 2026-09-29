@@ -16,7 +16,7 @@ data "spacelift_account" "current" {}
 locals {
   role_name = "spacelift"
   role_arn  = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.role_name}"
-  tofu_version = "1.11.5"
+  tofu_version = "1.12.6"
 }
 
 resource "spacelift_space" "oconnordev" {
