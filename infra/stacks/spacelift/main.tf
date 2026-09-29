@@ -59,7 +59,7 @@ resource "spacelift_role_attachment" "oconnordev_space_admin" {
 
 import {
   to = spacelift_role_attachment.oconnordev_space_admin
-  id = "STACK/01JMEWJKVT0H1BCTQ8HS5X483E"
+  id = "STACK/01KT1DP4RKQSG56846W5SC9EE6"
 }
 
 resource "spacelift_stack" "oconnordev_general" {
