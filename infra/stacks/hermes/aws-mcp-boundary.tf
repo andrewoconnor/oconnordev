@@ -43,13 +43,19 @@ resource "aws_iam_role_policy_attachment" "hermes_gateway_readonly" {
 # credential provider. An explicit Deny always wins over the managed allow.
 data "aws_iam_policy_document" "hermes_gateway_readonly_guardrails" {
   statement {
-    sid       = "DenySecretValueReadsOutsideGitHubPat"
-    effect    = "Deny"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = ["*"]
+    sid     = "DenySecretValueReadsOutsideGitHubPat"
+    effect  = "Deny"
+    actions = ["secretsmanager:GetSecretValue"]
 
+    # NotResource only. An IAM statement may carry either Resource or
+    # NotResource but never both, and aws_iam_policy_document emits whichever
+    # ones are set: adding `resources = ["*"]` here produces a statement with
+    # both keys, which the IAM API rejects with MalformedPolicyDocument. No
+    # local gate catches it, because the document is computed locally and only
+    # the IAM API validates it, hence the precondition on the resource below.
     # Keep the GitHub machine-user PAT readable: the GitHub target's API-key
-    # credential provider resolves it through this role.
+    # credential provider resolves it through this role, so denying it here
+    # would break the sibling target.
     not_resources = [aws_secretsmanager_secret.github_machine_user_pat.arn]
   }
 }
@@ -58,6 +64,18 @@ resource "aws_iam_role_policy" "hermes_gateway_readonly_guardrails" {
   name   = "hermes-agentcore-readonly-guardrails"
   role   = aws_iam_role.hermes_gateway.id
   policy = data.aws_iam_policy_document.hermes_gateway_readonly_guardrails.json
+
+  lifecycle {
+    # Guards the failure mode that tofu validate, tflint and Checkov cannot
+    # see: a statement carrying both Resource and NotResource.
+    precondition {
+      condition = length([
+        for statement in jsondecode(data.aws_iam_policy_document.hermes_gateway_readonly_guardrails.json).Statement :
+        statement if can(statement.Resource) && can(statement.NotResource)
+      ]) == 0
+      error_message = "Each guardrail statement must set either Resource or NotResource, never both; the IAM API rejects a statement that sets both."
+    }
+  }
 }
 
 resource "aws_bedrockagentcore_gateway_target" "aws" {
