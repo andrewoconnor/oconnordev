@@ -77,13 +77,13 @@ locals {
   hermes_gateway_name       = "hermes"
   hermes_policy_engine_name = "hermes_policy_engine"
   github_target_name        = "github"
-  gateway_scope             = "hermes-github/invoke"
+  gateway_scope             = "hermes-mcp/invoke"
   github_tool_manifest      = jsondecode(file("${path.module}/adapter/github-mcp-tools.json"))
   github_native_tools       = toset(local.github_tool_manifest.tools)
   github_read_tools         = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read"])
   github_branch_tools       = toset(["create_branch", "push_files"])
   github_policy_tools       = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
-  hermes_cognito_domain     = "hermes-github-${data.aws_caller_identity.current.account_id}"
+  hermes_cognito_domain     = "hermes-mcp-${data.aws_caller_identity.current.account_id}"
   cognito_issuer            = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.hermes.id}"
   cognito_token_url         = "https://${aws_cognito_user_pool_domain.hermes.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
   github_cedar_repo_set     = jsonencode(sort(tolist(var.hermes_github_allowed_repositories)))
@@ -138,17 +138,23 @@ resource "aws_iam_role" "hermes_gateway" {
 }
 
 resource "aws_cognito_user_pool" "hermes" {
-  name = "hermes-github-m2m"
+  name = "hermes-mcp-m2m"
 }
 
 resource "aws_cognito_resource_server" "hermes" {
   user_pool_id = aws_cognito_user_pool.hermes.id
-  identifier   = "hermes-github"
-  name         = "Hermes GitHub tools"
+  identifier   = "hermes-mcp"
+  name         = "Hermes MCP gateway"
 
   scope {
     scope_name        = "invoke"
-    scope_description = "Invoke the allowlisted Hermes GitHub MCP tools."
+    scope_description = "Invoke the shared Hermes MCP Gateway."
+  }
+
+  lifecycle {
+    # Cognito permits both resource servers during the scope transition.
+    # Keep the old scope until the client and Gateway use the new one.
+    create_before_destroy = true
   }
 }
 
@@ -158,7 +164,7 @@ resource "aws_cognito_user_pool_domain" "hermes" {
 }
 
 resource "aws_cognito_user_pool_client" "hermes" {
-  name                                 = "hermes-github-local-adapter"
+  name                                 = "hermes-mcp-local-adapter"
   user_pool_id                         = aws_cognito_user_pool.hermes.id
   generate_secret                      = true
   allowed_oauth_flows_user_pool_client = true
