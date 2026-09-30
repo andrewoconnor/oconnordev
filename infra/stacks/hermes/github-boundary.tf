@@ -398,6 +398,10 @@ resource "aws_bedrockagentcore_policy" "github_branch_write" {
   depends_on = [aws_bedrockagentcore_gateway_target.github]
 }
 
+# Cedar's validator cannot prove safety for `!(x has A) || x.A ...`, so the two
+# optional-attribute guards below negate a positively guarded test instead.
+# Written the obvious way, the policy engine rejects the policy with "unable to
+# guarantee safety of access to optional attribute input.reviewers in context".
 resource "aws_bedrockagentcore_policy" "github_create_draft_pr" {
   for_each = {
     for repository, branch in var.hermes_github_default_branches : repository => branch
@@ -430,8 +434,8 @@ resource "aws_bedrockagentcore_policy" "github_create_draft_pr" {
           context.input.base == ${jsonencode(each.value)} &&
           context.input has draft &&
           context.input.draft == true &&
-          (!(context.input has maintainer_can_modify) || context.input.maintainer_can_modify == false) &&
-          (!(context.input has reviewers) || context.input.reviewers.isEmpty())
+          !(context.input has maintainer_can_modify && context.input.maintainer_can_modify != false) &&
+          !(context.input has reviewers && !context.input.reviewers.isEmpty())
         };
       CEDAR
     }
