@@ -94,6 +94,9 @@ def rpc(method, params=None, message_id=1):
 
 
 class AdapterTests(unittest.TestCase):
+    def test_required_scope_matches_generic_cognito_resource_server(self):
+        self.assertEqual(REQUIRED_SCOPE, "hermes-mcp/invoke")
+
     def test_initial_token_acquisition_requests_client_credentials_and_exact_scope(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
