@@ -8,13 +8,13 @@ from hermes_github_adapter import AgentCoreForwarder, REQUIRED_SCOPE
 GATEWAY_URL = "https://gateway-id.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
 TOKEN_URL = "https://pool.auth.us-east-1.amazoncognito.com/oauth2/token"
 EXPECTED_TOOLS = {
-    "get_regional_availability",
-    "get_tasks",
-    "list_regions",
-    "read_documentation",
-    "retrieve_skill",
-    "run_script",
-    "search_documentation",
+    "aws___get_regional_availability",
+    "aws___get_tasks",
+    "aws___list_regions",
+    "aws___read_documentation",
+    "aws___retrieve_skill",
+    "aws___run_script",
+    "aws___search_documentation",
 }
 
 
@@ -40,7 +40,7 @@ class FakeTransport:
         if message["method"] == "tools/list":
             names = [f"{self.prefix}{tool}" for tool in sorted(AWS_TOOLS)]
             if self.extra_tool:
-                names.append(f"{self.prefix}get_presigned_url")
+                names.append(f"{self.prefix}aws___get_presigned_url")
             if self.missing_tool:
                 names.pop(0)
             result = {"tools": [{"name": name, "description": "safe"} for name in names]}
@@ -79,18 +79,28 @@ class AwsAdapterTests(unittest.TestCase):
 
     def test_write_capable_tool_is_excluded(self):
         # get_presigned_url mints S3 upload URLs, so it is outside the boundary.
-        self.assertNotIn("get_presigned_url", AWS_TOOLS)
-        self.assertIn("get_presigned_url", TOOL_MANIFEST["excluded_tools"])
+        self.assertNotIn("aws___get_presigned_url", AWS_TOOLS)
+        self.assertIn("aws___get_presigned_url", TOOL_MANIFEST["excluded_tools"])
+
+    def test_gateway_action_names_double_the_prefix(self):
+        # AgentCore prefixes each action with the target name, and the AWS MCP
+        # Server already namespaces its tools with aws___. The gateway action is
+        # therefore aws___aws___<tool>. Recording the manifest names without the
+        # server's own prefix produced "unrecognized action" policy failures.
+        self.assertEqual(f"{TARGET_PREFIX}aws___run_script", "aws___aws___run_script")
+        self.assertEqual(f"{TARGET_PREFIX}aws___search_documentation", "aws___aws___search_documentation")
+        for tool in AWS_TOOLS:
+            self.assertTrue(tool.startswith("aws___"), tool)
 
     def test_tool_calls_are_forwarded_with_the_aws_target_prefix(self):
         transport = FakeTransport()
-        result = make_forwarder(transport).handle(rpc("tools/call", {"name": "list_regions", "arguments": {}}))
+        result = make_forwarder(transport).handle(rpc("tools/call", {"name": "aws___list_regions", "arguments": {}}))
         self.assertEqual(result["result"]["content"][0]["text"], "safe")
-        self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "aws___list_regions")
+        self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "aws___aws___list_regions")
 
     def test_no_github_toolset_header_is_sent_to_the_aws_target(self):
         transport = FakeTransport()
-        make_forwarder(transport).handle(rpc("tools/call", {"name": "list_regions", "arguments": {}}))
+        make_forwarder(transport).handle(rpc("tools/call", {"name": "aws___list_regions", "arguments": {}}))
         header_names = {key.lower() for key in transport.gateway_calls[0][2]}
         self.assertNotIn("x-mcp-tools", header_names)
 
@@ -101,7 +111,7 @@ class AwsAdapterTests(unittest.TestCase):
         names = {tool["name"] for tool in result["result"]["tools"]}
         self.assertEqual(names, EXPECTED_TOOLS)
         self.assertEqual(len(names), 7)
-        self.assertNotIn("get_presigned_url", names)
+        self.assertNotIn("aws___get_presigned_url", names)
 
     def test_gateway_tool_set_mismatch_fails_closed(self):
         transport = FakeTransport()
@@ -118,13 +128,13 @@ class AwsAdapterTests(unittest.TestCase):
     def test_unknown_and_cross_target_tools_are_rejected_without_forwarding(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        self.assertEqual(forwarder.handle(rpc("tools/call", {"name": "get_presigned_url"}))["error"]["code"], -32602)
+        self.assertEqual(forwarder.handle(rpc("tools/call", {"name": "aws___get_presigned_url"}))["error"]["code"], -32602)
         self.assertEqual(forwarder.handle(rpc("tools/call", {"name": "push_files"}))["error"]["code"], -32602)
         self.assertEqual(transport.gateway_calls, [])
 
     def test_client_secret_and_tokens_are_not_in_json_rpc_responses(self):
         transport = FakeTransport()
-        response = make_forwarder(transport).handle(rpc("tools/call", {"name": "list_regions", "arguments": {}}))
+        response = make_forwarder(transport).handle(rpc("tools/call", {"name": "aws___list_regions", "arguments": {}}))
         encoded = json.dumps(response)
         self.assertNotIn("synthetic-access-token", encoded)
         self.assertNotIn("synthetic-client-secret", encoded)
