@@ -252,7 +252,7 @@ resource "aws_lambda_function" "github_connector" {
   function_name                  = local.github_connector_name
   description                    = "Allowlisted GitHub App change-proposal tools for Hermes AgentCore Gateway."
   role                           = aws_iam_role.github_connector.arn
-  runtime                        = "nodejs24.x"
+  runtime                        = "nodejs26.x"
   handler                        = "index.handler"
   s3_bucket                      = aws_signer_signing_job.github_connector.signed_object[0].s3[0].bucket
   s3_key                         = aws_signer_signing_job.github_connector.signed_object[0].s3[0].key

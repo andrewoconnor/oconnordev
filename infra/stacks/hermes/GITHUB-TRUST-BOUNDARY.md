@@ -35,6 +35,7 @@ References:
 - [AWS AgentCore inbound JWT authorizer](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/inbound-jwt-authorizer.html)
 - [AWS AgentCore Gateway metrics](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-gateway-metrics.html)
 - [Hermes MCP configuration reference](https://hermes-agent.nousresearch.com/docs/reference/mcp-config-reference)
+- [AWS Lambda runtime support, including Node.js 26 public-preview status](https://docs.aws.amazon.com/lambda/latest/dg/lambda-runtimes.html)
 
 ## Existing repository resources reviewed
 
@@ -48,7 +49,10 @@ References:
 - Cognito: one user pool, one custom resource server/scope (`hermes-github/invoke`), one Cognito domain, and one dedicated M2M app client using `client_credentials`.
 - AgentCore: one `CUSTOM_JWT` MCP Gateway and one native Lambda target containing exactly five inline tool definitions.
 - IAM: one Lambda execution role/policy, one distinct AgentCore service integration role/policy, and the existing Spacelift deployment identity left separate and unchanged.
-- Lambda: one Node.js 24.x connector function, reserved concurrency 5, 256 MiB memory, 30-second timeout, enforced Lambda code-signing config, and a 30-day CloudWatch log group encrypted with a customer-managed KMS key.
+- Lambda: one Node.js 26.x **public-preview** connector function, reserved concurrency 5, 256 MiB memory, 30-second timeout, enforced Lambda code-signing config, and a 30-day CloudWatch log group encrypted with a customer-managed KMS key.
+
+**Production warning:** AWS currently marks `nodejs26.x` as a public-preview runtime and explicitly advises against production workloads because it is not covered by the Lambda SLA/Technical Support and may change. This runtime change is at your request, but it means this PR should not be treated as production-ready for deployment until Node.js 26 reaches general availability or the runtime is changed back to a GA version.
+
 - Code signing/artifacts: one AWS Signer `AWSLambda-SHA384-ECDSA` profile; a versioned, private, SSE-S3 artifact bucket; one signing job per package change; and a code-signing config set to `Enforce` for untrusted artifacts.
 - CloudWatch: Lambda error/throttle alarms, a sanitized GitHub-auth-failure metric filter/alarm, and an AgentCore `UserErrors` alarm for repeated 4xx responses including unauthorized requests. Alarm actions are not configured because no notification destination was specified.
 - Packaging: one `archive_file` data source, uploaded to the versioned artifact bucket and signed before Lambda deployment. No resource reads or writes the secret value during Terraform evaluation.
