@@ -6,13 +6,26 @@ from urllib.parse import parse_qs
 from hermes_github_adapter import (
     AdapterError,
     AgentCoreForwarder,
+    GITHUB_TOOLS,
+    GITHUB_TOOL_FILTER_VALUE,
     REQUIRED_SCOPE,
+    TOOL_MANIFEST,
     TOOLS,
     TokenCache,
 )
 
 GATEWAY_URL = "https://gateway-id.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
 TOKEN_URL = "https://pool.auth.us-east-1.amazoncognito.com/oauth2/token"
+EXPECTED_TOOLS = {
+    "get_file_contents",
+    "list_branches",
+    "get_commit",
+    "create_branch",
+    "push_files",
+    "create_pull_request",
+    "pull_request_read",
+}
+EXPECTED_TOOL_HEADER = ",".join(sorted(EXPECTED_TOOLS))
 
 
 class FakeTransport:
@@ -24,6 +37,7 @@ class FakeTransport:
         self.scope = REQUIRED_SCOPE
         self.omit_scope = False
         self.extra_tool = False
+        self.missing_tool = False
         self.tokens = []
 
     def request(self, url, method, headers, body):
@@ -47,6 +61,8 @@ class FakeTransport:
             names = [f"github___{tool}" for tool in sorted(TOOLS)]
             if self.extra_tool:
                 names.append("github___dangerous_tool")
+            if self.missing_tool:
+                names.pop(0)
             result = {"tools": [{"name": name, "description": "safe"} for name in names]}
         elif message["method"] == "tools/call":
             result = {"content": [{"type": "text", "text": "safe"}]}
@@ -81,11 +97,12 @@ class AdapterTests(unittest.TestCase):
     def test_initial_token_acquisition_requests_client_credentials_and_exact_scope(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        result = forwarder.handle(rpc("tools/call", {"name": "repository_info", "arguments": {"repository": "sample"}}))
+        result = forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {"owner": "andrewoconnor", "repo": "sample", "path": "src/main.py"}}))
         self.assertEqual(result["result"]["content"][0]["text"], "safe")
         self.assertEqual(transport.token_calls, 1)
         token_body = transport.gateway_calls[0][3]
-        self.assertEqual(token_body["params"]["name"], "github___repository_info")
+        self.assertEqual(token_body["params"]["name"], "github___get_file_contents")
+        self.assertEqual(transport.gateway_calls[0][2]["X-MCP-Tools"], EXPECTED_TOOL_HEADER)
 
     def test_token_caching_reuses_token(self):
         transport = FakeTransport()
@@ -138,31 +155,40 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(result["error"]["message"], "oauth_scope_mismatch")
             self.assertEqual(transport.gateway_calls, [])
 
-    def test_only_five_logical_tools_are_exposed_and_prefix_is_removed(self):
+    def test_allowlist_matches_verified_official_tool_names(self):
+        self.assertEqual(TOOLS, EXPECTED_TOOLS)
+        self.assertEqual(set(GITHUB_TOOLS), EXPECTED_TOOLS)
+        self.assertEqual(len(GITHUB_TOOLS), len(EXPECTED_TOOLS))
+        self.assertEqual(GITHUB_TOOL_FILTER_VALUE, EXPECTED_TOOL_HEADER)
+        self.assertEqual(TOOL_MANIFEST["upstream_commit"], "85598ba6e1256f7ebf4867b95d63b833c4549264")
+
+    def test_only_exact_official_tools_are_exposed_and_prefix_is_removed(self):
         transport = FakeTransport()
+        transport.extra_tool = True
         forwarder = make_forwarder(transport)
         result = forwarder.handle(rpc("tools/list"))
         names = {tool["name"] for tool in result["result"]["tools"]}
-        self.assertEqual(names, TOOLS)
-        self.assertEqual(len(names), 5)
+        self.assertEqual(names, EXPECTED_TOOLS)
+        self.assertEqual(len(names), 7)
+        self.assertEqual(transport.gateway_calls[0][2]["X-MCP-Tools"], EXPECTED_TOOL_HEADER)
 
     def test_unknown_methods_and_tools_are_rejected_without_forwarding(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
         self.assertEqual(forwarder.handle(rpc("resources/read"))["error"]["code"], -32601)
-        self.assertEqual(forwarder.handle(rpc("tools/call", {"name": "graphql"}))["error"]["code"], -32602)
+        self.assertEqual(forwarder.handle(rpc("tools/call", {"name": "repository_info"}))["error"]["code"], -32602)
         self.assertEqual(transport.gateway_calls, [])
 
     def test_gateway_tool_set_mismatch_fails_closed(self):
         transport = FakeTransport()
-        transport.extra_tool = True
+        transport.missing_tool = True
         result = make_forwarder(transport).handle(rpc("tools/list"))
         self.assertEqual(result["error"]["message"], "gateway_tool_set_mismatch")
 
     def test_destination_cannot_be_overridden_by_tool_arguments(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        forwarder.handle(rpc("tools/call", {"name": "repository_info", "arguments": {"url": "https://evil.invalid"}}))
+        forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {"owner": "andrewoconnor", "repo": "sample", "path": "src/main.py", "url": "https://evil.invalid"}}))
         self.assertEqual(transport.gateway_calls[0][0], GATEWAY_URL)
         self.assertEqual(len(transport.gateway_calls), 1)
 
@@ -176,7 +202,7 @@ class AdapterTests(unittest.TestCase):
     def test_client_secret_and_tokens_are_not_in_json_rpc_responses(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        response = forwarder.handle(rpc("tools/call", {"name": "repository_info", "arguments": {"repository": "sample"}}))
+        response = forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {"owner": "andrewoconnor", "repo": "sample", "path": "src/main.py"}}))
         encoded = json.dumps(response)
         self.assertNotIn("synthetic-access-token", encoded)
         self.assertNotIn("synthetic-client-secret", encoded)

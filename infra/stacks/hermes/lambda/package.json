@@ -1,8 +1,0 @@
-{
-  "name": "hermes-github-connector",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "test": "node --test"
-  }
-}

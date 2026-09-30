@@ -1,0 +1,14 @@
+{
+  "upstream_repository": "github/github-mcp-server",
+  "upstream_commit": "85598ba6e1256f7ebf4867b95d63b833c4549264",
+  "hosted_endpoint": "https://api.githubcopilot.com/mcp/",
+  "tools": [
+    "get_file_contents",
+    "list_branches",
+    "get_commit",
+    "create_branch",
+    "push_files",
+    "create_pull_request",
+    "pull_request_read"
+  ]
+}
