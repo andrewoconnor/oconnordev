@@ -17,6 +17,10 @@ data "aws_cloudfront_origin_request_policy" "hermes_mcp_all_viewer_except_host" 
   name = "Managed-AllViewerExceptHostHeader"
 }
 
+data "aws_cloudfront_response_headers_policy" "hermes_mcp_security" {
+  name = "Managed-SecurityHeadersPolicy"
+}
+
 locals {
   # The current production certificate covers *.oconnor.dev. It does not cover
   # mcp.hermes.oconnor.dev, so use the covered one-label name.
@@ -24,6 +28,11 @@ locals {
   hermes_mcp_enabled     = trimspace(var.hermes_gateway_origin_hostname) != ""
 }
 
+# checkov:skip=CKV_AWS_310:Single AgentCore origin has no independent failover endpoint.
+# checkov:skip=CKV_AWS_375:This public MCP endpoint is intended for worldwide use; geo restrictions would block traveling clients.
+# checkov:skip=CKV_AWS_68:Cognito JWT authorization and Cedar enforce access; avoid fixed WAF cost for this personal endpoint.
+# checkov:skip=CKV_AWS_86:Access logs are intentionally disabled to avoid storage cost and retained request metadata.
+# checkov:skip=CKV2_AWS_47:No WAF is attached by design; AgentCore JWT authorization and Cedar policies enforce access.
 resource "aws_cloudfront_distribution" "hermes_mcp" {
   count = local.hermes_mcp_enabled ? 1 : 0
 
@@ -38,18 +47,20 @@ resource "aws_cloudfront_distribution" "hermes_mcp" {
     }
   }
 
-  enabled         = true
-  is_ipv6_enabled = true
-  aliases         = [local.hermes_mcp_domain_name]
-  price_class     = "PriceClass_100"
+  enabled             = true
+  is_ipv6_enabled     = true
+  default_root_object = "mcp"
+  aliases             = [local.hermes_mcp_domain_name]
+  price_class         = "PriceClass_100"
 
   default_cache_behavior {
-    allowed_methods          = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
-    cached_methods           = ["GET", "HEAD"]
-    target_origin_id         = "hermes-agentcore-gateway"
-    cache_policy_id          = data.aws_cloudfront_cache_policy.hermes_mcp_disabled.id
-    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.hermes_mcp_all_viewer_except_host.id
-    viewer_protocol_policy   = "https-only"
+    allowed_methods            = ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "POST", "PUT"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "hermes-agentcore-gateway"
+    cache_policy_id            = data.aws_cloudfront_cache_policy.hermes_mcp_disabled.id
+    origin_request_policy_id   = data.aws_cloudfront_origin_request_policy.hermes_mcp_all_viewer_except_host.id
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.hermes_mcp_security.id
+    viewer_protocol_policy     = "https-only"
   }
 
   restrictions {
