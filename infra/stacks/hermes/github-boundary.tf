@@ -25,7 +25,7 @@ resource "aws_secretsmanager_secret" "github_machine_user_pat" {
 variable "hermes_github_allowed_repositories" {
   description = "AWS-side allowlist of repository names owned by andrewoconnor. Empty denies all access."
   type        = set(string)
-  default     = []
+  default     = ["oconnordev"]
 
   validation {
     condition = alltrue([
@@ -38,7 +38,7 @@ variable "hermes_github_allowed_repositories" {
 variable "hermes_github_default_branches" {
   description = "Configured default branch for each allowlisted repository; writes and PR bases are constrained against these values."
   type        = map(string)
-  default     = {}
+  default     = { oconnordev = "master" }
 
   validation {
     condition = alltrue([
