@@ -304,8 +304,13 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
     mcp {
       mcp_server {
         endpoint = local.github_tool_manifest.hosted_endpoint
-        # Forward tools/list live so GitHub applies its native individual-tool filter.
-        listing_mode = "DYNAMIC"
+        # DEFAULT caches the MCP resource list at the control plane. An AgentCore
+        # policy engine cannot enumerate a DYNAMIC target live, so creating the
+        # Cedar policies fails while this target is dynamic ("its tools must be
+        # listed live from the gateway and that listing failed"). The local
+        # adapter still narrows tools/list to the seven GitHub-native tools in
+        # the manifest, and Cedar default-deny still gates every other tool.
+        listing_mode = "DEFAULT"
       }
     }
   }

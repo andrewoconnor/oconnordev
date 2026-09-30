@@ -10,6 +10,12 @@ The Hermes stack defaults `hermes_github_allowed_repositories` to `["oconnordev"
 
 These are Terraform variable defaults only. If the `oconnordev-hermes` Spacelift stack supplies `TF_VAR_hermes_github_allowed_repositories` or `TF_VAR_hermes_github_default_branches`, the supplied values take precedence and these defaults have no effect. Confirm the stack's environment variables before relying on the defaults.
 
+## GitHub target listing mode
+
+The GitHub target uses `listing_mode = "DEFAULT"`, so AgentCore caches its MCP resource list at the control plane. A `DYNAMIC` target is listed live instead, and policy-engine policy creation cannot do that: it fails with "The gateway has a dynamic target, so its tools must be listed live from the gateway and that listing failed." With `DEFAULT`, tools are synced when the target is created or updated, which is what policy creation and Cedar validation read.
+
+The sync captures whatever the upstream server returns at that moment. GitHub's hosted MCP currently lists 43 tools, so the Gateway advertises more tools than the seven in `adapter/github-mcp-tools.json`. That does not widen authority: Cedar permits only those seven action names, the local adapter narrows `tools/list` to the manifest set, and unmatched calls remain denied.
+
 ## Naming/state migration
 
 The old GitHub-specific Terraform addresses are migrated with `moved` blocks. Physical names change for the AgentCore Gateway (`hermes-github` → `hermes`), policy engine (`hermes_github_policy_engine` → `hermes_policy_engine`), Gateway role (`hermes-github-agentcore-gateway` → `hermes-agentcore-gateway`), and alarm (`hermes-github-gateway-user-errors` → `hermes-gateway-user-errors`). These require replacements: expect a new Gateway ID/URL and policy-engine ID, recreation/rebinding of its target and Cedar policies, and recreation of the role and its inline policies. This is intentionally a coordinated cutover before adding more targets; review the actual state-backed plan before applying. The previously noted console-created `test` policy must be identified and reconciled/imported or deliberately handled before deleting/replacing the existing policy engine; its ID is not guessed here.
