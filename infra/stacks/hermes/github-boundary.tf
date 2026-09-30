@@ -13,16 +13,12 @@ import {
 resource "aws_secretsmanager_secret" "github_machine_user_pat" {
   name        = data.aws_secretsmanager_secret.github_machine_user_pat_existing.name
   description = data.aws_secretsmanager_secret.github_machine_user_pat_existing.description
-  # Preserve the existing KMS key; Terraform reads metadata only, never the secret value.
-  kms_key_id = data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id
+  # Preserve an explicit customer-managed key. An empty metadata value means
+  # Secrets Manager's default aws/secretsmanager KMS key, so leave this unset.
+  kms_key_id = trimspace(data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id) != "" ? data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id : null
 
   lifecycle {
     prevent_destroy = true
-
-    precondition {
-      condition     = data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id != null && data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id != ""
-      error_message = "The existing machine-user PAT secret must report a KMS key before it can be adopted."
-    }
   }
 }
 
