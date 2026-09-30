@@ -74,18 +74,19 @@ variable "hermes_github_machine_user_pat_json_key" {
 }
 
 locals {
-  github_gateway_name   = "hermes-github"
-  github_target_name    = "github"
-  github_scope          = "hermes-github/invoke"
-  github_tool_manifest  = jsondecode(file("${path.module}/adapter/github-mcp-tools.json"))
-  github_native_tools   = toset(local.github_tool_manifest.tools)
-  github_read_tools     = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read"])
-  github_branch_tools   = toset(["create_branch", "push_files"])
-  github_policy_tools   = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
-  github_cognito_domain = "hermes-github-${data.aws_caller_identity.current.account_id}"
-  cognito_issuer        = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.github.id}"
-  cognito_token_url     = "https://${aws_cognito_user_pool_domain.github.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
-  github_cedar_repo_set = jsonencode(sort(tolist(var.hermes_github_allowed_repositories)))
+  hermes_gateway_name       = "hermes"
+  hermes_policy_engine_name = "hermes_policy_engine"
+  github_target_name        = "github"
+  gateway_scope             = "hermes-github/invoke"
+  github_tool_manifest      = jsondecode(file("${path.module}/adapter/github-mcp-tools.json"))
+  github_native_tools       = toset(local.github_tool_manifest.tools)
+  github_read_tools         = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read"])
+  github_branch_tools       = toset(["create_branch", "push_files"])
+  github_policy_tools       = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
+  hermes_cognito_domain     = "hermes-github-${data.aws_caller_identity.current.account_id}"
+  cognito_issuer            = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.hermes.id}"
+  cognito_token_url         = "https://${aws_cognito_user_pool_domain.hermes.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
+  github_cedar_repo_set     = jsonencode(sort(tolist(var.hermes_github_allowed_repositories)))
 
   github_branch_policy_matrix = {
     for pair in setproduct(var.hermes_github_allowed_repositories, local.github_branch_tools) : jsonencode(pair) => {
@@ -108,12 +109,12 @@ resource "aws_bedrockagentcore_api_key_credential_provider" "github" {
   }
 }
 
-resource "aws_bedrockagentcore_policy_engine" "github" {
-  name        = "hermes_github_policy_engine"
-  description = "Default-deny Cedar guardrails for the allowlisted GitHub MCP tools."
+resource "aws_bedrockagentcore_policy_engine" "hermes" {
+  name        = local.hermes_policy_engine_name
+  description = "Default-deny Cedar guardrails for Hermes MCP targets and tools."
 }
 
-data "aws_iam_policy_document" "github_gateway_trust" {
+data "aws_iam_policy_document" "hermes_gateway_trust" {
   statement {
     effect  = "Allow"
     actions = ["sts:AssumeRole"]
@@ -131,17 +132,17 @@ data "aws_iam_policy_document" "github_gateway_trust" {
   }
 }
 
-resource "aws_iam_role" "github_gateway" {
-  name               = "hermes-github-agentcore-gateway"
-  assume_role_policy = data.aws_iam_policy_document.github_gateway_trust.json
+resource "aws_iam_role" "hermes_gateway" {
+  name               = "hermes-agentcore-gateway"
+  assume_role_policy = data.aws_iam_policy_document.hermes_gateway_trust.json
 }
 
-resource "aws_cognito_user_pool" "github" {
+resource "aws_cognito_user_pool" "hermes" {
   name = "hermes-github-m2m"
 }
 
-resource "aws_cognito_resource_server" "github" {
-  user_pool_id = aws_cognito_user_pool.github.id
+resource "aws_cognito_resource_server" "hermes" {
+  user_pool_id = aws_cognito_user_pool.hermes.id
   identifier   = "hermes-github"
   name         = "Hermes GitHub tools"
 
@@ -151,18 +152,18 @@ resource "aws_cognito_resource_server" "github" {
   }
 }
 
-resource "aws_cognito_user_pool_domain" "github" {
-  domain       = local.github_cognito_domain
-  user_pool_id = aws_cognito_user_pool.github.id
+resource "aws_cognito_user_pool_domain" "hermes" {
+  domain       = local.hermes_cognito_domain
+  user_pool_id = aws_cognito_user_pool.hermes.id
 }
 
-resource "aws_cognito_user_pool_client" "github" {
+resource "aws_cognito_user_pool_client" "hermes" {
   name                                 = "hermes-github-local-adapter"
-  user_pool_id                         = aws_cognito_user_pool.github.id
+  user_pool_id                         = aws_cognito_user_pool.hermes.id
   generate_secret                      = true
   allowed_oauth_flows_user_pool_client = true
   allowed_oauth_flows                  = ["client_credentials"]
-  allowed_oauth_scopes                 = [aws_cognito_resource_server.github.scope_identifiers[0]]
+  allowed_oauth_scopes                 = [aws_cognito_resource_server.hermes.scope_identifiers[0]]
   supported_identity_providers         = ["COGNITO"]
   access_token_validity                = 5
 
@@ -171,17 +172,26 @@ resource "aws_cognito_user_pool_client" "github" {
   }
 }
 
-data "aws_iam_policy_document" "github_gateway_credentials" {
+data "aws_iam_policy_document" "hermes_gateway_core" {
   statement {
     sid     = "GetGatewayWorkloadAccessToken"
     effect  = "Allow"
     actions = ["bedrock-agentcore:GetWorkloadAccessToken"]
     resources = [
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default",
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.github_gateway_name}-*",
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",
     ]
   }
 
+  statement {
+    sid       = "ReadGatewayPolicyEngine"
+    effect    = "Allow"
+    actions   = ["bedrock-agentcore:GetPolicyEngine"]
+    resources = [aws_bedrockagentcore_policy_engine.hermes.policy_engine_arn]
+  }
+}
+
+data "aws_iam_policy_document" "github_target_credentials" {
   statement {
     sid       = "GetGitHubPATFromAgentCoreIdentity"
     effect    = "Allow"
@@ -195,17 +205,9 @@ data "aws_iam_policy_document" "github_gateway_credentials" {
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [aws_secretsmanager_secret.github_machine_user_pat.arn]
   }
-
-  statement {
-    sid       = "ReadGatewayPolicyEngine"
-    effect    = "Allow"
-    actions   = ["bedrock-agentcore:GetPolicyEngine"]
-    resources = [aws_bedrockagentcore_policy_engine.github.policy_engine_arn]
-  }
-
 }
 
-data "aws_iam_policy_document" "github_gateway_policy_authorization" {
+data "aws_iam_policy_document" "hermes_gateway_policy_authorization" {
   statement {
     sid    = "AuthorizeGatewayActions"
     effect = "Allow"
@@ -216,35 +218,41 @@ data "aws_iam_policy_document" "github_gateway_policy_authorization" {
     # Name-scoped ARN patterns avoid depending on generated resource IDs, so
     # Terraform can attach this policy before creating or updating the gateway.
     resources = [
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:policy-engine/hermes_github_policy_engine*",
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:gateway/${local.github_gateway_name}*",
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:policy-engine/${local.hermes_policy_engine_name}*",
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:gateway/${local.hermes_gateway_name}*",
     ]
   }
 }
 
-resource "aws_iam_role_policy" "github_gateway_credentials" {
+resource "aws_iam_role_policy" "hermes_gateway_core" {
+  name   = "hermes-agentcore-core"
+  role   = aws_iam_role.hermes_gateway.id
+  policy = data.aws_iam_policy_document.hermes_gateway_core.json
+}
+
+resource "aws_iam_role_policy" "github_target_credentials" {
   name   = "hermes-github-agentcore-credentials"
-  role   = aws_iam_role.github_gateway.id
-  policy = data.aws_iam_policy_document.github_gateway_credentials.json
+  role   = aws_iam_role.hermes_gateway.id
+  policy = data.aws_iam_policy_document.github_target_credentials.json
 }
 
-resource "aws_iam_role_policy" "github_gateway_policy_authorization" {
-  name   = "hermes-github-agentcore-policy"
-  role   = aws_iam_role.github_gateway.id
-  policy = data.aws_iam_policy_document.github_gateway_policy_authorization.json
+resource "aws_iam_role_policy" "hermes_gateway_policy_authorization" {
+  name   = "hermes-agentcore-policy"
+  role   = aws_iam_role.hermes_gateway.id
+  policy = data.aws_iam_policy_document.hermes_gateway_policy_authorization.json
 }
 
-resource "aws_bedrockagentcore_gateway" "github" {
-  name            = local.github_gateway_name
-  role_arn        = aws_iam_role.github_gateway.arn
+resource "aws_bedrockagentcore_gateway" "hermes" {
+  name            = local.hermes_gateway_name
+  role_arn        = aws_iam_role.hermes_gateway.arn
   authorizer_type = "CUSTOM_JWT"
   protocol_type   = "MCP"
 
   authorizer_configuration {
     custom_jwt_authorizer {
       discovery_url   = "${local.cognito_issuer}/.well-known/openid-configuration"
-      allowed_clients = [aws_cognito_user_pool_client.github.id]
-      allowed_scopes  = [aws_cognito_resource_server.github.scope_identifiers[0]]
+      allowed_clients = [aws_cognito_user_pool_client.hermes.id]
+      allowed_scopes  = [aws_cognito_resource_server.hermes.scope_identifiers[0]]
 
       custom_claim {
         inbound_token_claim_name       = "token_use"
@@ -262,19 +270,19 @@ resource "aws_bedrockagentcore_gateway" "github" {
   }
 
   policy_engine_configuration {
-    arn  = aws_bedrockagentcore_policy_engine.github.policy_engine_arn
+    arn  = aws_bedrockagentcore_policy_engine.hermes.policy_engine_arn
     mode = "ENFORCE"
   }
 
   depends_on = [
-    aws_iam_role_policy.github_gateway_credentials,
-    aws_iam_role_policy.github_gateway_policy_authorization,
+    aws_iam_role_policy.hermes_gateway_core,
+    aws_iam_role_policy.hermes_gateway_policy_authorization,
   ]
 }
 
 resource "aws_bedrockagentcore_gateway_target" "github" {
   name               = local.github_target_name
-  gateway_identifier = aws_bedrockagentcore_gateway.github.gateway_id
+  gateway_identifier = aws_bedrockagentcore_gateway.hermes.gateway_id
   description        = "Direct, dynamically listed target to GitHub's official hosted MCP server."
 
   credential_provider_configuration {
@@ -308,8 +316,9 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
   }
 
   depends_on = [
-    aws_iam_role_policy.github_gateway_credentials,
-    aws_iam_role_policy.github_gateway_policy_authorization,
+    aws_iam_role_policy.hermes_gateway_core,
+    aws_iam_role_policy.github_target_credentials,
+    aws_iam_role_policy.hermes_gateway_policy_authorization,
   ]
 }
 
@@ -317,7 +326,7 @@ resource "aws_bedrockagentcore_policy" "github_read" {
   for_each = length(var.hermes_github_allowed_repositories) == 0 ? toset([]) : local.github_read_tools
 
   name             = "HermesGitHubRead_${replace(each.key, "_", "")}"
-  policy_engine_id = aws_bedrockagentcore_policy_engine.github.policy_engine_id
+  policy_engine_id = aws_bedrockagentcore_policy_engine.hermes.policy_engine_id
   description      = "Read-only ${each.key} is limited to the configured owner and repository allowlist."
   validation_mode  = "FAIL_ON_ANY_FINDINGS"
 
@@ -327,7 +336,7 @@ resource "aws_bedrockagentcore_policy" "github_read" {
         permit (
           principal,
           action == AgentCore::Action::"${local.github_target_name}___${each.key}",
-          resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.github.gateway_arn}"
+          resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.hermes.gateway_arn}"
         )
         when {
           context.input has owner &&
@@ -348,7 +357,7 @@ resource "aws_bedrockagentcore_policy" "github_branch_write" {
   for_each = local.github_branch_policy_matrix
 
   name             = "HermesGitHubWrite${replace(each.value.tool, "_", "")}${substr(sha256(each.value.repository), 0, 8)}"
-  policy_engine_id = aws_bedrockagentcore_policy_engine.github.policy_engine_id
+  policy_engine_id = aws_bedrockagentcore_policy_engine.hermes.policy_engine_id
   description      = "Allow ${each.value.tool} only on hermes/ feature branches in ${each.value.repository}."
   validation_mode  = "FAIL_ON_ANY_FINDINGS"
 
@@ -358,7 +367,7 @@ resource "aws_bedrockagentcore_policy" "github_branch_write" {
         permit (
           principal,
           action == AgentCore::Action::"${local.github_target_name}___${each.value.tool}",
-          resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.github.gateway_arn}"
+          resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.hermes.gateway_arn}"
         )
         when {
           context.input has owner &&
@@ -385,7 +394,7 @@ resource "aws_bedrockagentcore_policy" "github_create_draft_pr" {
   }
 
   name             = "HermesGitHubDraftPR${substr(sha256(each.key), 0, 12)}"
-  policy_engine_id = aws_bedrockagentcore_policy_engine.github.policy_engine_id
+  policy_engine_id = aws_bedrockagentcore_policy_engine.hermes.policy_engine_id
   description      = "Allow draft PR creation for ${each.key} only against its configured default branch."
   validation_mode  = "FAIL_ON_ANY_FINDINGS"
 
@@ -395,7 +404,7 @@ resource "aws_bedrockagentcore_policy" "github_create_draft_pr" {
         permit (
           principal,
           action == AgentCore::Action::"${local.github_target_name}___create_pull_request",
-          resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.github.gateway_arn}"
+          resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.hermes.gateway_arn}"
         )
         when {
           context.input has owner &&
@@ -421,7 +430,7 @@ resource "aws_bedrockagentcore_policy" "github_create_draft_pr" {
 }
 
 resource "aws_cloudwatch_metric_alarm" "gateway_user_errors" {
-  alarm_name          = "hermes-github-gateway-user-errors"
+  alarm_name          = "hermes-gateway-user-errors"
   alarm_description   = "Repeated AgentCore Gateway 4xx responses, including rejected authentication or policy decisions."
   namespace           = "AWS/Bedrock-AgentCore"
   metric_name         = "UserErrors"
@@ -433,31 +442,62 @@ resource "aws_cloudwatch_metric_alarm" "gateway_user_errors" {
   treat_missing_data  = "notBreaching"
 
   dimensions = {
-    Resource = aws_bedrockagentcore_gateway.github.gateway_arn
+    Resource = aws_bedrockagentcore_gateway.hermes.gateway_arn
   }
 }
 
-output "hermes_github_gateway_url" {
-  description = "Fixed HTTPS MCP endpoint for the local Hermes Cognito forwarding adapter."
-  value       = aws_bedrockagentcore_gateway.github.gateway_url
+output "hermes_gateway_url" {
+  description = "HTTPS MCP endpoint for the shared Hermes AgentCore Gateway."
+  value       = aws_bedrockagentcore_gateway.hermes.gateway_url
 }
 
-output "hermes_github_cognito_issuer" {
+output "hermes_gateway_origin_hostname" {
+  description = "Gateway origin hostname for the production-account CloudFront reverse proxy."
+  value       = split("/", trimprefix(aws_bedrockagentcore_gateway.hermes.gateway_url, "https://"))[0]
+}
+
+output "hermes_cognito_issuer" {
   description = "Cognito OIDC issuer used by the AgentCore JWT authorizer."
   value       = local.cognito_issuer
 }
 
-output "hermes_github_cognito_token_url" {
+output "hermes_cognito_token_url" {
   description = "Cognito OAuth client-credentials token endpoint for the local adapter."
   value       = local.cognito_token_url
 }
 
-output "hermes_github_cognito_client_id" {
+output "hermes_cognito_client_id" {
   description = "Non-secret Cognito M2M app client ID."
-  value       = aws_cognito_user_pool_client.github.id
+  value       = aws_cognito_user_pool_client.hermes.id
+}
+
+output "hermes_cognito_scope" {
+  description = "The single OAuth scope accepted by the AgentCore Gateway."
+  value       = local.gateway_scope
+}
+
+# Preserve legacy output names during the local adapter migration.
+output "hermes_github_gateway_url" {
+  description = "Deprecated compatibility alias for hermes_gateway_url."
+  value       = aws_bedrockagentcore_gateway.hermes.gateway_url
+}
+
+output "hermes_github_cognito_issuer" {
+  description = "Deprecated compatibility alias for hermes_cognito_issuer."
+  value       = local.cognito_issuer
+}
+
+output "hermes_github_cognito_token_url" {
+  description = "Deprecated compatibility alias for hermes_cognito_token_url."
+  value       = local.cognito_token_url
+}
+
+output "hermes_github_cognito_client_id" {
+  description = "Deprecated compatibility alias for hermes_cognito_client_id."
+  value       = aws_cognito_user_pool_client.hermes.id
 }
 
 output "hermes_github_cognito_scope" {
-  description = "The single OAuth scope accepted by the AgentCore Gateway."
-  value       = local.github_scope
+  description = "Deprecated compatibility alias for hermes_cognito_scope."
+  value       = local.gateway_scope
 }
