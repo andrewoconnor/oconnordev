@@ -63,7 +63,7 @@ variable "hermes_github_default_branches" {
 }
 
 variable "hermes_github_machine_user_pat_json_key" {
-  description = "JSON key holding the GitHub PAT in the existing Secrets Manager secret. The secret value is never read by Terraform."
+  description = "JSON object key holding the GitHub PAT in the existing Secrets Manager secret. AgentCore EXTERNAL credential providers require SecretString to be a JSON object (for example, {\"api_key\":\"<PAT>\"}); plaintext SecretString is rejected. Terraform never reads or manages the value."
   type        = string
   default     = "api_key"
 
@@ -100,6 +100,8 @@ resource "aws_bedrockagentcore_api_key_credential_provider" "github" {
   name                  = "hermes-github-machine-user-pat"
   api_key_secret_source = "EXTERNAL"
 
+  # Manually provision SecretString as a JSON object containing json_key. Do
+  # not add aws_secretsmanager_secret_version: keep the PAT outside Terraform.
   api_key_secret_config {
     secret_id = aws_secretsmanager_secret.github_machine_user_pat.arn
     json_key  = var.hermes_github_machine_user_pat_json_key
