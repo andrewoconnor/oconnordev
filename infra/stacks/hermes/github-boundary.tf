@@ -48,11 +48,65 @@ locals {
   cognito_domain_prefix = "hermes-github-${data.aws_caller_identity.current.account_id}"
   cognito_issuer        = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.github.id}"
   cognito_token_url     = "https://${aws_cognito_user_pool_domain.github.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
+  github_log_group_arn  = "arn:${data.aws_partition.current.partition}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.github_connector_name}"
+}
+
+data "aws_iam_policy_document" "github_logs_kms" {
+  statement {
+    sid    = "EnableAccountIAMPermissions"
+    effect = "Allow"
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+
+    actions   = ["kms:*"]
+    resources = ["*"]
+  }
+
+  statement {
+    sid    = "AllowCloudWatchLogsForConnectorLogGroup"
+    effect = "Allow"
+
+    principals {
+      type        = "Service"
+      identifiers = ["logs.${data.aws_region.current.region}.amazonaws.com"]
+    }
+
+    actions = [
+      "kms:Encrypt",
+      "kms:Decrypt",
+      "kms:ReEncrypt*",
+      "kms:GenerateDataKey*",
+      "kms:Describe*",
+    ]
+    resources = ["*"]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "kms:EncryptionContext:aws:logs:arn"
+      values   = [local.github_log_group_arn]
+    }
+  }
+}
+
+resource "aws_kms_key" "github_logs" {
+  description             = "Encrypt Hermes GitHub connector CloudWatch logs."
+  enable_key_rotation     = true
+  deletion_window_in_days = 30
+  policy                  = data.aws_iam_policy_document.github_logs_kms.json
+}
+
+resource "aws_kms_alias" "github_logs" {
+  name          = "alias/hermes-github-logs"
+  target_key_id = aws_kms_key.github_logs.key_id
 }
 
 resource "aws_cloudwatch_log_group" "github_connector" {
   name              = "/aws/lambda/${local.github_connector_name}"
   retention_in_days = 30
+  kms_key_id        = aws_kms_key.github_logs.arn
 }
 
 data "aws_iam_policy_document" "github_connector_trust" {
@@ -101,14 +155,109 @@ data "archive_file" "github_connector" {
   excludes    = ["test/**", "package.json"]
 }
 
+resource "aws_s3_bucket" "github_lambda_artifacts" {
+  bucket = "hermes-github-artifacts-${data.aws_caller_identity.current.account_id}-${data.aws_region.current.region}"
+}
+
+resource "aws_s3_bucket_public_access_block" "github_lambda_artifacts" {
+  bucket                  = aws_s3_bucket.github_lambda_artifacts.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "github_lambda_artifacts" {
+  bucket = aws_s3_bucket.github_lambda_artifacts.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_versioning" "github_lambda_artifacts" {
+  bucket = aws_s3_bucket.github_lambda_artifacts.id
+
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "github_lambda_artifacts" {
+  bucket = aws_s3_bucket.github_lambda_artifacts.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      sse_algorithm = "AES256"
+    }
+  }
+}
+
+resource "aws_s3_object" "github_connector_source" {
+  bucket      = aws_s3_bucket.github_lambda_artifacts.id
+  key         = "source/hermes-github-connector.zip"
+  source      = data.archive_file.github_connector.output_path
+  source_hash = data.archive_file.github_connector.output_base64sha256
+
+  depends_on = [
+    aws_s3_bucket_public_access_block.github_lambda_artifacts,
+    aws_s3_bucket_ownership_controls.github_lambda_artifacts,
+    aws_s3_bucket_versioning.github_lambda_artifacts,
+    aws_s3_bucket_server_side_encryption_configuration.github_lambda_artifacts,
+  ]
+}
+
+resource "aws_signer_signing_profile" "github_connector" {
+  name        = "hermes_github_connector"
+  platform_id = "AWSLambda-SHA384-ECDSA"
+
+  signature_validity_period {
+    value = 135
+    type  = "MONTHS"
+  }
+}
+
+resource "aws_lambda_code_signing_config" "github_connector" {
+  description = "Require AWS Signer validation for the Hermes GitHub connector package."
+
+  allowed_publishers {
+    signing_profile_version_arns = [aws_signer_signing_profile.github_connector.version_arn]
+  }
+
+  policies {
+    untrusted_artifact_on_deployment = "Enforce"
+  }
+}
+
+resource "aws_signer_signing_job" "github_connector" {
+  profile_name = aws_signer_signing_profile.github_connector.name
+
+  source {
+    s3 {
+      bucket  = aws_s3_bucket.github_lambda_artifacts.id
+      key     = aws_s3_object.github_connector_source.key
+      version = aws_s3_object.github_connector_source.version_id
+    }
+  }
+
+  destination {
+    s3 {
+      bucket = aws_s3_bucket.github_lambda_artifacts.id
+      prefix = "signed/"
+    }
+  }
+}
+
 resource "aws_lambda_function" "github_connector" {
   function_name                  = local.github_connector_name
   description                    = "Allowlisted GitHub App change-proposal tools for Hermes AgentCore Gateway."
   role                           = aws_iam_role.github_connector.arn
   runtime                        = "nodejs24.x"
   handler                        = "index.handler"
-  filename                       = data.archive_file.github_connector.output_path
+  s3_bucket                      = aws_signer_signing_job.github_connector.signed_object[0].s3[0].bucket
+  s3_key                         = aws_signer_signing_job.github_connector.signed_object[0].s3[0].key
   source_code_hash               = data.archive_file.github_connector.output_base64sha256
+  code_signing_config_arn        = aws_lambda_code_signing_config.github_connector.arn
   timeout                        = 30
   memory_size                    = 256
   reserved_concurrent_executions = 5
