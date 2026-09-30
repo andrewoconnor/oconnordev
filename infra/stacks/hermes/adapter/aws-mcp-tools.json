@@ -1,0 +1,23 @@
+{
+  "upstream_service": "AWS MCP Server",
+  "upstream_endpoint": "https://aws-mcp.us-east-1.api.aws/mcp",
+  "upstream_documentation": "https://docs.aws.amazon.com/agent-toolkit/latest/userguide/understanding-mcp-server-tools.html",
+  "tool_namespace": "aws",
+  "tools": [
+    "get_regional_availability",
+    "get_tasks",
+    "list_regions",
+    "read_documentation",
+    "retrieve_skill",
+    "run_script",
+    "search_documentation"
+  ],
+  "excluded_tools": {
+    "get_presigned_url": "Issues pre-signed Amazon S3 URLs for upload and download. A pre-signed upload URL is a write capability, so it is outside this read-only boundary."
+  },
+  "notes": [
+    "Read-only is enforced by IAM on the gateway role, not by the tool set: run_script inherits the role's permissions and cannot exceed them.",
+    "run_script is the AWS API execution tool in the current server tool list; there is no separate call_aws tool.",
+    "The Cedar policies in aws-mcp-boundary.tf are generated from this manifest, so adding a tool here also requires a matching policy decision."
+  ]
+}

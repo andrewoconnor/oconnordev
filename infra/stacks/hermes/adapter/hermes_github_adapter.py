@@ -145,12 +145,29 @@ class TokenCache:
 
 
 class AgentCoreForwarder:
-    def __init__(self, gateway_url: str, token_url: str, client_id: str, client_secret: str, transport: Any | None = None, clock=time.monotonic):
+    def __init__(
+        self,
+        gateway_url: str,
+        token_url: str,
+        client_id: str,
+        client_secret: str,
+        transport: Any | None = None,
+        clock=time.monotonic,
+        tools: Any | None = None,
+        tool_prefix: str | None = None,
+        extra_headers: dict[str, str] | None = None,
+    ):
         self.gateway_url = _validate_https_endpoint(gateway_url, "gateway")
         self.transport = transport or HttpsTransport()
         self.tokens = TokenCache(token_url, client_id, client_secret, self.transport, clock=clock)
         self.session_id: str | None = None
         self.protocol_version: str | None = None
+        # Defaults preserve the GitHub target's behaviour. Other targets on the
+        # same gateway pass their own tool manifest, tool prefix and target
+        # headers, so a new target never widens this one's allowlist.
+        self.tools = TOOLS if tools is None else frozenset(tools)
+        self.tool_prefix = TARGET_PREFIX if tool_prefix is None else tool_prefix
+        self.extra_headers = {"X-MCP-Tools": GITHUB_TOOL_FILTER_VALUE} if extra_headers is None else dict(extra_headers)
 
     @staticmethod
     def _json_rpc_error(message_id: Any, code: int, message: str) -> dict[str, Any]:
@@ -174,9 +191,10 @@ class AgentCoreForwarder:
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
-                # AgentCore forwards this allowlisted header to GitHub's hosted MCP target.
-                "X-MCP-Tools": GITHUB_TOOL_FILTER_VALUE,
             }
+            # AgentCore forwards only per-target allowlisted headers. The GitHub
+            # toolset filter goes to GitHub; the AWS target gets no extra header.
+            headers.update(self.extra_headers)
             if self.protocol_version and message.get("method") != "initialize":
                 headers["MCP-Protocol-Version"] = self.protocol_version
             if self.session_id:
@@ -229,10 +247,10 @@ class AgentCoreForwarder:
         forwarded = dict(message)
         params = message.get("params", {})
         if method == "tools/call":
-            if not isinstance(params, dict) or not isinstance(params.get("name"), str) or params["name"] not in TOOLS:
+            if not isinstance(params, dict) or not isinstance(params.get("name"), str) or params["name"] not in self.tools:
                 return self._json_rpc_error(message.get("id"), -32602, "Tool not allowed")
             forwarded_params = dict(params)
-            forwarded_params["name"] = TARGET_PREFIX + params["name"]
+            forwarded_params["name"] = self.tool_prefix + params["name"]
             forwarded["params"] = forwarded_params
         try:
             response, _ = self._send(forwarded)
@@ -250,17 +268,17 @@ class AgentCoreForwarder:
                     if not isinstance(tool, dict) or not isinstance(tool.get("name"), str):
                         raise AdapterError("invalid_gateway_response")
                     name = tool["name"]
-                    if not name.startswith(TARGET_PREFIX):
+                    if not name.startswith(self.tool_prefix):
                         raise AdapterError("gateway_tool_set_mismatch")
-                    logical_name = name[len(TARGET_PREFIX):]
-                    # Expose only the GitHub-native X-MCP-Tools allowlist, even if
-                    # a gateway or upstream manifest returns additional tools.
-                    if logical_name not in TOOLS:
+                    logical_name = name[len(self.tool_prefix):]
+                    # Expose only this target's manifest allowlist, even if the
+                    # gateway or upstream returns additional tools.
+                    if logical_name not in self.tools:
                         continue
                     exposed = dict(tool)
                     exposed["name"] = logical_name
                     safe_tools.append(exposed)
-                if {tool["name"] for tool in safe_tools} != TOOLS or len(safe_tools) != len(TOOLS):
+                if {tool["name"] for tool in safe_tools} != self.tools or len(safe_tools) != len(self.tools):
                     raise AdapterError("gateway_tool_set_mismatch")
                 output = dict(result)
                 output["tools"] = safe_tools
