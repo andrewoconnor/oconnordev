@@ -16,6 +16,16 @@ The GitHub target uses `listing_mode = "DEFAULT"`, so AgentCore caches its MCP r
 
 The sync captures whatever the upstream server returns at that moment. GitHub's hosted MCP currently lists 43 tools, so the Gateway advertises more tools than the seven in `adapter/github-mcp-tools.json`. That does not widen authority: Cedar permits only those seven action names, the local adapter narrows `tools/list` to the manifest set, and unmatched calls remain denied.
 
+## AWS target boundary (read-only)
+
+The AWS MCP Server target (`aws`) points at AWS's managed MCP endpoint, `https://aws-mcp.us-east-1.api.aws/mcp`. It is an MCP server target, so the Gateway authenticates with SigV4 via `gateway_iam_role` rather than an API key or an OAuth token. The SigV4 service name is pinned in `hermes_aws_mcp_sigv4_service` so a changed endpoint cannot silently change the signature.
+
+**The Gateway role's IAM policy is the real boundary, not the tool set.** The AWS MCP Server executes AWS API calls with the caller's identity, so this target is read-only only because `ReadOnlyAccess` is attached to the shared Gateway role. `aws___run_script` — the server's API execution tool — inherits exactly those permissions and cannot exceed them. An explicit `Deny` on `secretsmanager:GetSecretValue`, carved out for the GitHub PAT secret that the GitHub target's API-key credential provider still needs, keeps secret values outside the boundary even if the managed policy would otherwise allow them.
+
+`adapter/aws-mcp-tools.json` lists the seven permitted tools and records `get_presigned_url` as deliberately excluded: it mints pre-signed Amazon S3 URLs, and a pre-signed upload URL is a write capability. Cedar policies are generated one-per-tool from that manifest, and the target carries a precondition that the manifest holds exactly seven tools.
+
+Only the Hermes account (`421680664125`) is in scope. Org-wide access is **not** achievable through a Gateway target: multi-account switching is implemented by the MCP Proxy for AWS using profiles from local `~/.aws/config`, and a Gateway target signs every request with its single role. `aws___run_script` cannot bridge the gap either — it inherits the role's IAM permissions but runs without network access, so it cannot call `sts:AssumeRole`.
+
 ## Naming/state migration
 
 The old GitHub-specific Terraform addresses are migrated with `moved` blocks. Physical names change for the AgentCore Gateway (`hermes-github` → `hermes`), policy engine (`hermes_github_policy_engine` → `hermes_policy_engine`), Gateway role (`hermes-github-agentcore-gateway` → `hermes-agentcore-gateway`), and alarm (`hermes-github-gateway-user-errors` → `hermes-gateway-user-errors`). These require replacements: expect a new Gateway ID/URL and policy-engine ID, recreation/rebinding of its target and Cedar policies, and recreation of the role and its inline policies. This is intentionally a coordinated cutover before adding more targets; review the actual state-backed plan before applying. The previously noted console-created `test` policy must be identified and reconciled/imported or deliberately handled before deleting/replacing the existing policy engine; its ID is not guessed here.
@@ -37,4 +47,4 @@ The CloudFront distribution applies a US-only geo whitelist for the single clien
 3. Review and apply the production stack to create the CloudFront distribution and `A`/`AAAA` alias records. Wait for CloudFront deployment and DNS propagation before switching clients.
 4. Test Cognito authentication, MCP initialize/tools/list/call through `https://mcp.oconnor.dev/mcp`, CloudFront forwarding of `Authorization` and MCP headers, and Cedar allow/deny behavior. Do not remove the existing direct GitHub path until those tests pass.
 
-This PR adds no new MCP target and does not generalize the local GitHub-only adapter/tool allowlist. Future integrations can be attached to the shared Gateway, but Hermes-side exposure of their tools requires a separate adapter/manifest change. No plan, apply, DNS change, deployment, or client cutover has been performed.
+This PR adds one new MCP target (`aws`) and generalizes the local adapter so each target supplies its own tool manifest, tool prefix and target request headers; the GitHub adapter's behaviour and its seven-tool allowlist are unchanged. No plan, apply, DNS change, deployment, or client cutover has been performed.
