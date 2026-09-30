@@ -213,9 +213,11 @@ data "aws_iam_policy_document" "github_gateway_policy_authorization" {
       "bedrock-agentcore:AuthorizeAction",
       "bedrock-agentcore:PartiallyAuthorizeActions",
     ]
+    # Name-scoped ARN patterns avoid depending on generated resource IDs, so
+    # Terraform can attach this policy before creating or updating the gateway.
     resources = [
-      aws_bedrockagentcore_policy_engine.github.policy_engine_arn,
-      aws_bedrockagentcore_gateway.github.gateway_arn,
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:policy-engine/hermes_github_policy_engine*",
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:gateway/${local.github_gateway_name}*",
     ]
   }
 }
@@ -264,7 +266,10 @@ resource "aws_bedrockagentcore_gateway" "github" {
     mode = "ENFORCE"
   }
 
-  depends_on = [aws_iam_role_policy.github_gateway_credentials]
+  depends_on = [
+    aws_iam_role_policy.github_gateway_credentials,
+    aws_iam_role_policy.github_gateway_policy_authorization,
+  ]
 }
 
 resource "aws_bedrockagentcore_gateway_target" "github" {
