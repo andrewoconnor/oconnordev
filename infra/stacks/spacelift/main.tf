@@ -124,6 +124,19 @@ resource "spacelift_stack" "drumrollworld" {
   terraform_smart_sanitization = true
 }
 
+# The public MCP endpoint lives beside the domain and ACM certificate in the
+# production account, while its AgentCore origin is owned by the Hermes stack.
+resource "spacelift_stack_dependency" "production_hermes_gateway" {
+  stack_id            = spacelift_stack.oconnordev_production.id
+  depends_on_stack_id = spacelift_stack.oconnordev_hermes.id
+}
+
+resource "spacelift_stack_dependency_reference" "production_hermes_gateway_origin" {
+  stack_dependency_id = spacelift_stack_dependency.production_hermes_gateway.id
+  output_name         = "hermes_gateway_origin_hostname"
+  input_name          = "TF_VAR_hermes_gateway_origin_hostname"
+}
+
 # The AWS IAM role is managed in the general account stack. Keep the Spacelift
 # integration here and pass its non-secret identifiers to the general stack.
 resource "spacelift_aws_integration" "oconnordev" {
