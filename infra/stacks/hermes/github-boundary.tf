@@ -260,7 +260,8 @@ resource "aws_lambda_function" "github_connector" {
   code_signing_config_arn        = aws_lambda_code_signing_config.github_connector.arn
   timeout                        = 30
   memory_size                    = 256
-  reserved_concurrent_executions = 5
+  # -1 leaves the function in the shared unreserved account concurrency pool.
+  reserved_concurrent_executions = -1
 
   environment {
     variables = {
