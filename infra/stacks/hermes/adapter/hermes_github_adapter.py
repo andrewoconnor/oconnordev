@@ -10,10 +10,15 @@ import re
 import sys
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
-TOOLS = frozenset({"repository_info", "read_files", "submit_change", "revise_change", "change_status"})
+TOOL_MANIFEST_PATH = Path(__file__).resolve().parent / "github-mcp-tools.json"
+TOOL_MANIFEST = json.loads(TOOL_MANIFEST_PATH.read_text(encoding="utf-8"))
+GITHUB_TOOLS = tuple(TOOL_MANIFEST["tools"])
+TOOLS = frozenset(GITHUB_TOOLS)
+GITHUB_TOOL_FILTER_VALUE = ",".join(sorted(TOOLS))
 TARGET_PREFIX = "github___"
 REQUIRED_SCOPE = "hermes-github/invoke"
 MAX_LINE_BYTES = 1024 * 1024
@@ -169,6 +174,8 @@ class AgentCoreForwarder:
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
+                # AgentCore forwards this allowlisted header to GitHub's hosted MCP target.
+                "X-MCP-Tools": GITHUB_TOOL_FILTER_VALUE,
             }
             if self.protocol_version and message.get("method") != "initialize":
                 headers["MCP-Protocol-Version"] = self.protocol_version
@@ -243,10 +250,15 @@ class AgentCoreForwarder:
                     if not isinstance(tool, dict) or not isinstance(tool.get("name"), str):
                         raise AdapterError("invalid_gateway_response")
                     name = tool["name"]
-                    if not name.startswith(TARGET_PREFIX) or name[len(TARGET_PREFIX):] not in TOOLS:
+                    if not name.startswith(TARGET_PREFIX):
                         raise AdapterError("gateway_tool_set_mismatch")
+                    logical_name = name[len(TARGET_PREFIX):]
+                    # Expose only the GitHub-native X-MCP-Tools allowlist, even if
+                    # a gateway or upstream manifest returns additional tools.
+                    if logical_name not in TOOLS:
+                        continue
                     exposed = dict(tool)
-                    exposed["name"] = name[len(TARGET_PREFIX):]
+                    exposed["name"] = logical_name
                     safe_tools.append(exposed)
                 if {tool["name"] for tool in safe_tools} != TOOLS or len(safe_tools) != len(TOOLS):
                     raise AdapterError("gateway_tool_set_mismatch")
