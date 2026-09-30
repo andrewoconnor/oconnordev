@@ -28,13 +28,14 @@ locals {
   hermes_mcp_enabled     = trimspace(var.hermes_gateway_origin_hostname) != ""
 }
 
-# checkov:skip=CKV_AWS_310:Single AgentCore origin has no independent failover endpoint.
-# checkov:skip=CKV_AWS_375:This public MCP endpoint is intended for worldwide use; geo restrictions would block traveling clients.
-# checkov:skip=CKV_AWS_68:Cognito JWT authorization and Cedar enforce access; avoid fixed WAF cost for this personal endpoint.
-# checkov:skip=CKV_AWS_86:Access logs are intentionally disabled to avoid storage cost and retained request metadata.
-# checkov:skip=CKV2_AWS_47:No WAF is attached by design; AgentCore JWT authorization and Cedar policies enforce access.
 resource "aws_cloudfront_distribution" "hermes_mcp" {
   count = local.hermes_mcp_enabled ? 1 : 0
+
+  # checkov:skip=CKV_AWS_310:Single AgentCore origin has no independent failover endpoint.
+  # checkov:skip=CKV_AWS_375:This public MCP endpoint is intended for worldwide use; geo restrictions would block traveling clients.
+  # checkov:skip=CKV_AWS_69:Cognito JWT authorization and Cedar enforce access; avoid fixed WAF cost for this personal endpoint.
+  # checkov:skip=CKV_AWS_87:Access logs are intentionally disabled to avoid storage cost and retained request metadata.
+  # checkov:skip=CKV2_AWS_47:No WAF is attached by design; AgentCore JWT authorization and Cedar policies enforce access.
 
   origin {
     domain_name = var.hermes_gateway_origin_hostname
