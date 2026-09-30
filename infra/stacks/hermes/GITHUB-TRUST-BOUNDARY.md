@@ -49,7 +49,9 @@ References:
 - Cognito: one user pool, one custom resource server/scope (`hermes-github/invoke`), one Cognito domain, and one dedicated M2M app client using `client_credentials`.
 - AgentCore: one `CUSTOM_JWT` MCP Gateway and one native Lambda target containing exactly five inline tool definitions.
 - IAM: one Lambda execution role/policy, one distinct AgentCore service integration role/policy, and the existing Spacelift deployment identity left separate and unchanged.
-- Lambda: one Node.js 26.x **public-preview** connector function, reserved concurrency 5, 256 MiB memory, 30-second timeout, enforced Lambda code-signing config, and a 30-day CloudWatch log group encrypted with a customer-managed KMS key.
+- Lambda: one Node.js 26.x **public-preview** connector function using the account's unreserved concurrency pool (no reserved concurrency configured), 256 MiB memory, 30-second timeout, enforced Lambda code-signing config, and a 30-day CloudWatch log group encrypted with a customer-managed KMS key.
+
+The initial `reserved_concurrent_executions = 5` setting failed during apply because it would have reduced the account's unreserved Lambda concurrency below AWS's required minimum of 10. This follow-up removes that reservation, allowing the function to use the shared unreserved pool. Add a reservation only after checking the account concurrency quota and existing reservations.
 
 **Production warning:** AWS currently marks `nodejs26.x` as a public-preview runtime and explicitly advises against production workloads because it is not covered by the Lambda SLA/Technical Support and may change. This runtime change is at your request, but it means this PR should not be treated as production-ready for deployment until Node.js 26 reaches general availability or the runtime is changed back to a GA version.
 
