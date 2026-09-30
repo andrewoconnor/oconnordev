@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
-TOOLS = frozenset({"repository_info", "read_files", "submit_change", "revise_change", "change_status"})
+TOOLS = frozenset({"create_branch", "create_pull_request", "get_file_contents", "list_branches", "pull_request_read", "push_files"})
 TARGET_PREFIX = "github___"
 REQUIRED_SCOPE = "hermes-github/invoke"
 MAX_LINE_BYTES = 1024 * 1024

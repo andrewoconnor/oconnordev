@@ -462,7 +462,7 @@ resource "aws_bedrockagentcore_gateway" "github" {
 resource "aws_bedrockagentcore_gateway_target" "github" {
   name               = local.github_target_name
   gateway_identifier = aws_bedrockagentcore_gateway.github.gateway_id
-  description        = "Five fixed, allowlisted GitHub change-proposal operations."
+  description        = "Six fixed, allowlisted GitHub change-proposal operations."
 
   credential_provider_configuration {
     gateway_iam_role {}
@@ -475,158 +475,266 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
 
         tool_schema {
           inline_payload {
-            name        = "repository_info"
-            description = "Read metadata and default-branch head for one allowlisted andrewoconnor repository."
+            name        = "get_file_contents"
+            description = "Upstream GitHub MCP get_file_contents. Owner is fixed to andrewoconnor; repo is checked against the AWS allowlist. Path/ref/sha and directory fields are bounded and validated server-side."
             input_schema {
               type = "object"
               property {
-                name        = "repository"
-                type        = "string"
-                description = "Repository name only; owner is fixed server-side."
-                required    = true
-              }
-            }
-          }
-
-          inline_payload {
-            name        = "read_files"
-            description = "Read bounded text files from one allowlisted repository."
-            input_schema {
-              type = "object"
-              property {
-                name     = "repository"
-                type     = "string"
+                name = "owner"
+                type = "string"
+                description = "Repository owner (username or organization); only andrewoconnor is accepted."
                 required = true
               }
               property {
-                name        = "paths"
-                type        = "array"
-                description = "One to twenty-five safe repository-relative supported text-file paths."
-                required    = true
-                items {
-                  type = "string"
-                }
+                name = "repo"
+                type = "string"
+                description = "Repository name in the AWS-side allowlist."
+                required = true
+              }
+              property {
+                name = "path"
+                type = "string"
+                description = "Path to file/directory; defaults to /."
               }
               property {
                 name = "ref"
                 type = "string"
-              }
-            }
-          }
-
-          inline_payload {
-            name        = "submit_change"
-            description = "Create an idempotent feature branch and open a draft pull request against the configured default branch."
-            input_schema {
-              type = "object"
-              property {
-                name     = "repository"
-                type     = "string"
-                required = true
+                description = "Optional git ref, e.g. refs/heads/{branch}."
               }
               property {
-                name        = "request_id"
-                type        = "string"
-                description = "Stable idempotency key."
-                required    = true
+                name = "sha"
+                type = "string"
+                description = "Optional commit SHA; takes precedence over ref."
               }
               property {
-                name     = "expected_base_sha"
-                type     = "string"
-                required = true
-              }
-              property {
-                name     = "title"
-                type     = "string"
-                required = true
-              }
-              property {
-                name     = "body"
-                type     = "string"
-                required = true
-              }
-              property {
-                name     = "files"
-                type     = "array"
-                required = true
+                name = "fields"
+                type = "array"
+                description = "Directory-entry fields: type, name, path, size, sha, url, git_url, html_url, download_url."
                 items {
-                  type = "object"
-                  property {
-                    name     = "path"
-                    type     = "string"
-                    required = true
-                  }
-                  property {
-                    name     = "content"
-                    type     = "string"
-                    required = true
-                  }
+                  type = "string"
                 }
               }
             }
           }
 
           inline_payload {
-            name        = "revise_change"
-            description = "Revise files on an App-authored draft PR branch only when the expected head SHA matches."
+            name        = "list_branches"
+            description = "Upstream GitHub MCP list_branches for an allowlisted repository."
             input_schema {
               type = "object"
               property {
-                name     = "repository"
-                type     = "string"
+                name = "owner"
+                type = "string"
+                description = "Only andrewoconnor is accepted."
                 required = true
               }
               property {
-                name     = "pull_number"
-                type     = "integer"
+                name = "repo"
+                type = "string"
+                description = "Repository name in the AWS-side allowlist."
                 required = true
               }
               property {
-                name        = "request_id"
-                type        = "string"
-                description = "Stable idempotency key for this revision."
-                required    = true
+                name = "page"
+                type = "number"
+                description = "Page number, minimum 1."
               }
               property {
-                name     = "expected_head_sha"
-                type     = "string"
+                name = "perPage"
+                type = "number"
+                description = "Results per page, 1 to 100."
+              }
+            }
+          }
+
+          inline_payload {
+            name        = "create_branch"
+            description = "Upstream GitHub MCP create_branch. Creates only hermes/ feature branches based on the configured default branch."
+            input_schema {
+              type = "object"
+              property {
+                name = "owner"
+                type = "string"
+                description = "Only andrewoconnor is accepted."
                 required = true
               }
               property {
-                name     = "files"
-                type     = "array"
+                name = "repo"
+                type = "string"
+                description = "Repository name in the AWS-side allowlist."
+                required = true
+              }
+              property {
+                name = "branch"
+                type = "string"
+                description = "Must use the approved hermes/ feature-branch prefix."
+                required = true
+              }
+              property {
+                name = "from_branch"
+                type = "string"
+                description = "Source branch; if supplied it must equal the configured default branch."
+              }
+            }
+          }
+
+          inline_payload {
+            name        = "push_files"
+            description = "Upstream GitHub MCP push_files. Creates a single commit from bounded text files on an existing hermes/ branch; default-branch writes are rejected."
+            input_schema {
+              type = "object"
+              property {
+                name = "owner"
+                type = "string"
+                description = "Only andrewoconnor is accepted."
+                required = true
+              }
+              property {
+                name = "repo"
+                type = "string"
+                description = "Repository name in the AWS-side allowlist."
+                required = true
+              }
+              property {
+                name = "branch"
+                type = "string"
+                description = "Existing approved hermes/ feature branch; default branch is forbidden."
+                required = true
+              }
+              property {
+                name = "files"
+                type = "array"
+                description = "One to 25 safe text files, with per-file and total byte limits."
                 required = true
                 items {
                   type = "object"
                   property {
-                    name     = "path"
-                    type     = "string"
+                    name = "path"
+                    type = "string"
+                    description = "Safe repository-relative path."
                     required = true
                   }
                   property {
-                    name     = "content"
-                    type     = "string"
+                    name = "content"
+                    type = "string"
+                    description = "Text content; binary/NUL content is rejected."
                     required = true
                   }
+                }
+              }
+              property {
+                name = "message"
+                type = "string"
+                description = "Commit message."
+                required = true
+              }
+            }
+          }
+
+          inline_payload {
+            name        = "create_pull_request"
+            description = "Upstream GitHub MCP create_pull_request. Server requires draft=true, head under hermes/, base equal to the configured default branch, no reviewers, and no maintainer edit delegation."
+            input_schema {
+              type = "object"
+              property {
+                name = "owner"
+                type = "string"
+                description = "Only andrewoconnor is accepted."
+                required = true
+              }
+              property {
+                name = "repo"
+                type = "string"
+                description = "Repository name in the AWS-side allowlist."
+                required = true
+              }
+              property {
+                name = "title"
+                type = "string"
+                description = "PR title."
+                required = true
+              }
+              property {
+                name = "body"
+                type = "string"
+                description = "PR description."
+              }
+              property {
+                name = "head"
+                type = "string"
+                description = "Must be an existing hermes/ feature branch in this repository."
+                required = true
+              }
+              property {
+                name = "base"
+                type = "string"
+                description = "Must equal the repository configured default branch."
+                required = true
+              }
+              property {
+                name = "draft"
+                type = "boolean"
+                description = "Must be explicitly true; non-draft PRs are rejected."
+              }
+              property {
+                name = "maintainer_can_modify"
+                type = "boolean"
+                description = "True is rejected by server policy."
+              }
+              property {
+                name = "reviewers"
+                type = "array"
+                description = "Non-empty reviewer requests are rejected by server policy."
+                items {
+                  type = "string"
                 }
               }
             }
           }
 
           inline_payload {
-            name        = "change_status"
-            description = "Read status of an App-authored Hermes draft pull request."
+            name        = "pull_request_read"
+            description = "Upstream GitHub MCP pull_request_read. Official methods are get, get_diff, get_status, get_files, get_commits, get_review_comments, get_reviews, get_comments, get_check_runs; this boundary permits get, get_diff, get_status, get_files, get_commits, and get_check_runs only."
             input_schema {
               type = "object"
               property {
-                name     = "repository"
-                type     = "string"
+                name = "method"
+                type = "string"
+                description = "Supported: get, get_diff, get_status, get_files, get_commits, get_check_runs. Other upstream methods are rejected."
                 required = true
               }
               property {
-                name     = "pull_number"
-                type     = "integer"
+                name = "owner"
+                type = "string"
+                description = "Only andrewoconnor is accepted."
                 required = true
+              }
+              property {
+                name = "repo"
+                type = "string"
+                description = "Repository name in the AWS-side allowlist."
+                required = true
+              }
+              property {
+                name = "pullNumber"
+                type = "number"
+                description = "Pull request number."
+                required = true
+              }
+              property {
+                name = "page"
+                type = "number"
+                description = "Page number, minimum 1."
+              }
+              property {
+                name = "perPage"
+                type = "number"
+                description = "Results per page, 1 to 100."
+              }
+              property {
+                name = "after"
+                type = "string"
+                description = "Upstream review-comment cursor; not accepted by this boundary."
               }
             }
           }

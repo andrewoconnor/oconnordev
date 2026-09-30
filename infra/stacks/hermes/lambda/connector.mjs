@@ -5,13 +5,24 @@ const MAX_TOTAL_BYTES = 512 * 1024;
 const MAX_API_BYTES = 600 * 1024;
 const GITHUB_API = "https://api.github.com";
 const API_VERSION = "2022-11-28";
-const TOOL_FIELDS = {
-  repository_info: ["repository"],
-  read_files: ["repository", "paths", "ref"],
-  submit_change: ["repository", "request_id", "expected_base_sha", "title", "body", "files"],
-  revise_change: ["repository", "pull_number", "request_id", "expected_head_sha", "files"],
-  change_status: ["repository", "pull_number"],
+const OFFICIAL_TOOL_FIELDS = {
+  get_file_contents: ["owner", "repo", "path", "ref", "sha", "fields"],
+  list_branches: ["owner", "repo", "page", "perPage"],
+  create_branch: ["owner", "repo", "branch", "from_branch"],
+  push_files: ["owner", "repo", "branch", "files", "message"],
+  create_pull_request: ["owner", "repo", "title", "body", "head", "base", "draft", "maintainer_can_modify", "reviewers"],
+  pull_request_read: ["method", "owner", "repo", "pullNumber", "page", "perPage", "after"],
 };
+const OFFICIAL_TOOL_REQUIRED = {
+  get_file_contents: ["owner", "repo"],
+  list_branches: ["owner", "repo"],
+  create_branch: ["owner", "repo", "branch"],
+  push_files: ["owner", "repo", "branch", "files", "message"],
+  create_pull_request: ["owner", "repo", "title", "head", "base"],
+  pull_request_read: ["method", "owner", "repo", "pullNumber"],
+};
+const OFFICIAL_TOOL_NAMES = Object.freeze(Object.keys(OFFICIAL_TOOL_FIELDS));
+const ALLOWED_PR_READ_METHODS = new Set(["get", "get_diff", "get_status", "get_files", "get_commits", "get_check_runs"]);
 const TEXT_EXTENSIONS = new Set([
   "cjs", "cfg", "css", "csv", "go", "hcl", "html", "ini", "java", "js", "json", "jsx", "kt", "lock", "md", "mdx", "mjs", "py", "rs", "scss", "sh", "sql", "svelte", "toml", "ts", "tsx", "tf", "txt", "vue", "xml", "yaml", "yml",
 ]);
@@ -60,6 +71,15 @@ function validatePath(path) {
   const extension = basename.includes(".") ? basename.split(".").at(-1).toLowerCase() : "";
   if (!TEXT_EXTENSIONS.has(extension) && !TEXT_BASENAMES.has(basename)) fail("unsupported_file_type");
   if (/\.(?:env|pem|key|p12|pfx|crt|cer|tfstate|secret|secrets)(?:\.|$)/i.test(basename) || basename === ".env") fail("unsupported_path");
+  return path;
+}
+
+function validateRepositoryPath(value) {
+  boundedString(value, 512);
+  const path = value.replace(/^\/+/, "");
+  if (!path) return "";
+  if (path.includes("\\") || path.toLowerCase().includes("%2e") || path.split("/").some((part) => !part || part === "." || part === ".." || part.toLowerCase() === ".git")) fail("invalid_path");
+  if (/\.(?:env|pem|key|p12|pfx|crt|cer|tfstate|secret|secrets)(?:\.|$)/i.test(path) || path.split("/").some((part) => part === ".env")) fail("unsupported_path");
   return path;
 }
 
@@ -169,12 +189,12 @@ export function createGitHubApi({ appId, installationId, getPrivateKey, fetchImp
     return `${unsigned}.${signature}`;
   }
 
-  async function request(path, { method = "GET", token, jwt, body } = {}) {
+  async function request(path, { method = "GET", token, jwt, body, accept = "application/vnd.github+json", responseType = "json" } = {}) {
     if (!path.startsWith("/") || path.startsWith("//") || path.includes("..")) fail("github_request_rejected", 500);
     const url = new URL(path, GITHUB_API);
     if (url.origin !== GITHUB_API) fail("github_request_rejected", 500);
     const headers = {
-      Accept: "application/vnd.github+json",
+      Accept: accept,
       "X-GitHub-Api-Version": API_VERSION,
       "User-Agent": "hermes-github-change-proposal",
     };
@@ -201,6 +221,7 @@ export function createGitHubApi({ appId, installationId, getPrivateKey, fetchImp
     if (!response.ok) fail("github_api_failure", 502);
     if (response.status === 204) return null;
     const text = await boundedResponseBody(response);
+    if (responseType === "text") return text;
     try {
       return JSON.parse(text);
     } catch {
@@ -344,19 +365,12 @@ async function updateRef(gh, branch, sha) {
     if (current !== sha) fail("stale_head_sha", 409);
   }
   if (await getRef(gh, branch) !== sha) fail("stale_head_sha", 409);
+  return gh.request(`/git/ref/heads/${encodeRef(branch)}`);
 }
 
 function publicPull(pull) {
-  return {
-    number: pull.number,
-    title: pull.title,
-    state: pull.state,
-    draft: pull.draft,
-    url: pull.html_url,
-    branch: pull.head.ref,
-    head_sha: pull.head.sha,
-    base_branch: pull.base.ref,
-  };
+  if (!isRecord(pull) || !Number.isSafeInteger(pull.id) || typeof pull.html_url !== "string" || pull.html_url.length > 2048) fail("github_invalid_response", 502);
+  return { id: String(pull.id), url: pull.html_url };
 }
 
 export function createConnector({ config, getPrivateKey, fetchImpl, api: injectedApi, log = (entry) => console.log(JSON.stringify(entry)), now = () => Date.now() }) {
@@ -372,150 +386,172 @@ export function createConnector({ config, getPrivateKey, fetchImpl, api: injecte
     return api.getInstallationToken(repo);
   }
 
-  async function invoke(tool, rawArgs) {
-    const fields = TOOL_FIELDS[tool];
-    if (!fields) fail("unknown_tool", 404);
-    const required = fields.filter((field) => !(tool === "read_files" && field === "ref"));
-    exactKeys(rawArgs, fields, required);
-    const repo = validateRepoName(rawArgs.repository, allowedRepos);
-    const requestId = rawArgs.request_id === undefined ? null : validateRequestId(rawArgs.request_id);
-    const input = {};
-    if (tool === "read_files") {
-      input.paths = validateReadPaths(rawArgs.paths);
-      input.ref = rawArgs.ref === undefined ? null : validateRef(rawArgs.ref);
-    } else if (tool === "submit_change") {
-      input.expectedBaseSha = validateSha(rawArgs.expected_base_sha);
-      input.title = boundedString(rawArgs.title, 256);
-      if (typeof rawArgs.body !== "string" || rawArgs.body.length > 5000 || rawArgs.body.includes("\0")) fail("invalid_arguments");
-      input.body = rawArgs.body;
-      input.files = validateFiles(rawArgs.files);
-    } else if (tool === "revise_change") {
-      input.pullNumber = validatePullNumber(rawArgs.pull_number);
-      input.expectedHeadSha = validateSha(rawArgs.expected_head_sha);
-      input.files = validateFiles(rawArgs.files);
-    } else if (tool === "change_status") {
-      input.pullNumber = validatePullNumber(rawArgs.pull_number);
-    }
-    const started = now();
-    let status = "error";
-    let category = "internal_error";
-    try {
-      if (!appId || !installationId) fail("github_app_not_configured", 503);
-      const token = await tokenFor(repo);
-      const metadata = await getRepository(api, token, owner, repo);
-      const gh = createToolClient(api, token, owner, repo);
-      const defaultBranch = metadata.default_branch;
-
-      let result;
-      if (tool === "repository_info") {
-        const sha = await getRef(gh, defaultBranch);
-        result = { repository: metadata.full_name, repository_id: metadata.id, private: metadata.private, default_branch: defaultBranch, default_sha: sha };
-      } else if (tool === "read_files") {
-        const paths = input.paths;
-        const ref = input.ref || defaultBranch;
-        const files = [];
-        let total = 0;
-        for (const path of paths) {
-          const content = await getFileAtRef(gh, path, ref);
-          total += Buffer.byteLength(content, "utf8");
-          if (total > MAX_TOTAL_BYTES) fail("payload_too_large", 413);
-          files.push({ path, content });
-        }
-        result = { repository: metadata.full_name, ref, files };
-      } else if (tool === "submit_change") {
-        const id = requestId;
-        const baseSha = input.expectedBaseSha;
-        const title = input.title;
-        const body = input.body;
-        const files = input.files;
-        const branch = `hermes/${id}`;
-        const botLogin = await api.getAppBotLogin();
-        let pull = await findPullByHead(gh, owner, branch, defaultBranch);
-        if (pull) {
-          validateManagedPull(pull, owner, repo, botLogin, defaultBranch);
-          const currentBranchSha = await getRef(gh, branch);
-          if (currentBranchSha !== pull.head.sha.toLowerCase()) fail("stale_head_sha", 409);
-          if (pull.body?.includes(`hermes-request-id:${id}`) && await assertPayloadAtBranch(gh, files, branch)) {
-            result = publicPull(pull);
-          } else {
-            fail("idempotency_conflict", 409);
-          }
-        } else {
-          const existingSha = await optionalRef(gh, branch);
-          const currentDefaultSha = await getRef(gh, defaultBranch);
-          if (currentDefaultSha !== baseSha) fail("stale_base_sha", 409);
-          if (existingSha === null) await ensureRef(gh, branch, baseSha, baseSha);
-          else if (existingSha !== baseSha) {
-            const existingCommit = await getCommit(gh, existingSha);
-            if (existingCommit.message !== `Hermes proposal ${id}` || existingCommit.parents?.[0]?.sha?.toLowerCase() !== baseSha || !await assertPayloadAtBranch(gh, files, branch)) fail("idempotency_conflict", 409);
-          }
-          const branchSha = await getRef(gh, branch);
-          if (branchSha === baseSha) {
-            const commitSha = await createFeatureCommit(gh, files, baseSha, `Hermes proposal ${id}`);
-            await updateRef(gh, branch, commitSha, baseSha);
-          }
-          if (await getRef(gh, defaultBranch) !== baseSha) fail("stale_base_sha", 409);
-          pull = await findPullByHead(gh, owner, branch, defaultBranch);
-          if (!pull) {
-            try {
-              pull = await gh.request("/pulls", { method: "POST", body: { title, body: `${body}\n\nhermes-request-id:${id}`, head: branch, base: defaultBranch, draft: true } });
-            } catch (error) {
-              if (!(error instanceof SafeError) || error.category !== "github_conflict") throw error;
-              pull = await findPullByHead(gh, owner, branch, defaultBranch);
-              if (!pull) throw error;
-            }
-          }
-          validateManagedPull(pull, owner, repo, botLogin, defaultBranch);
-          result = publicPull(pull);
-        }
-      } else if (tool === "revise_change") {
-        const pullNumber = input.pullNumber;
-        const expectedHead = input.expectedHeadSha;
-        const id = requestId;
-        const files = input.files;
-        const botLogin = await api.getAppBotLogin();
-        const pull = await getPull(gh, pullNumber);
-        validateManagedPull(pull, owner, repo, botLogin, defaultBranch);
-        const branch = pull.head.ref;
-        const currentHead = await getRef(gh, branch);
-        if (pull.head.sha?.toLowerCase() !== currentHead) fail("stale_head_sha", 409);
-        if (currentHead !== expectedHead) {
-          const currentCommit = await getCommit(gh, currentHead);
-          if (currentCommit.message === `Hermes revision ${id}` && currentCommit.parents?.[0]?.sha?.toLowerCase() === expectedHead && await assertPayloadAtBranch(gh, files, branch)) {
-            result = publicPull(pull);
-          } else fail("stale_head_sha", 409);
-        } else {
-          const commitSha = await createFeatureCommit(gh, files, expectedHead, `Hermes revision ${id}`);
-          await updateRef(gh, branch, commitSha, expectedHead);
-          const updatedPull = await getPull(gh, pullNumber);
-          validateManagedPull(updatedPull, owner, repo, botLogin, defaultBranch);
-          result = publicPull(updatedPull);
-        }
-      } else if (tool === "change_status") {
-        const pullNumber = input.pullNumber;
-        const botLogin = await api.getAppBotLogin();
-        const pull = await getPull(gh, pullNumber);
-        validateManagedPull(pull, owner, repo, botLogin, defaultBranch);
-        const combined = await gh.request(`/commits/${encodeURIComponent(pull.head.sha)}/status`);
-        if (!isRecord(combined)) fail("github_invalid_response", 502);
-        result = { ...publicPull(pull), commit_status: { state: combined.state, total_count: combined.total_count } };
-      }
-      status = "success";
-      category = "none";
-      return result;
-    } catch (error) {
-      category = error instanceof SafeError ? error.category : "internal_error";
-      throw error instanceof SafeError ? error : new SafeError(category, 500);
-    } finally {
-      try {
-        log({ tool, request_id: requestId, repository: `${owner}/${repo}`, status, latency_ms: Math.max(0, now() - started), category });
-      } catch {
-        // Logging failures must not expose or alter tool results.
-      }
-    }
+  function validateWriteBranch(value) {
+    const branch = validateRef(value);
+    if (!branch.startsWith("hermes/") || branch.length <= "hermes/".length) fail("write_branch_not_allowed", 403);
+    return branch;
   }
 
-  return { invoke };
+  function validatePagination(args) {
+    if (args.page !== undefined && (!Number.isSafeInteger(args.page) || args.page < 1)) fail("invalid_arguments");
+    if (args.perPage !== undefined && (!Number.isSafeInteger(args.perPage) || args.perPage < 1 || args.perPage > 100)) fail("invalid_arguments");
+  }
+
+  async function invokeOfficial(tool, rawArgs) {
+    const fields = OFFICIAL_TOOL_FIELDS[tool];
+    exactKeys(rawArgs, fields, OFFICIAL_TOOL_REQUIRED[tool]);
+    if (rawArgs.owner !== OWNER) fail("owner_not_allowed", 403);
+    const repo = validateRepoName(rawArgs.repo, allowedRepos);
+    if (tool === "get_file_contents") {
+      const rawPath = rawArgs.path === undefined ? "/" : boundedString(rawArgs.path, 512);
+      const path = validateRepositoryPath(rawPath);
+      const ref = rawArgs.sha === undefined ? (rawArgs.ref === undefined ? null : validateRef(rawArgs.ref)) : validateSha(rawArgs.sha);
+      const allowedFields = new Set(["type", "name", "path", "size", "sha", "url", "git_url", "html_url", "download_url"]);
+      if (rawArgs.fields !== undefined && (!Array.isArray(rawArgs.fields) || rawArgs.fields.length > allowedFields.size || rawArgs.fields.some((field) => typeof field !== "string" || !allowedFields.has(field)) || new Set(rawArgs.fields).size !== rawArgs.fields.length)) fail("invalid_arguments");
+      const token = await tokenFor(repo);
+      const metadata = await getRepository(api, token, OWNER, repo);
+      const gh = createToolClient(api, token, OWNER, repo);
+      const resolvedRef = ref || metadata.default_branch;
+      const query = new URLSearchParams({ ref: resolvedRef });
+      const document = await gh.request(`/contents${path ? `/${encodePath(path)}` : ""}?${query.toString()}`);
+      if (Array.isArray(document)) {
+        const entries = document.slice(0, MAX_FILES).map((entry) => {
+          if (!isRecord(entry)) fail("github_invalid_response", 502);
+          const fields = rawArgs.fields || [...allowedFields];
+          return Object.fromEntries(fields.filter((field) => Object.hasOwn(entry, field)).map((field) => [field, entry[field]]));
+        });
+        return { path, ref: resolvedRef, entries, truncated: document.length > MAX_FILES };
+      }
+      if (!isRecord(document) || document.type !== "file") fail("unsupported_file_type", 415);
+      const safePath = validatePath(path);
+      if (typeof document.content !== "string" || document.encoding !== "base64" || !Number.isSafeInteger(document.size) || document.size < 0 || document.size > MAX_FILE_BYTES) fail("file_too_large", 413);
+      const bytes = Buffer.from(document.content.replace(/\\s+/g, ""), "base64");
+      if (bytes.length !== document.size || bytes.length > MAX_FILE_BYTES) fail("github_invalid_response", 502);
+      const content = bytes.toString("utf8");
+      if (Buffer.from(content, "utf8").compare(bytes) !== 0 || content.includes("\\0")) fail("binary_content_not_supported", 415);
+      return { path: safePath, ref: resolvedRef, sha: document.sha, size: bytes.length, content };
+    }
+    if (tool === "list_branches") {
+      validatePagination(rawArgs);
+      const token = await tokenFor(repo);
+      await getRepository(api, token, OWNER, repo);
+      const perPage = rawArgs.perPage ?? 30;
+      const page = rawArgs.page ?? 1;
+      const branches = await createToolClient(api, token, OWNER, repo).request(`/branches?${new URLSearchParams({ page: String(page), per_page: String(perPage) }).toString()}`);
+      if (!Array.isArray(branches)) fail("github_invalid_response", 502);
+      if (branches.length > 100) return branches.slice(0, 100);
+      return branches;
+    }
+    if (tool === "pull_request_read") {
+      validatePagination(rawArgs);
+      if (!ALLOWED_PR_READ_METHODS.has(rawArgs.method)) fail("pr_read_method_not_allowed", 403);
+      if (rawArgs.after !== undefined) fail("pr_cursor_not_supported", 400);
+      const pullNumber = validatePullNumber(rawArgs.pullNumber);
+      const token = await tokenFor(repo);
+      await getRepository(api, token, OWNER, repo);
+      const gh = createToolClient(api, token, OWNER, repo);
+      const method = rawArgs.method;
+      if (method === "get_diff") return gh.request(`/pulls/${pullNumber}`, { accept: "application/vnd.github.diff", responseType: "text" });
+      const pull = await getPull(gh, pullNumber);
+      if (method === "get") return pull;
+      if (typeof pull.head?.sha !== "string" || !/^[a-f0-9]{40}$/i.test(pull.head.sha)) fail("github_invalid_response", 502);
+      if (method === "get_status") return gh.request(`/commits/${encodeURIComponent(pull.head.sha)}/status`);
+      const page = rawArgs.page ?? 1;
+      const perPage = rawArgs.perPage ?? 30;
+      if (method === "get_files") return gh.request(`/pulls/${pullNumber}/files?${new URLSearchParams({ page: String(page), per_page: String(perPage) }).toString()}`);
+      if (method === "get_commits") return gh.request(`/pulls/${pullNumber}/commits?${new URLSearchParams({ page: String(page), per_page: String(perPage) }).toString()}`);
+      return gh.request(`/commits/${encodeURIComponent(pull.head.sha)}/check-runs?${new URLSearchParams({ page: String(page), per_page: String(perPage) }).toString()}`);
+    }
+    if (tool === "create_pull_request") {
+      const branch = validateWriteBranch(rawArgs.head);
+      if (rawArgs.draft !== true) fail("draft_required", 403);
+      if (rawArgs.base !== undefined && (typeof rawArgs.base !== "string" || rawArgs.base.length > 255)) fail("invalid_arguments");
+      if (rawArgs.maintainer_can_modify !== undefined && typeof rawArgs.maintainer_can_modify !== "boolean") fail("invalid_arguments");
+      if (rawArgs.maintainer_can_modify === true) fail("maintainer_modification_not_allowed", 403);
+      if (rawArgs.reviewers !== undefined && (!Array.isArray(rawArgs.reviewers) || rawArgs.reviewers.length > 0)) fail("reviewers_not_allowed", 403);
+      const title = boundedString(rawArgs.title, 256);
+      if (rawArgs.body !== undefined && (typeof rawArgs.body !== "string" || rawArgs.body.length > 5000 || rawArgs.body.includes("\0"))) fail("invalid_arguments");
+      const body = rawArgs.body ?? "";
+      const started = now();
+      let category = "internal_error";
+      try {
+        if (!appId || !installationId) fail("github_app_not_configured", 503);
+        const token = await tokenFor(repo);
+        const metadata = await getRepository(api, token, OWNER, repo);
+        if (branch === metadata.default_branch) fail("default_branch_write_denied", 403);
+        if (rawArgs.base !== metadata.default_branch) fail("pull_base_not_allowed", 403);
+        const gh = createToolClient(api, token, OWNER, repo);
+        await getRef(gh, branch);
+        if (await findPullByHead(gh, OWNER, branch, metadata.default_branch)) fail("github_conflict", 409);
+        const pull = await gh.request("/pulls", { method: "POST", body: {
+          title, body, head: branch, base: metadata.default_branch, draft: true, maintainer_can_modify: false,
+        } });
+        if (!isRecord(pull) || pull.draft !== true || pull.base?.ref !== metadata.default_branch || pull.head?.ref !== branch) fail("github_invalid_response", 502);
+        category = "none";
+        return publicPull(pull);
+      } catch (error) {
+        category = error instanceof SafeError ? error.category : "internal_error";
+        throw error instanceof SafeError ? error : new SafeError(category, 500);
+      } finally {
+        try { log({ tool, repository: `${OWNER}/${repo}`, status: category === "none" ? "success" : "error", latency_ms: Math.max(0, now() - started), category }); } catch { /* no sensitive data */ }
+      }
+    }
+    if (tool === "push_files") {
+      const branch = validateWriteBranch(rawArgs.branch);
+      const files = validateFiles(rawArgs.files);
+      const message = boundedString(rawArgs.message, 256);
+      const started = now();
+      let category = "internal_error";
+      try {
+        if (!appId || !installationId) fail("github_app_not_configured", 503);
+        const token = await tokenFor(repo);
+        const metadata = await getRepository(api, token, OWNER, repo);
+        if (branch === metadata.default_branch) fail("default_branch_write_denied", 403);
+        const gh = createToolClient(api, token, OWNER, repo);
+        const parentSha = await getRef(gh, branch);
+        const sha = await createFeatureCommit(gh, files, parentSha, message);
+        const updatedRef = await updateRef(gh, branch, sha);
+        category = "none";
+        return updatedRef;
+      } catch (error) {
+        category = error instanceof SafeError ? error.category : "internal_error";
+        throw error instanceof SafeError ? error : new SafeError(category, 500);
+      } finally {
+        try { log({ tool, repository: `${OWNER}/${repo}`, status: category === "none" ? "success" : "error", latency_ms: Math.max(0, now() - started), category }); } catch { /* no sensitive data */ }
+      }
+    }
+    if (tool === "create_branch") {
+      const branch = validateWriteBranch(rawArgs.branch);
+      if (rawArgs.from_branch !== undefined) validateRef(rawArgs.from_branch);
+      const started = now();
+      let category = "internal_error";
+      try {
+        if (!appId || !installationId) fail("github_app_not_configured", 503);
+        const token = await tokenFor(repo);
+        const metadata = await getRepository(api, token, OWNER, repo);
+        if (rawArgs.from_branch !== undefined && rawArgs.from_branch !== metadata.default_branch) fail("write_base_not_allowed", 403);
+        const gh = createToolClient(api, token, OWNER, repo);
+        const baseSha = await getRef(gh, metadata.default_branch);
+        if (await optionalRef(gh, branch) !== null) fail("github_conflict", 409);
+        const result = await gh.request("/git/refs", { method: "POST", body: { ref: `refs/heads/${branch}`, sha: baseSha } });
+        category = "none";
+        return result;
+      } catch (error) {
+        category = error instanceof SafeError ? error.category : "internal_error";
+        throw error instanceof SafeError ? error : new SafeError(category, 500);
+      } finally {
+        try { log({ tool, repository: `${OWNER}/${repo}`, status: category === "none" ? "success" : "error", latency_ms: Math.max(0, now() - started), category }); } catch { /* no sensitive data */ }
+      }
+    }
+    fail("tool_not_implemented", 501);
+  }
+
+  async function invoke(tool, rawArgs) {
+    if (!Object.hasOwn(OFFICIAL_TOOL_FIELDS, tool)) fail("unknown_tool", 404);
+    return invokeOfficial(tool, rawArgs);
+  }
+
+  return { invoke, toolNames: OFFICIAL_TOOL_NAMES };
 }
 
 export function createLambdaHandler({ config, getPrivateKey, fetchImpl, log }) {
@@ -535,4 +571,4 @@ export function createLambdaHandler({ config, getPrivateKey, fetchImpl, log }) {
 }
 
 export const limits = Object.freeze({ MAX_FILES, MAX_FILE_BYTES, MAX_TOTAL_BYTES, MAX_API_BYTES });
-export const toolNames = Object.freeze(Object.keys(TOOL_FIELDS));
+export const toolNames = OFFICIAL_TOOL_NAMES;

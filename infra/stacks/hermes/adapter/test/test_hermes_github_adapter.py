@@ -81,11 +81,11 @@ class AdapterTests(unittest.TestCase):
     def test_initial_token_acquisition_requests_client_credentials_and_exact_scope(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        result = forwarder.handle(rpc("tools/call", {"name": "repository_info", "arguments": {"repository": "sample"}}))
+        result = forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {"owner": "andrewoconnor", "repo": "sample", "path": "README.md"}}))
         self.assertEqual(result["result"]["content"][0]["text"], "safe")
         self.assertEqual(transport.token_calls, 1)
         token_body = transport.gateway_calls[0][3]
-        self.assertEqual(token_body["params"]["name"], "github___repository_info")
+        self.assertEqual(token_body["params"]["name"], "github___get_file_contents")
 
     def test_token_caching_reuses_token(self):
         transport = FakeTransport()
@@ -138,13 +138,15 @@ class AdapterTests(unittest.TestCase):
             self.assertEqual(result["error"]["message"], "oauth_scope_mismatch")
             self.assertEqual(transport.gateway_calls, [])
 
-    def test_only_five_logical_tools_are_exposed_and_prefix_is_removed(self):
+    def test_only_official_tools_are_exposed_and_prefix_is_removed(self):
+        expected = {"create_branch", "create_pull_request", "get_file_contents", "list_branches", "pull_request_read", "push_files"}
+        self.assertEqual(TOOLS, expected)
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
         result = forwarder.handle(rpc("tools/list"))
         names = {tool["name"] for tool in result["result"]["tools"]}
         self.assertEqual(names, TOOLS)
-        self.assertEqual(len(names), 5)
+        self.assertEqual(len(names), 6)
 
     def test_unknown_methods_and_tools_are_rejected_without_forwarding(self):
         transport = FakeTransport()
@@ -162,7 +164,7 @@ class AdapterTests(unittest.TestCase):
     def test_destination_cannot_be_overridden_by_tool_arguments(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        forwarder.handle(rpc("tools/call", {"name": "repository_info", "arguments": {"url": "https://evil.invalid"}}))
+        forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {"owner": "andrewoconnor", "repo": "sample", "path": "README.md", "url": "https://evil.invalid"}}))
         self.assertEqual(transport.gateway_calls[0][0], GATEWAY_URL)
         self.assertEqual(len(transport.gateway_calls), 1)
 
@@ -176,7 +178,7 @@ class AdapterTests(unittest.TestCase):
     def test_client_secret_and_tokens_are_not_in_json_rpc_responses(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        response = forwarder.handle(rpc("tools/call", {"name": "repository_info", "arguments": {"repository": "sample"}}))
+        response = forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {"owner": "andrewoconnor", "repo": "sample", "path": "README.md"}}))
         encoded = json.dumps(response)
         self.assertNotIn("synthetic-access-token", encoded)
         self.assertNotIn("synthetic-client-secret", encoded)
