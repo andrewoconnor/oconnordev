@@ -2,16 +2,6 @@ variable "spacelift_run_id" {
   type = string
 }
 
-variable "security_account_id" {
-  description = "AWS account ID of the security (Security Tooling) account. Supplied as TF_VAR_security_account_id on the oconnordev-security stack because the account is created out of band and no other stack knows its ID."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[0-9]{12}$", var.security_account_id))
-    error_message = "security_account_id must be a 12-digit AWS account ID."
-  }
-}
-
 terraform {
   required_version = ">= 1.12.0, < 2.0.0"
 
@@ -25,7 +15,7 @@ terraform {
 
 provider "aws" {
   assume_role {
-    role_arn     = "arn:aws:iam::${var.security_account_id}:role/spacelift"
+    role_arn     = "arn:aws:iam::482921124454:role/spacelift"
     session_name = var.spacelift_run_id
     external_id  = "spacelift-general"
   }
@@ -45,7 +35,7 @@ locals {
   # account -- but they do apply to a member account that is a delegated
   # administrator. A read vantage point in a member account is therefore inside
   # the organization's own guardrails; one in the management account is not.
-  config_delivery_bucket_name = "oconnordev-config-${var.security_account_id}"
+  config_delivery_bucket_name = "oconnordev-config-${data.aws_caller_identity.current.account_id}"
 
   # Deliberately narrow. AWS Config is billed per configuration item recorded,
   # so "all supported resource types" in every account is what turns a

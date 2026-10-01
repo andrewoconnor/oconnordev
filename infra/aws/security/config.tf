@@ -29,7 +29,7 @@ data "aws_iam_policy_document" "config_recorder_assume_role" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
-      values   = [var.security_account_id]
+      values   = [data.aws_caller_identity.current.account_id]
     }
   }
 }
@@ -122,7 +122,7 @@ data "aws_iam_policy_document" "config_bucket" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
-      values   = [var.security_account_id]
+      values   = [data.aws_caller_identity.current.account_id]
     }
   }
 
@@ -147,7 +147,7 @@ data "aws_iam_policy_document" "config_bucket" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
-      values   = [var.security_account_id]
+      values   = [data.aws_caller_identity.current.account_id]
     }
   }
 }
@@ -206,7 +206,7 @@ data "aws_iam_policy_document" "config_aggregator_assume_role" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
-      values   = [var.security_account_id]
+      values   = [data.aws_caller_identity.current.account_id]
     }
   }
 }
