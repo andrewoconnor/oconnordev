@@ -5,11 +5,6 @@ data "aws_secretsmanager_secret" "github_machine_user_pat_existing" {
   name = "/hermes/github/machine-user-pat"
 }
 
-import {
-  to = aws_secretsmanager_secret.github_machine_user_pat
-  id = data.aws_secretsmanager_secret.github_machine_user_pat_existing.arn
-}
-
 resource "aws_secretsmanager_secret" "github_machine_user_pat" {
   name        = data.aws_secretsmanager_secret.github_machine_user_pat_existing.name
   description = data.aws_secretsmanager_secret.github_machine_user_pat_existing.description
