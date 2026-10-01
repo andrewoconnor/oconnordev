@@ -34,13 +34,9 @@ locals {
 }
 
 resource "aws_cloudwatch_log_group" "gateway_application_logs" {
+  # checkov:skip=CKV_AWS_158:Encrypted at rest with the default AWS-owned key. An AWS-managed key cannot be referenced here -- alias/aws/logs is created lazily by the service and does not resolve beforehand -- and a customer-managed key would need a key policy granting the log-delivery service kms:GenerateDataKey*, where a policy wrong in either direction fails the delivery silently rather than loudly.
   name              = local.hermes_gateway_log_group_name
   retention_in_days = var.hermes_gateway_log_retention_days
-
-  # The AWS-managed CloudWatch Logs key rather than a customer-managed one.
-  # AWS-managed keys are created lazily, so `alias/aws/logs` does not resolve
-  # until the service has used it once.
-  kms_key_id = "alias/aws/logs"
 }
 
 resource "aws_cloudwatch_log_delivery_source" "gateway_application_logs" {
