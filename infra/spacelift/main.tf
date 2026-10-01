@@ -18,6 +18,16 @@ locals {
   tofu_version = "1.12.6"
 }
 
+variable "security_account_id" {
+  description = "AWS account ID of the security (Security Tooling) account. The account is created out of band in the Organizations console, so its ID cannot be derived from anything in this stack. Set TF_VAR_security_account_id on the oconnordev stack to supply it; it is passed through to the oconnordev-security stack."
+  type        = string
+
+  validation {
+    condition     = can(regex("^[0-9]{12}$", var.security_account_id))
+    error_message = "security_account_id must be a 12-digit AWS account ID."
+  }
+}
+
 resource "spacelift_space" "oconnordev" {
   name = "oconnordev"
 
@@ -97,6 +107,24 @@ resource "spacelift_stack" "oconnordev_hermes" {
   repository   = "oconnordev"
   branch       = "master"
   project_root = "infra/aws/hermes"
+
+  autodeploy = false
+  labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
+
+  terraform_workflow_tool      = "OPEN_TOFU"
+  terraform_version            = local.tofu_version
+  terraform_smart_sanitization = true
+}
+
+resource "spacelift_stack" "oconnordev_security" {
+  name        = "oconnordev-security"
+  description = "security account"
+
+  space_id = spacelift_space.oconnordev.id
+
+  repository   = "oconnordev"
+  branch       = "master"
+  project_root = "infra/aws/security"
 
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
@@ -190,4 +218,29 @@ resource "spacelift_aws_integration_attachment" "drumrollworld" {
   stack_id       = spacelift_stack.drumrollworld.id
   read           = true
   write          = true
+}
+
+resource "spacelift_aws_integration_attachment" "oconnordev_security" {
+  integration_id = spacelift_aws_integration.oconnordev.id
+  stack_id       = spacelift_stack.oconnordev_security.id
+  read           = true
+  write          = true
+}
+
+# The security account cannot create its organization aggregator until the
+# management account has registered it as a delegated administrator for AWS
+# Config, and cannot create the organization-level Access Analyzer until the
+# same registration exists for IAM Access Analyzer. Both live in the general
+# stack, so the security stack waits for it.
+resource "spacelift_stack_dependency" "security_general" {
+  stack_id            = spacelift_stack.oconnordev_security.id
+  depends_on_stack_id = spacelift_stack.oconnordev_general.id
+}
+
+resource "spacelift_environment_variable" "security_account_id" {
+  stack_id    = spacelift_stack.oconnordev_security.id
+  name        = "TF_VAR_security_account_id"
+  value       = var.security_account_id
+  write_only  = false
+  description = "AWS account ID of the security account, used by the security stack's provider to assume its deploy role"
 }
