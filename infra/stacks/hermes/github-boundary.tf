@@ -198,16 +198,17 @@ data "aws_iam_policy_document" "github_target_credentials" {
     effect  = "Allow"
     actions = ["bedrock-agentcore:GetResourceApiKey"]
 
-    # AgentCore authorizes this action against the workload identity the
-    # gateway assumes and against the workload-identity *directory* that
-    # contains it, not against the credential provider ARN. The directory is
-    # resolved separately from the identity, so covering only the identity
-    # still leaves the call denied and the gateway reports that as the opaque
-    # "An internal error occurred. Please retry later." on every GitHub tool
-    # call. All three resources are listed so the grant does not depend on
-    # which ARN a given call path uses.
+    # AgentCore authorizes this action against four separate resources in the
+    # same call path: the token vault, the workload-identity directory, the
+    # workload identity the gateway assumes, and the credential provider
+    # itself. It is NOT authorized against the provider ARN alone. Each is
+    # resolved independently, so covering only some of them still leaves the
+    # call denied and the gateway reports that as the opaque "An internal error
+    # occurred. Please retry later." on every GitHub tool call. This list
+    # mirrors the resource set in the AgentCore outbound-authorization docs.
     resources = [
       aws_bedrockagentcore_api_key_credential_provider.github.credential_provider_arn,
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:token-vault/default",
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default",
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",
     ]
