@@ -312,8 +312,8 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
 
   lifecycle {
     precondition {
-      condition     = length(local.github_native_tools) == 7 && length(setsubtract(local.github_policy_tools, local.github_native_tools)) == 0
-      error_message = "The GitHub MCP manifest must contain exactly the seven tool names covered by the Cedar policies."
+      condition     = length(setsubtract(local.github_policy_tools, local.github_native_tools)) == 0 && length(local.github_native_tools) == length(local.github_policy_tools)
+      error_message = "The GitHub MCP manifest must contain exactly the tool names covered by the Cedar policies."
     }
 
     replace_triggered_by = [terraform_data.github_target_catalog_rebuild]
