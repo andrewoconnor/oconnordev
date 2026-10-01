@@ -1,0 +1,25 @@
+{
+  "upstream_service": "AWS MCP Server",
+  "upstream_endpoint": "https://aws-mcp.us-east-1.api.aws/mcp",
+  "upstream_documentation": "https://docs.aws.amazon.com/agent-toolkit/latest/userguide/understanding-mcp-server-tools.html",
+  "tool_namespace": "aws",
+  "tools": [
+    "aws___get_regional_availability",
+    "aws___get_tasks",
+    "aws___list_regions",
+    "aws___read_documentation",
+    "aws___retrieve_skill",
+    "aws___run_script",
+    "aws___search_documentation"
+  ],
+  "excluded_tools": {
+    "aws___get_presigned_url": "Issues pre-signed Amazon S3 URLs for upload and download. A pre-signed upload URL is a write capability, so it is outside this read-only boundary."
+  },
+  "notes": [
+    "These are the AWS MCP Server's own tool names. The server already namespaces its tools with aws___, so the names here keep that prefix.",
+    "AgentCore prefixes every action with the gateway target's name, so with the target named aws the gateway actions are aws___aws___<tool>. The doubled prefix is expected and is what the policy engine reports; recording these names without the server's own prefix is what previously produced unrecognized-action failures.",
+    "Read-only is enforced by IAM on the gateway role, not by the tool set: aws___run_script inherits the role's permissions and cannot exceed them.",
+    "aws___run_script is the AWS API execution tool in the current server tool list; there is no separate call_aws tool.",
+    "The Cedar policies in aws-mcp-boundary.tf are generated from this manifest, so adding a tool here also requires a matching policy decision."
+  ]
+}
