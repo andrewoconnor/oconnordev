@@ -74,7 +74,7 @@ locals {
   github_tool_manifest      = jsondecode(file("${path.module}/adapter/github-mcp-tools.json"))
   github_native_tools       = toset(local.github_tool_manifest.tools)
   github_read_tools         = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read"])
-  github_branch_tools       = toset(["create_branch", "push_files"])
+  github_branch_tools       = toset(["create_branch", "push_files", "delete_file"])
   github_policy_tools       = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
   hermes_cognito_domain     = "hermes-mcp-${data.aws_caller_identity.current.account_id}"
   cognito_issuer            = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.hermes.id}"
@@ -377,6 +377,7 @@ resource "aws_bedrockagentcore_policy" "github_branch_write" {
           context.input has repo &&
           context.input.repo == ${jsonencode(each.value.repository)} &&
           ${each.value.tool == "push_files" ? "context.input has files && !context.input.files.isEmpty() &&" : ""}
+          ${each.value.tool == "delete_file" ? "context.input has path && context.input.path != \"\" &&" : ""}
           context.input has branch &&
           context.input.branch like "hermes/*" &&
           context.input.branch != "hermes/" &&
