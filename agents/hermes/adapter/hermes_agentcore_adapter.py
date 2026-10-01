@@ -1,5 +1,18 @@
 #!/usr/bin/env python3
-"""Hermes stdio MCP adapter for one fixed Cognito-protected AgentCore Gateway."""
+"""Hermes stdio MCP adapter for the shared Cognito-protected AgentCore Gateway.
+
+The gateway is not GitHub-specific. It fronts several targets, each with its own
+tool namespace, allowlist and request headers, all behind one OAuth client and
+one endpoint. This adapter is the single registration Hermes needs: it holds one
+token for the gateway and presents every target's capability set through one
+stdio server, so the same gateway is never registered twice under different
+names.
+
+Adding a target is one manifest plus one entry in TARGETS. A target can only
+ever expose the tools its manifest names -- `tools/list` asserts the exposed set
+equals the union of the manifests, and `tools/call` refuses any name no target
+owns -- so a new target cannot widen an existing target's allowlist.
+"""
 from __future__ import annotations
 
 import base64
@@ -14,12 +27,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode, urlsplit
 
-TOOL_MANIFEST_PATH = Path(__file__).resolve().parent / "github-mcp-tools.json"
-TOOL_MANIFEST = json.loads(TOOL_MANIFEST_PATH.read_text(encoding="utf-8"))
-GITHUB_TOOLS = tuple(TOOL_MANIFEST["tools"])
-TOOLS = frozenset(GITHUB_TOOLS)
-GITHUB_TOOL_FILTER_VALUE = ",".join(sorted(TOOLS))
-TARGET_PREFIX = "github___"
+MANIFEST_DIR = Path(__file__).resolve().parent
 REQUIRED_SCOPE = "hermes-mcp/invoke"
 # The gateway is fronted by CloudFront at this hostname. The AWS-issued
 # *.gateway.bedrock-agentcore.<region>.amazonaws.com origin is still accepted;
@@ -42,6 +50,10 @@ class AdapterError(Exception):
         self.category = category
 
 
+def _json_rpc_error(message_id: Any, code: int, message: str) -> dict[str, Any]:
+    return {"jsonrpc": "2.0", "id": message_id, "error": {"code": code, "message": message}}
+
+
 def _validate_https_endpoint(value: str, kind: str) -> str:
     try:
         parsed = urlsplit(value)
@@ -61,6 +73,51 @@ def _validate_https_endpoint(value: str, kind: str) -> str:
     except (TypeError, ValueError):
         raise AdapterError("invalid_local_endpoint_configuration") from None
     return value
+
+
+@dataclass(frozen=True)
+class Target:
+    """One AgentCore target: its tool namespace, allowlist and request headers.
+
+    `tools` holds the logical names the client sees, which are the manifest's
+    names. The gateway action name is this target's `prefix` plus a logical
+    name, and the adapter strips exactly that one prefix.
+    """
+
+    name: str
+    tools: frozenset[str]
+    headers: dict[str, str]
+
+    @property
+    def prefix(self) -> str:
+        """AgentCore prefixes every action with the target's name.
+
+        The AWS target's upstream server already namespaces its own tools with
+        `aws___`, so its gateway actions are `aws___aws___<tool>` and its
+        manifest records the doubled name's tail. Recording those names without
+        the server's own prefix is what previously produced unrecognized-action
+        policy failures.
+
+        The `___` separator means one target's prefix can never be a prefix of
+        another's, so resolving an action name to a target is unambiguous.
+        """
+        return f"{self.name}___"
+
+
+def _load_target(name: str, manifest_name: str, *, toolset_header: bool = False) -> Target:
+    document = json.loads((MANIFEST_DIR / manifest_name).read_text(encoding="utf-8"))
+    tools = frozenset(document["tools"])
+    # The GitHub upstream accepts an X-MCP-Tools toolset filter; the AWS target
+    # wants no extra request header. AgentCore forwards only the headers a
+    # target allowlists, so a header sent for one target is not sent for another.
+    headers = {"X-MCP-Tools": ",".join(sorted(tools))} if toolset_header else {}
+    return Target(name=name, tools=tools, headers=headers)
+
+
+TARGETS = (
+    _load_target("github", "github-mcp-tools.json", toolset_header=True),
+    _load_target("aws", "aws-mcp-tools.json"),
+)
 
 
 @dataclass
@@ -168,35 +225,31 @@ class AgentCoreForwarder:
         client_secret: str,
         transport: Any | None = None,
         clock=time.monotonic,
-        tools: Any | None = None,
-        tool_prefix: str | None = None,
-        extra_headers: dict[str, str] | None = None,
+        targets: Any = TARGETS,
     ):
         self.gateway_url = _validate_https_endpoint(gateway_url, "gateway")
         self.transport = transport or HttpsTransport()
         self.tokens = TokenCache(token_url, client_id, client_secret, self.transport, clock=clock)
         self.session_id: str | None = None
         self.protocol_version: str | None = None
-        # Defaults preserve the GitHub target's behaviour. Other targets on the
-        # same gateway pass their own tool manifest, tool prefix and target
-        # headers, so a new target never widens this one's allowlist.
-        self.tools = TOOLS if tools is None else frozenset(tools)
-        self.tool_prefix = TARGET_PREFIX if tool_prefix is None else tool_prefix
-        self.extra_headers = {"X-MCP-Tools": GITHUB_TOOL_FILTER_VALUE} if extra_headers is None else dict(extra_headers)
+        self.targets = tuple(targets)
+        # One logical name, one owner. A name claimed twice would make routing
+        # ambiguous and is a manifest error, not a runtime condition to guess at.
+        self._owners: dict[str, Target] = {}
+        for target in self.targets:
+            for tool in target.tools:
+                if tool in self._owners:
+                    raise AdapterError("duplicate_tool_across_targets")
+                self._owners[tool] = target
 
-    @staticmethod
-    def _json_rpc_error(message_id: Any, code: int, message: str) -> dict[str, Any]:
-        return {"jsonrpc": "2.0", "id": message_id, "error": {"code": code, "message": message}}
+    def _target_for_action(self, action: str) -> Target | None:
+        """The target that owns a gateway action name, by its `<name>___` prefix."""
+        for target in self.targets:
+            if action.startswith(target.prefix):
+                return target
+        return None
 
-    def _remember_protocol(self, request: dict[str, Any], response: dict[str, Any]) -> None:
-        if request.get("method") == "initialize":
-            result = response.get("result")
-            version = result.get("protocolVersion") if isinstance(result, dict) else None
-            if not isinstance(version, str) or not version:
-                raise AdapterError("invalid_gateway_response")
-            self.protocol_version = version
-
-    def _send(self, message: dict[str, Any]) -> tuple[dict[str, Any] | None, dict[str, str]]:
+    def _send(self, message: dict[str, Any], extra_headers: dict[str, str] | None = None) -> tuple[dict[str, Any] | None, dict[str, str]]:
         body = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
         if len(body) > MAX_LINE_BYTES:
             raise AdapterError("request_too_large")
@@ -207,9 +260,10 @@ class AgentCoreForwarder:
                 "Content-Type": "application/json",
                 "Accept": "application/json, text/event-stream",
             }
-            # AgentCore forwards only per-target allowlisted headers. The GitHub
-            # toolset filter goes to GitHub; the AWS target gets no extra header.
-            headers.update(self.extra_headers)
+            # AgentCore forwards only per-target allowlisted headers, so a
+            # request carries the headers of the target it addresses and no
+            # others.
+            headers.update(extra_headers or {})
             if self.protocol_version and message.get("method") != "initialize":
                 headers["MCP-Protocol-Version"] = self.protocol_version
             if self.session_id:
@@ -253,34 +307,44 @@ class AgentCoreForwarder:
             return document, response.headers
         raise AdapterError("gateway_authentication_failure")
 
+    def _remember_protocol(self, request: dict[str, Any], response: dict[str, Any]) -> None:
+        if request.get("method") == "initialize":
+            result = response.get("result")
+            version = result.get("protocolVersion") if isinstance(result, dict) else None
+            if not isinstance(version, str) or not version:
+                raise AdapterError("invalid_gateway_response")
+            self.protocol_version = version
+
     def handle(self, message: Any) -> dict[str, Any] | None:
         if not isinstance(message, dict) or message.get("jsonrpc") != "2.0" or not isinstance(message.get("method"), str):
-            return self._json_rpc_error(message.get("id") if isinstance(message, dict) else None, -32600, "Invalid request")
+            return _json_rpc_error(message.get("id") if isinstance(message, dict) else None, -32600, "Invalid request")
         method = message["method"]
         if method not in {"initialize", "notifications/initialized", "tools/list", "tools/call", "ping"}:
-            return self._json_rpc_error(message.get("id"), -32601, "Method not allowed")
+            return _json_rpc_error(message.get("id"), -32601, "Method not allowed")
         forwarded = dict(message)
-        params = message.get("params", {})
+        target_headers: dict[str, str] | None = None
         if method == "tools/call":
-            if not isinstance(params, dict) or not isinstance(params.get("name"), str) or params["name"] not in self.tools:
-                return self._json_rpc_error(message.get("id"), -32602, "Tool not allowed")
-            forwarded_params = dict(params)
-            forwarded_params["name"] = self.tool_prefix + params["name"]
-            forwarded["params"] = forwarded_params
+            params = message.get("params")
+            name = params.get("name") if isinstance(params, dict) else None
+            target = self._owners.get(name) if isinstance(name, str) else None
+            if target is None:
+                return _json_rpc_error(message.get("id"), -32602, "Tool not allowed")
+            forwarded["params"] = {**params, "name": target.prefix + name}
+            target_headers = target.headers
         try:
             if method == "tools/list":
                 return self._tools_list(message)
-            response, _ = self._send(forwarded)
+            response, _ = self._send(forwarded, target_headers)
             if response is None or "id" not in message:
                 return None
             return response
         except AdapterError as error:
             if "id" not in message:
                 return None
-            return self._json_rpc_error(message.get("id"), -32000, error.category)
+            return _json_rpc_error(message.get("id"), -32000, error.category)
 
     def _tools_list(self, message: dict[str, Any]) -> dict[str, Any] | None:
-        """Return this target's manifest tools, paging the gateway to exhaustion.
+        """Return every target's manifest tools, paging the gateway to exhaustion.
 
         AgentCore pages `tools/list`: the result carries `nextCursor` alongside
         `tools`, and the page size is size-based, so the first page is not the
@@ -288,9 +352,11 @@ class AgentCoreForwarder:
         partial -- the tools on the later pages are still callable, which is
         what makes that misread so convincing.
 
-        The exposed set is still asserted equal to the manifest, so paging
-        cannot widen the allowlist. Any cursor the client sends is ignored: this
-        adapter never emits one, because it returns the whole set at once.
+        The exposed set is still asserted equal to the union of the manifests,
+        so paging cannot widen the allowlist and a target that fails to appear
+        is a mismatch rather than a silently smaller catalog. Any cursor the
+        client sends is ignored: this adapter never emits one, because it
+        returns the whole set at once.
         """
         if "id" not in message:
             return None
@@ -318,15 +384,16 @@ class AgentCoreForwarder:
                 if not isinstance(tool, dict) or not isinstance(tool.get("name"), str):
                     raise AdapterError("invalid_gateway_response")
                 name = tool["name"]
-                if not name.startswith(self.tool_prefix):
-                    # Another target on the shared gateway. Not an error and
+                target = self._target_for_action(name)
+                if target is None:
+                    # A target this adapter does not register. Not an error and
                     # never exposed; the equality check below is what enforces
-                    # this target's allowlist.
+                    # the allowlist.
                     continue
-                logical_name = name[len(self.tool_prefix):]
-                # Expose only this target's manifest allowlist, even if the
-                # gateway or upstream returns additional tools.
-                if logical_name not in self.tools or logical_name in seen:
+                logical_name = name[len(target.prefix):]
+                # Expose only the owning target's manifest allowlist, even if
+                # the gateway or an upstream returns additional tools.
+                if logical_name not in target.tools or logical_name in seen:
                     continue
                 exposed = dict(tool)
                 exposed["name"] = logical_name
@@ -337,7 +404,7 @@ class AgentCoreForwarder:
                 break
         else:
             raise AdapterError("gateway_tool_pagination_limit")
-        if seen != set(self.tools) or len(safe_tools) != len(self.tools):
+        if seen != set(self._owners) or len(safe_tools) != len(self._owners):
             raise AdapterError("gateway_tool_set_mismatch")
         # Drop nextCursor: the client is being handed the complete set, so
         # there is nothing further to fetch.
@@ -350,10 +417,10 @@ class AgentCoreForwarder:
 
 def _load_forwarder() -> AgentCoreForwarder:
     return AgentCoreForwarder(
-        gateway_url=os.environ.get("HERMES_GITHUB_GATEWAY_URL", ""),
-        token_url=os.environ.get("HERMES_GITHUB_COGNITO_TOKEN_URL", ""),
-        client_id=os.environ.get("HERMES_GITHUB_COGNITO_CLIENT_ID", ""),
-        client_secret=os.environ.get("HERMES_GITHUB_COGNITO_CLIENT_SECRET", ""),
+        gateway_url=os.environ.get("HERMES_AGENTCORE_GATEWAY_URL", ""),
+        token_url=os.environ.get("HERMES_AGENTCORE_COGNITO_TOKEN_URL", ""),
+        client_id=os.environ.get("HERMES_AGENTCORE_COGNITO_CLIENT_ID", ""),
+        client_secret=os.environ.get("HERMES_AGENTCORE_COGNITO_CLIENT_SECRET", ""),
     )
 
 
@@ -370,15 +437,15 @@ def serve(stdin=None, stdout=None, forwarder=None) -> None:
         if not line:
             return
         if len(line) > MAX_LINE_BYTES:
-            response = AgentCoreForwarder._json_rpc_error(None, -32000, "request_too_large")
+            response = _json_rpc_error(None, -32000, "request_too_large")
         else:
             try:
                 request = json.loads(line)
                 response = client.handle(request)
             except json.JSONDecodeError:
-                response = AgentCoreForwarder._json_rpc_error(None, -32700, "Parse error")
+                response = _json_rpc_error(None, -32700, "Parse error")
             except Exception:
-                response = AgentCoreForwarder._json_rpc_error(None, -32000, "adapter_failure")
+                response = _json_rpc_error(None, -32000, "adapter_failure")
         if response is not None:
             try:
                 stdout.write(json.dumps(response, separators=(",", ":"), ensure_ascii=False).encode("utf-8") + b"\n")
