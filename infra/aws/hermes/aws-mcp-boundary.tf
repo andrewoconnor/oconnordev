@@ -34,13 +34,26 @@ resource "aws_iam_role_policy_attachment" "hermes_gateway_readonly" {
   policy_arn = local.hermes_aws_readonly_arn
 }
 
+locals {
+  # The gateway execution role may read exactly these secrets at runtime, one
+  # per upstream credential. Additions belong here and nowhere else, so that
+  # granting a new upstream credential is a deliberate, reviewable diff rather
+  # than a side effect of a tag or a path prefix. The long-lived Spacelift API
+  # key is deliberately absent: only the short-lived session token is readable
+  # by the gateway.
+  hermes_gateway_readable_secret_arns = [
+    aws_secretsmanager_secret.github_machine_user_pat.arn,
+    aws_secretsmanager_secret.spacelift_session_token.arn,
+  ]
+}
+
 data "aws_iam_policy_document" "hermes_gateway_readonly_guardrails" {
   statement {
-    sid     = "DenySecretValueReadsOutsideGitHubPat"
+    sid     = "DenySecretValueReadsOutsideApprovedRuntimeCredentials"
     effect  = "Deny"
     actions = ["secretsmanager:GetSecretValue"]
 
-    not_resources = [aws_secretsmanager_secret.github_machine_user_pat.arn]
+    not_resources = local.hermes_gateway_readable_secret_arns
   }
 }
 
@@ -56,6 +69,22 @@ resource "aws_iam_role_policy" "hermes_gateway_readonly_guardrails" {
         statement if can(statement.Resource) && can(statement.NotResource)
       ]) == 0
       error_message = "Each guardrail statement must set either Resource or NotResource, never both; the IAM API rejects a statement that sets both."
+    }
+
+    precondition {
+      condition = alltrue([
+        for arn in local.hermes_gateway_readable_secret_arns :
+        !strcontains(arn, "*")
+      ])
+      error_message = "hermes_gateway_readable_secret_arns must name individual secret ARNs. A wildcard or path prefix would turn a per-credential allowlist back into a broad match."
+    }
+
+    precondition {
+      condition = alltrue([
+        for arn in local.hermes_gateway_readable_secret_arns :
+        !strcontains(arn, var.hermes_spacelift_api_key_secret_name)
+      ])
+      error_message = "The gateway execution role must never be able to read the long-lived Spacelift API key. Only the short-lived session-token secret belongs in hermes_gateway_readable_secret_arns."
     }
   }
 }

@@ -1,6 +1,9 @@
 # Local .terraform directories
 **/.terraform/*
 
+# Lambda deployment archives built at plan time by archive_file
+**/.terraform-archives/*
+
 # .tfstate files
 *.tfstate
 *.tfstate.*
