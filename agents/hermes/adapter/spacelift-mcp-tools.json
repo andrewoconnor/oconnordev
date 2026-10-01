@@ -1,0 +1,23 @@
+{
+  "upstream_service": "Spacelift MCP Server",
+  "upstream_endpoint": "https://andrewoconnor.app.spacelift.io/mcp?tools=query,provider",
+  "upstream_documentation": "https://docs.spacelift.io/integrations/mcp",
+  "tool_namespace": "spacelift",
+  "tools": [
+    "discover",
+    "provider",
+    "query"
+  ],
+  "excluded_tools": {
+    "mutate": "Executes GraphQL mutations against Spacelift, including run trigger, confirm and discard, stack and context writes, and state changes.",
+    "intent": "Creates, updates, deletes and imports infrastructure through Spacelift Intent."
+  },
+  "notes": [
+    "The upstream advertises mutate and intent even to a reader-scoped API key, because the tool list describes the server's surface rather than the caller's permission. Read-only is therefore enforced by the narrowed endpoint above, by the Cedar policies generated from this manifest, and by the API key's own role.",
+    "?tools=query,provider is the narrowing mechanism for API-key and spacectl-token callers. It is pinned in the endpoint above and in the AgentCore target configuration, so the gateway cannot reach the write tools.",
+    "discover is always included by the upstream and cannot be narrowed away.",
+    "query executes read-only GraphQL queries. The write path is the separate mutate tool, which this manifest excludes.",
+    "The Cedar policies in spacelift-mcp-boundary.tf are generated from this manifest, so adding a tool here also requires a matching policy decision.",
+    "The gateway authenticates with a short-lived session JWT minted from the read-only API key. It never holds the long-lived API key, which is readable only by the rotation function."
+  ]
+}
