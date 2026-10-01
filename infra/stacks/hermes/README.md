@@ -24,6 +24,14 @@ The target's capability catalog can go stale in a way `SynchronizeGatewayTargets
 
 The Cedar policies `depends_on` the target, so a replacement re-orders them. If a policy ends up non-`ACTIVE` after the replacement, re-apply — the target's tools are re-synced as part of the same apply.
 
+## Gateway application logging
+
+AgentCore writes no gateway logs unless an account-level log delivery is configured, so a failed tool call normally leaves no server-side trace. `gateway-observability.tf` delivers the gateway's `APPLICATION_LOGS` records to a CloudWatch Logs group at `/aws/vendedlogs/bedrock-agentcore/gateway/APPLICATION_LOGS/<gateway-id>` (vended delivery requires the `/aws/vendedlogs/` prefix). The records carry the MCP request and response bodies and the per-request error flag.
+
+Retention is `var.hermes_gateway_log_retention_days` (default 30). CloudWatch Logs accepts a fixed set of retention values, so the variable is validated against an allow-list rather than a numeric range.
+
+The delivery deliberately does not set `record_fields`. When that list is supplied, the source's mandatory fields must appear in it, and the mandatory set is not published — an incomplete list is rejected at apply. Omitting it delivers the whole record, which is what retains the request/response bodies and the error flag. To narrow it later, call `logs:GetLogFields` with `dataSourceName = "AWS::BedrockAgentCore::Gateway"` and `dataSourceType = "APPLICATION_LOGS"`; it returns the 26 valid field names for this source.
+
 ## AWS target boundary (read-only)
 
 The AWS MCP Server target (`aws`) points at AWS's managed MCP endpoint, `https://aws-mcp.us-east-1.api.aws/mcp`. It is an MCP server target, so the Gateway authenticates with SigV4 via `gateway_iam_role` rather than an API key or an OAuth token. The SigV4 service name is pinned in `hermes_aws_mcp_sigv4_service` so a changed endpoint cannot silently change the signature.
