@@ -106,6 +106,24 @@ resource "spacelift_stack" "oconnordev_hermes" {
   terraform_smart_sanitization = true
 }
 
+resource "spacelift_stack" "oconnordev_security" {
+  name        = "oconnordev-security"
+  description = "security account"
+
+  space_id = spacelift_space.oconnordev.id
+
+  repository   = "oconnordev"
+  branch       = "master"
+  project_root = "infra/aws/security"
+
+  autodeploy = false
+  labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
+
+  terraform_workflow_tool      = "OPEN_TOFU"
+  terraform_version            = local.tofu_version
+  terraform_smart_sanitization = true
+}
+
 resource "spacelift_stack" "drumrollworld" {
   name        = "drumrollworld"
   description = "drumrollworld"
@@ -190,4 +208,21 @@ resource "spacelift_aws_integration_attachment" "drumrollworld" {
   stack_id       = spacelift_stack.drumrollworld.id
   read           = true
   write          = true
+}
+
+resource "spacelift_aws_integration_attachment" "oconnordev_security" {
+  integration_id = spacelift_aws_integration.oconnordev.id
+  stack_id       = spacelift_stack.oconnordev_security.id
+  read           = true
+  write          = true
+}
+
+# The security account cannot create its organization aggregator until the
+# management account has registered it as a delegated administrator for AWS
+# Config, and cannot create the organization-level Access Analyzer until the
+# same registration exists for IAM Access Analyzer. Both live in the general
+# stack, so the security stack waits for it.
+resource "spacelift_stack_dependency" "security_general" {
+  stack_id            = spacelift_stack.oconnordev_security.id
+  depends_on_stack_id = spacelift_stack.oconnordev_general.id
 }
