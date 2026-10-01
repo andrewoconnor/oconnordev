@@ -23,6 +23,7 @@ EXPECTED_TOOLS = {
     "get_commit",
     "create_branch",
     "push_files",
+    "delete_file",
     "create_pull_request",
     "pull_request_read",
 }
@@ -37,6 +38,10 @@ class FakeTransport:
         self.always_401 = False
         self.scope: object = REQUIRED_SCOPE
         self.omit_scope = False
+        # Drop keys from the token response, or replace its body entirely with
+        # raw bytes, to exercise the token-response validation path.
+        self.token_drop: tuple[str, ...] = ()
+        self.token_raw: bytes | None = None
         self.extra_tool = False
         self.missing_tool = False
         # 0 means "return every tool in one page", which is what the gateway
@@ -52,9 +57,13 @@ class FakeTransport:
             assert form == {"grant_type": ["client_credentials"], "scope": [REQUIRED_SCOPE]}
             token = f"synthetic-access-token-{self.token_calls}"
             self.tokens.append(token)
+            if self.token_raw is not None:
+                return type("Response", (), {"status": 200, "headers": {}, "body": self.token_raw})()
             response = {"access_token": token, "expires_in": 300, "token_type": "Bearer"}
             if not self.omit_scope:
                 response["scope"] = self.scope
+            for key in self.token_drop:
+                response.pop(key, None)
             return _response(200, response)
         self.gateway_calls.append((url, method, headers.copy(), json.loads(body)))
         if self.always_401 or self.gateway_401_count > 0:
@@ -184,6 +193,24 @@ class AdapterTests(unittest.TestCase):
         self.assertNotIn("error", result)
         self.assertEqual(len(transport.gateway_calls), 1)
 
+    def test_token_response_without_access_token_is_rejected(self):
+        transport = FakeTransport()
+        transport.token_drop = ("access_token",)
+        forwarder = make_forwarder(transport)
+        result = forwarder.handle(rpc("ping"))
+        self.assertIsNotNone(result)
+        self.assertEqual(result["error"]["message"], "invalid_token_response")
+        self.assertEqual(transport.gateway_calls, [])
+
+    def test_non_json_token_response_is_rejected(self):
+        transport = FakeTransport()
+        transport.token_raw = b"not-json"
+        forwarder = make_forwarder(transport)
+        result = forwarder.handle(rpc("ping"))
+        self.assertIsNotNone(result)
+        self.assertEqual(result["error"]["message"], "invalid_token_response")
+        self.assertEqual(transport.gateway_calls, [])
+
     def test_cloudfront_gateway_endpoint_is_accepted(self):
         transport = FakeTransport()
         forwarder = AgentCoreForwarder(CLOUDFRONT_GATEWAY_URL, TOKEN_URL, "id", "secret", transport)
@@ -195,8 +222,10 @@ class AdapterTests(unittest.TestCase):
     def test_endpoint_validation_still_rejects_anything_else(self):
         for url in (
             "https://mcp.oconnor.dev.evil.com/mcp",
+            "https://evil.oconnor.dev/mcp",
             "https://evil.com/mcp",
             "https://mcp.oconnor.dev/notmcp",
+            "https://mcp.oconnor.dev/",
             "https://mcp.oconnor.dev/mcp/",
             "http://mcp.oconnor.dev/mcp",
             "https://mcp.oconnor.dev:8443/mcp",
@@ -221,7 +250,7 @@ class AdapterTests(unittest.TestCase):
         result = forwarder.handle(rpc("tools/list"))
         names = {tool["name"] for tool in result["result"]["tools"]}
         self.assertEqual(names, EXPECTED_TOOLS)
-        self.assertEqual(len(names), 7)
+        self.assertEqual(len(names), 8)
         self.assertEqual(transport.gateway_calls[0][2]["X-MCP-Tools"], EXPECTED_TOOL_HEADER)
 
     def test_unknown_methods_and_tools_are_rejected_without_forwarding(self):
