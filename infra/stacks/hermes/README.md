@@ -28,7 +28,9 @@ The Cedar policies `depends_on` the target, so a replacement re-orders them. If 
 
 AgentCore writes no gateway logs unless an account-level log delivery is configured, so a failed tool call normally leaves no server-side trace. `gateway-observability.tf` delivers the gateway's `APPLICATION_LOGS` records to a CloudWatch Logs group at `/aws/vendedlogs/bedrock-agentcore/gateway/APPLICATION_LOGS/<gateway-id>` (vended delivery requires the `/aws/vendedlogs/` prefix). The records carry the MCP request and response bodies and the per-request error flag.
 
-Retention is `var.hermes_gateway_log_retention_days` (default 30). CloudWatch Logs accepts a fixed set of retention values, so the variable is validated against an allow-list rather than a numeric range.
+Retention is `var.hermes_gateway_log_retention_days` (default 365). CloudWatch Logs accepts a fixed set of retention values, so the variable is validated against an allow-list rather than a numeric range.
+
+The log group carries a `CKV_AWS_158` skip. CloudWatch Logs already encrypts at rest with an AWS-owned key; a customer-managed key would need a key policy granting the log-delivery service `kms:GenerateDataKey*`, and a policy wrong in either direction fails the delivery silently rather than loudly.
 
 The delivery deliberately does not set `record_fields`. When that list is supplied, the source's mandatory fields must appear in it, and the mandatory set is not published — an incomplete list is rejected at apply. Omitting it delivers the whole record, which is what retains the request/response bodies and the error flag. To narrow it later, call `logs:GetLogFields` with `dataSourceName = "AWS::BedrockAgentCore::Gateway"` and `dataSourceType = "APPLICATION_LOGS"`; it returns the 26 valid field names for this source.
 

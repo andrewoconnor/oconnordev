@@ -13,7 +13,7 @@
 variable "hermes_gateway_log_retention_days" {
   description = "Retention in days for the AgentCore gateway application log group."
   type        = number
-  default     = 30
+  default     = 365
 
   # CloudWatch Logs accepts a fixed set of retention values, not an arbitrary
   # range, so the constraint is an allow-list rather than a numeric bound.
@@ -33,6 +33,7 @@ locals {
   hermes_gateway_log_group_name = "/aws/vendedlogs/bedrock-agentcore/gateway/APPLICATION_LOGS/${aws_bedrockagentcore_gateway.hermes.gateway_id}"
 }
 
+# checkov:skip=CKV_AWS_158:CloudWatch Logs already encrypts at rest with an AWS-owned key. A customer-managed key would need a key policy granting the log-delivery service kms:GenerateDataKey*, and a policy that is wrong in either direction fails the delivery silently rather than loudly. This delivery exists to diagnose a live bug, so the simpler path is the right trade here.
 resource "aws_cloudwatch_log_group" "gateway_application_logs" {
   name              = local.hermes_gateway_log_group_name
   retention_in_days = var.hermes_gateway_log_retention_days
