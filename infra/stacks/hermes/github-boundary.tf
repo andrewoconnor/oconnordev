@@ -295,6 +295,21 @@ resource "aws_bedrockagentcore_gateway" "hermes" {
   ]
 }
 
+# One-shot trigger that forces the GitHub target to be replaced.
+#
+# The target's capability catalog is incomplete: it routes all seven manifest
+# tools (each one verified by calling it) but tools/list advertises only four,
+# and an explicit SynchronizeGatewayTargets call does not repair it. Replacing
+# the target rebuilds the catalog, because CreateGatewayTarget performs implicit
+# synchronization against the upstream server.
+#
+# This is deliberately a one-shot trigger rather than a recurring recreation:
+# bump the token only when another forced rebuild is actually wanted, otherwise
+# every apply would destroy and recreate a working target.
+resource "terraform_data" "github_target_catalog_rebuild" {
+  triggers_replace = ["initial-catalog-rebuild"]
+}
+
 resource "aws_bedrockagentcore_gateway_target" "github" {
   name               = local.github_target_name
   gateway_identifier = aws_bedrockagentcore_gateway.hermes.gateway_id
@@ -333,6 +348,9 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
       condition     = length(local.github_native_tools) == 7 && length(setsubtract(local.github_policy_tools, local.github_native_tools)) == 0
       error_message = "The GitHub MCP manifest must contain exactly the seven tool names covered by the Cedar policies."
     }
+
+    # Rebuild this target's capability catalog when the trigger above changes.
+    replace_triggered_by = [terraform_data.github_target_catalog_rebuild]
   }
 
   depends_on = [
