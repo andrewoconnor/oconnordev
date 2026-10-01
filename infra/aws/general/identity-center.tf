@@ -64,6 +64,7 @@ resource "aws_ssoadmin_permission_set" "administrators" {
 }
 
 resource "aws_ssoadmin_managed_policy_attachment" "administrator_access" {
+  # checkov:skip=CKV_AWS_274:Accepted risk. This is the human administrator permission set: it is assigned only to the Administrators group (membership managed in aws_identitystore_group_membership.andrew_administrator) and only to the three organization accounts, with a one-hour session. Replacing AdministratorAccess with a narrower set is a separate change that needs a full inventory of what the human path must be able to do.
   instance_arn       = local.identity_center_instance_arn
   permission_set_arn = aws_ssoadmin_permission_set.administrators.arn
   managed_policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"

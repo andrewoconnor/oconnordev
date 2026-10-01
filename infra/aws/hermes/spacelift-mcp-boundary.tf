@@ -55,6 +55,7 @@ data "aws_secretsmanager_secret" "spacelift_api_key" {
 
 resource "aws_secretsmanager_secret" "spacelift_session_token" {
   # checkov:skip=CKV_AWS_149:Encrypted with the account's AWS-managed secrets key. A customer-managed key would need a key policy granting both the gateway execution role and the rotation function, and a key policy wrong in either direction fails the credential read at request time rather than loudly at apply.
+  # checkov:skip=CKV2_AWS_57:Rotation is already implemented, just not through Secrets Manager's native rotation configuration. aws_lambda_function.spacelift_rotation runs on aws_cloudwatch_event_rule.spacelift_rotation and re-mints the session JWT from the read-only API key before its 10-hour window closes; aws_cloudwatch_metric_alarm.spacelift_session_token_stale alarms when the stored token ages out. Attaching a native rotation Lambda would add a second, competing rotator for the same value.
   name        = var.hermes_spacelift_session_token_secret_name
   description = "Short-lived Spacelift session JWT minted from the read-only API key. Read by the AgentCore gateway execution role, written only by the rotation function."
 }
