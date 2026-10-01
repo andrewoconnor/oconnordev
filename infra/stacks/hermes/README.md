@@ -24,11 +24,19 @@ The target's capability catalog can go stale in a way `SynchronizeGatewayTargets
 
 The Cedar policies `depends_on` the target, so a replacement re-orders them. If a policy ends up non-`ACTIVE` after the replacement, re-apply — the target's tools are re-synced as part of the same apply.
 
+## Tool listing is paginated
+
+`tools/list` on the gateway is **paged**: the result carries `nextCursor` alongside `tools`, and the page size is size-based rather than a fixed count, so the number of pages depends on how verbose the upstream tool descriptions are. Reading only the first page makes a complete catalog look partial — and the tools on the later pages stay callable, which is what makes that misread so convincing.
+
+`AgentCoreForwarder` therefore pages to exhaustion before comparing the exposed set against the manifest, and drops `nextCursor` from the response so the client receives the whole set in one call. Tools belonging to another target on the shared gateway are skipped rather than treated as a mismatch; the exact-set comparison against the manifest is what enforces the allowlist, so skipping them cannot widen it.
+
 ## Gateway application logging
 
-AgentCore writes no gateway logs unless an account-level log delivery is configured, so a failed tool call normally leaves no server-side trace. `gateway-observability.tf` delivers the gateway's `APPLICATION_LOGS` records to a CloudWatch Logs group at `/aws/vendedlogs/bedrock-agentcore/gateway/APPLICATION_LOGS/<gateway-id>` (vended delivery requires the `/aws/vendedlogs/` prefix). The records carry the MCP request and response bodies and the per-request error flag.
+AgentCore writes no gateway logs unless an account-level log delivery is configured, so a failed tool call normally leaves no server-side trace. `gateway-observability.tf` delivers the gateway's `APPLICATION_LOGS` records to a CloudWatch Logs group at `/aws/vendedlogs/bedrock-agentcore/gateway/hermes` (vended delivery requires the `/aws/vendedlogs/` prefix). The records carry the MCP request and response bodies and the per-request error flag.
 
-Retention is `var.hermes_gateway_log_retention_days` (default 365). CloudWatch Logs accepts a fixed set of retention values, so the variable is validated against an allow-list rather than a numeric range.
+The log group name is deliberately not derived from the gateway ID. The console convention is `.../gateway/APPLICATION_LOGS/<gateway-id>`, but a gateway replacement then renames the group, destroying its history exactly when it is most wanted. A fixed name survives a replacement; only the delivery source and destination rebind to the new gateway.
+
+Retention is `var.hermes_gateway_log_retention_days` (default 7). CloudWatch Logs accepts a fixed set of retention values, so the variable is validated against an allow-list rather than a numeric range. The 7-day default carries a `CKV_AWS_338` skip: these are high-volume diagnostic records kept to debug an active problem rather than as an audit trail.
 
 The log group is left on CloudWatch Logs' default encryption — an AWS-owned key — and carries a `CKV_AWS_158` skip for it. `alias/aws/logs` cannot be referenced: AWS-managed keys are created lazily, so `kms:DescribeKey` on that alias returns `NotFoundException` until the service has used it. A customer-managed key would need a key policy granting the log-delivery service `kms:GenerateDataKey*`, and a policy wrong in either direction fails the delivery silently rather than loudly.
 

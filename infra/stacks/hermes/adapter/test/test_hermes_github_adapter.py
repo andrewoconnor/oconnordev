@@ -38,6 +38,10 @@ class FakeTransport:
         self.omit_scope = False
         self.extra_tool = False
         self.missing_tool = False
+        # 0 means "return every tool in one page", which is what the gateway
+        # does not do. Set a page size to exercise the paging path.
+        self.page_size = 0
+        self.foreign_tools = False
         self.tokens = []
 
     def request(self, url, method, headers, body):
@@ -63,7 +67,19 @@ class FakeTransport:
                 names.append("github___dangerous_tool")
             if self.missing_tool:
                 names.pop(0)
-            result = {"tools": [{"name": name, "description": "safe"} for name in names]}
+            if self.foreign_tools:
+                names = ["aws___aws___run_script", "aws___aws___list_regions"] + names
+            cursor = (message.get("params") or {}).get("cursor")
+            if self.page_size:
+                start = int(cursor) if cursor else 0
+                window = names[start:start + self.page_size]
+                following = start + self.page_size
+                paged: dict = {"tools": [{"name": name, "description": "safe"} for name in window]}
+                if following < len(names):
+                    paged["nextCursor"] = str(following)
+                result = paged
+            else:
+                result = {"tools": [{"name": name, "description": "safe"} for name in names]}
         elif message["method"] == "tools/call":
             result = {"content": [{"type": "text", "text": "safe"}]}
         else:
@@ -187,6 +203,37 @@ class AdapterTests(unittest.TestCase):
         transport.missing_tool = True
         result = make_forwarder(transport).handle(rpc("tools/list"))
         self.assertEqual(result["error"]["message"], "gateway_tool_set_mismatch")
+
+    def test_tools_list_pages_the_gateway_to_exhaustion(self):
+        transport = FakeTransport()
+        transport.page_size = 3
+        result = make_forwarder(transport).handle(rpc("tools/list"))
+        names = {tool["name"] for tool in result["result"]["tools"]}
+        self.assertEqual(names, EXPECTED_TOOLS)
+        # Seven tools over pages of three, so three gateway calls, and the
+        # paging cursor must not be handed on to the client.
+        self.assertEqual(len(transport.gateway_calls), 3)
+        self.assertNotIn("nextCursor", result["result"])
+
+    def test_paging_still_fails_closed_when_the_manifest_is_incomplete(self):
+        transport = FakeTransport()
+        transport.page_size = 3
+        transport.missing_tool = True
+        result = make_forwarder(transport).handle(rpc("tools/list"))
+        self.assertEqual(result["error"]["message"], "gateway_tool_set_mismatch")
+
+    def test_other_targets_on_the_shared_gateway_are_ignored_not_a_mismatch(self):
+        transport = FakeTransport()
+        transport.foreign_tools = True
+        result = make_forwarder(transport).handle(rpc("tools/list"))
+        self.assertNotIn("error", result)
+        self.assertEqual({tool["name"] for tool in result["result"]["tools"]}, EXPECTED_TOOLS)
+
+    def test_client_supplied_cursor_cannot_narrow_the_tool_set(self):
+        transport = FakeTransport()
+        transport.page_size = 3
+        result = make_forwarder(transport).handle(rpc("tools/list", {"cursor": "3"}))
+        self.assertEqual({tool["name"] for tool in result["result"]["tools"]}, EXPECTED_TOOLS)
 
     def test_destination_cannot_be_overridden_by_tool_arguments(self):
         transport = FakeTransport()

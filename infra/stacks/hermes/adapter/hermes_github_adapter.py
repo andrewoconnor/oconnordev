@@ -23,6 +23,10 @@ TARGET_PREFIX = "github___"
 REQUIRED_SCOPE = "hermes-mcp/invoke"
 MAX_LINE_BYTES = 1024 * 1024
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
+# AgentCore pages `tools/list`. The page size is size-based rather than
+# count-based, so the number of pages depends on how verbose the upstream tool
+# descriptions are. This is a runaway guard, not an expected page count.
+MAX_TOOL_LIST_PAGES = 20
 CONNECT_TIMEOUT_SECONDS = 5
 READ_TIMEOUT_SECONDS = 15
 TOKEN_REFRESH_SKEW_SECONDS = 60
@@ -253,42 +257,84 @@ class AgentCoreForwarder:
             forwarded_params["name"] = self.tool_prefix + params["name"]
             forwarded["params"] = forwarded_params
         try:
+            if method == "tools/list":
+                return self._tools_list(message)
             response, _ = self._send(forwarded)
             if response is None or "id" not in message:
                 return None
-            if response.get("error"):
-                return response
-            if method == "tools/list":
-                result = response.get("result")
-                tools = result.get("tools") if isinstance(result, dict) else None
-                if not isinstance(result, dict) or not isinstance(tools, list):
-                    raise AdapterError("invalid_gateway_response")
-                safe_tools = []
-                for tool in tools:
-                    if not isinstance(tool, dict) or not isinstance(tool.get("name"), str):
-                        raise AdapterError("invalid_gateway_response")
-                    name = tool["name"]
-                    if not name.startswith(self.tool_prefix):
-                        raise AdapterError("gateway_tool_set_mismatch")
-                    logical_name = name[len(self.tool_prefix):]
-                    # Expose only this target's manifest allowlist, even if the
-                    # gateway or upstream returns additional tools.
-                    if logical_name not in self.tools:
-                        continue
-                    exposed = dict(tool)
-                    exposed["name"] = logical_name
-                    safe_tools.append(exposed)
-                if {tool["name"] for tool in safe_tools} != self.tools or len(safe_tools) != len(self.tools):
-                    raise AdapterError("gateway_tool_set_mismatch")
-                output = dict(result)
-                output["tools"] = safe_tools
-                response = dict(response)
-                response["result"] = output
             return response
         except AdapterError as error:
             if "id" not in message:
                 return None
             return self._json_rpc_error(message.get("id"), -32000, error.category)
+
+    def _tools_list(self, message: dict[str, Any]) -> dict[str, Any] | None:
+        """Return this target's manifest tools, paging the gateway to exhaustion.
+
+        AgentCore pages `tools/list`: the result carries `nextCursor` alongside
+        `tools`, and the page size is size-based, so the first page is not the
+        tool set. Reading only the first page makes a complete catalog look
+        partial -- the tools on the later pages are still callable, which is
+        what makes that misread so convincing.
+
+        The exposed set is still asserted equal to the manifest, so paging
+        cannot widen the allowlist. Any cursor the client sends is ignored: this
+        adapter never emits one, because it returns the whole set at once.
+        """
+        if "id" not in message:
+            return None
+        safe_tools: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        first_response: dict[str, Any] | None = None
+        result: dict[str, Any] = {}
+        cursor: str | None = None
+        for _ in range(MAX_TOOL_LIST_PAGES):
+            page_request = dict(message)
+            page_request["params"] = {"cursor": cursor} if cursor else {}
+            page, _headers = self._send(page_request)
+            if page is None:
+                raise AdapterError("invalid_gateway_response")
+            if page.get("error"):
+                return page
+            if first_response is None:
+                first_response = page
+            page_result = page.get("result")
+            tools = page_result.get("tools") if isinstance(page_result, dict) else None
+            if not isinstance(page_result, dict) or not isinstance(tools, list):
+                raise AdapterError("invalid_gateway_response")
+            result = page_result
+            for tool in tools:
+                if not isinstance(tool, dict) or not isinstance(tool.get("name"), str):
+                    raise AdapterError("invalid_gateway_response")
+                name = tool["name"]
+                if not name.startswith(self.tool_prefix):
+                    # Another target on the shared gateway. Not an error and
+                    # never exposed; the equality check below is what enforces
+                    # this target's allowlist.
+                    continue
+                logical_name = name[len(self.tool_prefix):]
+                # Expose only this target's manifest allowlist, even if the
+                # gateway or upstream returns additional tools.
+                if logical_name not in self.tools or logical_name in seen:
+                    continue
+                exposed = dict(tool)
+                exposed["name"] = logical_name
+                safe_tools.append(exposed)
+                seen.add(logical_name)
+            cursor = page_result.get("nextCursor")
+            if not isinstance(cursor, str) or not cursor:
+                break
+        else:
+            raise AdapterError("gateway_tool_pagination_limit")
+        if seen != set(self.tools) or len(safe_tools) != len(self.tools):
+            raise AdapterError("gateway_tool_set_mismatch")
+        # Drop nextCursor: the client is being handed the complete set, so
+        # there is nothing further to fetch.
+        output = {key: value for key, value in result.items() if key != "nextCursor"}
+        output["tools"] = safe_tools
+        response = dict(first_response)
+        response["result"] = output
+        return response
 
 
 def _load_forwarder() -> AgentCoreForwarder:
