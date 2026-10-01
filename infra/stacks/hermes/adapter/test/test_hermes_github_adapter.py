@@ -15,6 +15,7 @@ from hermes_github_adapter import (
 )
 
 GATEWAY_URL = "https://gateway-id.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
+CLOUDFRONT_GATEWAY_URL = "https://mcp.oconnor.dev/mcp"
 TOKEN_URL = "https://pool.auth.us-east-1.amazoncognito.com/oauth2/token"
 EXPECTED_TOOLS = {
     "get_file_contents",
@@ -34,7 +35,7 @@ class FakeTransport:
         self.gateway_calls = []
         self.gateway_401_count = 0
         self.always_401 = False
-        self.scope = REQUIRED_SCOPE
+        self.scope: object = REQUIRED_SCOPE
         self.omit_scope = False
         self.extra_tool = False
         self.missing_tool = False
@@ -162,17 +163,49 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(transport.token_calls, 2)
         self.assertEqual(len(transport.gateway_calls), 2)
 
-    def test_wrong_or_missing_scope_is_rejected(self):
-        for mode in ("wrong", "missing"):
+    def test_wrong_scope_is_rejected(self):
+        for bad in ("other/scope", "hermes-mcp/invoke hermes-mcp/other", "", 7):
             transport = FakeTransport()
-            if mode == "wrong":
-                transport.scope = "other/scope"
-            else:
-                transport.omit_scope = True
+            transport.scope = bad
             forwarder = make_forwarder(transport)
             result = forwarder.handle(rpc("ping"))
             self.assertEqual(result["error"]["message"], "oauth_scope_mismatch")
             self.assertEqual(transport.gateway_calls, [])
+
+    def test_absent_scope_is_accepted(self):
+        # RFC 6749 section 5.1 makes the response `scope` field OPTIONAL when the
+        # granted scope is identical to the requested one. Cognito omits it for
+        # this client, so requiring the echo rejected every real token.
+        transport = FakeTransport()
+        transport.omit_scope = True
+        forwarder = make_forwarder(transport)
+        result = forwarder.handle(rpc("ping"))
+        self.assertIsNotNone(result)
+        self.assertNotIn("error", result)
+        self.assertEqual(len(transport.gateway_calls), 1)
+
+    def test_cloudfront_gateway_endpoint_is_accepted(self):
+        transport = FakeTransport()
+        forwarder = AgentCoreForwarder(CLOUDFRONT_GATEWAY_URL, TOKEN_URL, "id", "secret", transport)
+        result = forwarder.handle(rpc("ping"))
+        self.assertIsNotNone(result)
+        self.assertNotIn("error", result)
+        self.assertEqual(transport.gateway_calls[0][0], CLOUDFRONT_GATEWAY_URL)
+
+    def test_endpoint_validation_still_rejects_anything_else(self):
+        for url in (
+            "https://mcp.oconnor.dev.evil.com/mcp",
+            "https://evil.com/mcp",
+            "https://mcp.oconnor.dev/notmcp",
+            "https://mcp.oconnor.dev/mcp/",
+            "http://mcp.oconnor.dev/mcp",
+            "https://mcp.oconnor.dev:8443/mcp",
+            "https://gateway-id.gateway.bedrock-agentcore.us-east-1.amazonaws.com.evil.com/mcp",
+            "https://user@mcp.oconnor.dev/mcp",
+            "https://mcp.oconnor.dev/mcp?x=1",
+        ):
+            with self.assertRaises(AdapterError, msg=url):
+                AgentCoreForwarder(url, TOKEN_URL, "id", "secret", FakeTransport())
 
     def test_allowlist_matches_verified_official_tool_names(self):
         self.assertEqual(TOOLS, EXPECTED_TOOLS)

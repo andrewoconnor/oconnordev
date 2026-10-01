@@ -21,6 +21,10 @@ TOOLS = frozenset(GITHUB_TOOLS)
 GITHUB_TOOL_FILTER_VALUE = ",".join(sorted(TOOLS))
 TARGET_PREFIX = "github___"
 REQUIRED_SCOPE = "hermes-mcp/invoke"
+# The gateway is fronted by CloudFront at this hostname. The AWS-issued
+# *.gateway.bedrock-agentcore.<region>.amazonaws.com origin is still accepted;
+# this is an additional host, not a replacement.
+CLOUDFRONT_GATEWAY_HOSTNAME = "mcp.oconnor.dev"
 MAX_LINE_BYTES = 1024 * 1024
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 # AgentCore pages `tools/list`. The page size is size-based rather than
@@ -44,7 +48,10 @@ def _validate_https_endpoint(value: str, kind: str) -> str:
         if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
             raise ValueError
         if kind == "gateway":
-            valid_host = re.fullmatch(r"[a-z0-9-]+\.gateway\.bedrock-agentcore\.[a-z0-9-]+\.amazonaws\.com", parsed.hostname)
+            valid_host = parsed.hostname == CLOUDFRONT_GATEWAY_HOSTNAME or re.fullmatch(
+                r"[a-z0-9-]+\.gateway\.bedrock-agentcore\.[a-z0-9-]+\.amazonaws\.com",
+                parsed.hostname,
+            )
             valid_path = parsed.path == "/mcp"
         else:
             valid_host = re.fullmatch(r"[a-z0-9-]+\.auth\.[a-z0-9-]+\.amazoncognito\.com", parsed.hostname)
@@ -132,7 +139,11 @@ class TokenCache:
                 raise ValueError
             if not isinstance(token_type, str) or token_type.lower() != "bearer":
                 raise ValueError
-            if not isinstance(scope, str) or scope.split() != [REQUIRED_SCOPE]:
+            # RFC 6749 section 5.1 makes the response `scope` field OPTIONAL
+            # when the granted scope is identical to the requested one, and
+            # Cognito omits it for this client. Requiring the echo rejected
+            # every token. A scope that IS present must still match exactly.
+            if "scope" in document and (not isinstance(scope, str) or scope.split() != [REQUIRED_SCOPE]):
                 raise AdapterError("oauth_scope_mismatch")
         except AdapterError:
             raise
