@@ -79,11 +79,11 @@ locals {
     push_files  = "context.input has files && !context.input.files.isEmpty() &&"
     delete_file = "context.input has path && context.input.path != \"\" &&"
   }
-  github_policy_tools       = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
-  hermes_cognito_domain     = "hermes-mcp-${data.aws_caller_identity.current.account_id}"
-  cognito_issuer            = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.hermes.id}"
-  cognito_token_url         = "https://${aws_cognito_user_pool_domain.hermes.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
-  github_cedar_repo_set     = jsonencode(sort(tolist(var.hermes_github_allowed_repositories)))
+  github_policy_tools   = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
+  hermes_cognito_domain = "hermes-mcp-${data.aws_caller_identity.current.account_id}"
+  cognito_issuer        = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.hermes.id}"
+  cognito_token_url     = "https://${aws_cognito_user_pool_domain.hermes.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
+  github_cedar_repo_set = jsonencode(sort(tolist(var.hermes_github_allowed_repositories)))
 
   github_branch_policy_matrix = {
     for pair in setproduct(var.hermes_github_allowed_repositories, local.github_branch_tools) : jsonencode(pair) => {
