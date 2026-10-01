@@ -25,6 +25,11 @@ locals {
   aws_tool_manifest       = jsondecode(file("${path.module}/adapter/aws-mcp-tools.json"))
   aws_native_tools        = toset(local.aws_tool_manifest.tools)
   hermes_aws_readonly_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/ReadOnlyAccess"
+
+  # The scope the gateway's JWT authorizer already requires. Reused as the Cedar
+  # principal condition so each permit is a scoped grant rather than an
+  # unconditional allow.
+  hermes_aws_required_scope = aws_cognito_resource_server.hermes.scope_identifiers[0]
 }
 
 # The gateway signs requests to the AWS MCP Server with its own role, so the
@@ -119,24 +124,33 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
 }
 
 # One permit per manifest tool. There is no repository or owner dimension to
-# constrain here: the inbound Cognito client is the only caller, and the
-# read-only guarantee comes from the gateway role's IAM policy above.
+# constrain here, so the principal is pinned to the gateway's only caller type
+# and to the scope its JWT authorizer already requires. An unconditional
+# `permit (principal, action == ..., resource == ...)` is rejected by semantic
+# validation with ALLOW_ALL ("Policy Engine will allow every request for the
+# specified principal, action and resource combination"), so the `when` clause
+# is required for the policy to be accepted, not just decorative. Read-only
+# itself still comes from the gateway role's IAM policy above.
 resource "aws_bedrockagentcore_policy" "aws_tool" {
   for_each = local.aws_native_tools
 
   name             = "HermesAWS${replace(each.key, "_", "")}"
   policy_engine_id = aws_bedrockagentcore_policy_engine.hermes.policy_engine_id
-  description      = "Permit the read-only AWS MCP tool ${each.key}."
+  description      = "Permit the read-only AWS MCP tool ${each.key} to callers holding the gateway scope."
   validation_mode  = "FAIL_ON_ANY_FINDINGS"
 
   definition {
     cedar {
       statement = <<-CEDAR
         permit (
-          principal,
+          principal is AgentCore::OAuthUser,
           action == AgentCore::Action::"${local.hermes_aws_target_name}___${each.key}",
           resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.hermes.gateway_arn}"
-        );
+        )
+        when {
+          principal.hasTag("scope") &&
+          principal.getTag("scope") like "*${local.hermes_aws_required_scope}*"
+        };
       CEDAR
     }
   }
