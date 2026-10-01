@@ -107,9 +107,11 @@ class Target:
 def _load_target(name: str, manifest_name: str, *, toolset_header: bool = False) -> Target:
     document = json.loads((MANIFEST_DIR / manifest_name).read_text(encoding="utf-8"))
     tools = frozenset(document["tools"])
-    # The GitHub upstream accepts an X-MCP-Tools toolset filter; the AWS target
-    # wants no extra request header. AgentCore forwards only the headers a
-    # target allowlists, so a header sent for one target is not sent for another.
+    # The GitHub upstream accepts an X-MCP-Tools toolset filter; the AWS and
+    # Spacelift targets want no extra request header. AgentCore forwards only
+    # the headers a target allowlists, so a header sent for one target is not
+    # sent for another. Spacelift narrows its own toolset in the target's URL
+    # (`?tools=query,provider`), so it needs no header here.
     headers = {"X-MCP-Tools": ",".join(sorted(tools))} if toolset_header else {}
     return Target(name=name, tools=tools, headers=headers)
 
@@ -117,6 +119,7 @@ def _load_target(name: str, manifest_name: str, *, toolset_header: bool = False)
 TARGETS = (
     _load_target("github", "github-mcp-tools.json", toolset_header=True),
     _load_target("aws", "aws-mcp-tools.json"),
+    _load_target("spacelift", "spacelift-mcp-tools.json"),
 )
 
 
