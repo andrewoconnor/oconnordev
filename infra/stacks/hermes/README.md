@@ -14,7 +14,15 @@ These are Terraform variable defaults only. If the `oconnordev-hermes` Spacelift
 
 The GitHub target uses `listing_mode = "DEFAULT"`, so AgentCore caches its MCP resource list at the control plane. A `DYNAMIC` target is listed live instead, and policy-engine policy creation cannot do that: it fails with "The gateway has a dynamic target, so its tools must be listed live from the gateway and that listing failed." With `DEFAULT`, tools are synced when the target is created or updated, which is what policy creation and Cedar validation read.
 
-The sync captures whatever the upstream server returns at that moment. GitHub's hosted MCP currently lists 43 tools, so the Gateway advertises more tools than the seven in `adapter/github-mcp-tools.json`. That does not widen authority: Cedar permits only those seven action names, the local adapter narrows `tools/list` to the manifest set, and unmatched calls remain denied.
+The sync captures whatever the upstream server returns at that moment. GitHub's hosted MCP currently lists 48 tools, so the Gateway advertises more tools than the seven in `adapter/github-mcp-tools.json`. That does not widen authority: Cedar permits only those seven action names, the local adapter narrows `tools/list` to the manifest set, and unmatched calls remain denied.
+
+## Rebuilding the GitHub target's capability catalog
+
+The target's capability catalog can go stale in a way `SynchronizeGatewayTargets` does not repair. Observed: the target routes all seven manifest tools (each verified by calling it) while `tools/list` advertises only four, with all seven Cedar policies `ACTIVE` and structurally identical to one another. The local adapter requires `tools/list` to return exactly the manifest set, so an incomplete catalog blocks the cutover.
+
+`terraform_data.github_target_catalog_rebuild` forces a one-shot replacement of the target, which rebuilds the catalog: `CreateGatewayTarget` performs implicit synchronization against the upstream server. Bump `triggers_replace` when another rebuild is wanted. It is deliberately not a recurring recreation, or every apply would destroy a working target.
+
+The Cedar policies `depends_on` the target, so a replacement re-orders them. If a policy ends up non-`ACTIVE` after the replacement, re-apply — the target's tools are re-synced as part of the same apply.
 
 ## AWS target boundary (read-only)
 
