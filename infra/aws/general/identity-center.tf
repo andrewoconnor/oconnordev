@@ -3,9 +3,20 @@ resource "aws_organizations_organization" "oconnordev" {
   feature_set = "ALL"
 
   # Preserve existing organization integrations and governance while importing.
+  #
+  # WARNING: this list is authoritative. Applying it disables trusted access for
+  # any service principal that is enabled in the organization but absent from
+  # this list. Before applying, check the live list:
+  #   aws organizations list-aws-service-access-for-organization
+  # and add anything it returns that is not listed here.
+  #
+  # config and access-analyzer are required before their delegated
+  # administrators can be registered (see security-delegation.tf).
   aws_service_access_principals = [
     "iam.amazonaws.com",
     "sso.amazonaws.com",
+    "config.amazonaws.com",
+    "access-analyzer.amazonaws.com",
   ]
 
   enabled_policy_types = [
