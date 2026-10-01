@@ -206,14 +206,20 @@ resource "aws_lambda_function" "spacelift_rotation" {
   # checkov:skip=CKV_AWS_173:Every environment variable is a secret name, endpoint or timeout. The API key and the session JWT are never placed in the environment.
   # checkov:skip=CKV_AWS_272:Code signing is not configured for this account. The deployment package is built from the repository at plan time by archive_file and its hash is tracked in source_code_hash.
   # checkov:skip=CKV_AWS_50:Active tracing is not enabled. Rotation is a single synchronous call whose outcome is already alarmed on by remaining token lifetime and by the function's error metric, so distributed tracing adds no diagnostic value here.
-  function_name                  = local.spacelift_rotation_function_name
-  role                           = aws_iam_role.spacelift_rotation.arn
-  handler                        = "spacelift_session_token.handler"
-  runtime                        = "python3.13"
-  architectures                  = ["arm64"]
-  timeout                        = 30
-  memory_size                    = 128
-  reserved_concurrent_executions = 1
+  function_name = local.spacelift_rotation_function_name
+  role          = aws_iam_role.spacelift_rotation.arn
+  handler       = "spacelift_session_token.handler"
+  runtime       = "python3.13"
+  architectures = ["arm64"]
+  timeout       = 30
+  memory_size   = 128
+  # The account's Lambda concurrency limit is 10 and AWS refuses a reservation
+  # that drops the unreserved pool below its floor, so any positive value is
+  # rejected here. Worse, the provider creates the function first and only then
+  # calls PutFunctionConcurrency, so the rejection leaves a tainted resource
+  # that has to be destroyed before the apply can be retried. -1 is unreserved
+  # and is the only value this account accepts.
+  reserved_concurrent_executions = -1
   filename                       = data.archive_file.spacelift_rotation.output_path
   source_code_hash               = data.archive_file.spacelift_rotation.output_base64sha256
 
