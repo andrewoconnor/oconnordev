@@ -19,7 +19,7 @@ data "aws_ssoadmin_instances" "organization" {}
 
 locals {
   identity_center_instance_arn = tolist(data.aws_ssoadmin_instances.organization.arns)[0]
-  identity_store_id            = tolist(data.aws_ssoadmin_instances.organization.identity_store_ids)[0]
+  identity_store_id             = tolist(data.aws_ssoadmin_instances.organization.identity_store_ids)[0]
 
   identity_center_accounts = {
     "OCONNORDEV-GENERAL"    = "905418422177"
