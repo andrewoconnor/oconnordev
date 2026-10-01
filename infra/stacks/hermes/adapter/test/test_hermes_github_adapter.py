@@ -22,6 +22,7 @@ EXPECTED_TOOLS = {
     "get_commit",
     "create_branch",
     "push_files",
+    "delete_file",
     "create_pull_request",
     "pull_request_read",
 }
@@ -188,7 +189,7 @@ class AdapterTests(unittest.TestCase):
         result = forwarder.handle(rpc("tools/list"))
         names = {tool["name"] for tool in result["result"]["tools"]}
         self.assertEqual(names, EXPECTED_TOOLS)
-        self.assertEqual(len(names), 7)
+        self.assertEqual(len(names), 8)
         self.assertEqual(transport.gateway_calls[0][2]["X-MCP-Tools"], EXPECTED_TOOL_HEADER)
 
     def test_unknown_methods_and_tools_are_rejected_without_forwarding(self):

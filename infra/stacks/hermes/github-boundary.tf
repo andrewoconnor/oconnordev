@@ -74,12 +74,16 @@ locals {
   github_tool_manifest      = jsondecode(file("${path.module}/adapter/github-mcp-tools.json"))
   github_native_tools       = toset(local.github_tool_manifest.tools)
   github_read_tools         = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read"])
-  github_branch_tools       = toset(["create_branch", "push_files"])
-  github_policy_tools       = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
-  hermes_cognito_domain     = "hermes-mcp-${data.aws_caller_identity.current.account_id}"
-  cognito_issuer            = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.hermes.id}"
-  cognito_token_url         = "https://${aws_cognito_user_pool_domain.hermes.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
-  github_cedar_repo_set     = jsonencode(sort(tolist(var.hermes_github_allowed_repositories)))
+  github_branch_tools       = toset(["create_branch", "push_files", "delete_file"])
+  github_branch_tool_clauses = {
+    push_files  = "context.input has files && !context.input.files.isEmpty() &&"
+    delete_file = "context.input has path && context.input.path != \"\" &&"
+  }
+  github_policy_tools   = setunion(local.github_read_tools, local.github_branch_tools, toset(["create_pull_request"]))
+  hermes_cognito_domain = "hermes-mcp-${data.aws_caller_identity.current.account_id}"
+  cognito_issuer        = "https://cognito-idp.${data.aws_region.current.region}.amazonaws.com/${aws_cognito_user_pool.hermes.id}"
+  cognito_token_url     = "https://${aws_cognito_user_pool_domain.hermes.domain}.auth.${data.aws_region.current.region}.amazoncognito.com/oauth2/token"
+  github_cedar_repo_set = jsonencode(sort(tolist(var.hermes_github_allowed_repositories)))
 
   github_branch_policy_matrix = {
     for pair in setproduct(var.hermes_github_allowed_repositories, local.github_branch_tools) : jsonencode(pair) => {
@@ -312,8 +316,8 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
 
   lifecycle {
     precondition {
-      condition     = length(local.github_native_tools) == 7 && length(setsubtract(local.github_policy_tools, local.github_native_tools)) == 0
-      error_message = "The GitHub MCP manifest must contain exactly the seven tool names covered by the Cedar policies."
+      condition     = length(setsubtract(local.github_policy_tools, local.github_native_tools)) == 0 && length(local.github_native_tools) == length(local.github_policy_tools)
+      error_message = "The GitHub MCP manifest must contain exactly the tool names covered by the Cedar policies."
     }
 
     replace_triggered_by = [terraform_data.github_target_catalog_rebuild]
@@ -376,7 +380,7 @@ resource "aws_bedrockagentcore_policy" "github_branch_write" {
           context.input.owner == "andrewoconnor" &&
           context.input has repo &&
           context.input.repo == ${jsonencode(each.value.repository)} &&
-          ${each.value.tool == "push_files" ? "context.input has files && !context.input.files.isEmpty() &&" : ""}
+          ${lookup(local.github_branch_tool_clauses, each.value.tool, "")}
           context.input has branch &&
           context.input.branch like "hermes/*" &&
           context.input.branch != "hermes/" &&
