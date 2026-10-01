@@ -9,6 +9,12 @@ on:
     paths:
       - 'infra/**'
 
+# Least privilege at the workflow level. Without a top-level block the token
+# falls back to the repository default (write-all), which is what Checkov
+# CKV2_GHA_1 reports; a job-level block does not satisfy that check.
+permissions:
+  contents: read
+
 jobs:
   tflint:
     runs-on: ${{ matrix.os }}

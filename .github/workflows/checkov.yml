@@ -15,6 +15,13 @@ on:
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
 
+# Least privilege at the workflow level. Without a top-level block the token
+# falls back to the repository default (write-all), which is what Checkov
+# CKV2_GHA_1 reports; a job-level block does not satisfy that check. The scan
+# job widens this only for the SARIF upload.
+permissions:
+  contents: read
+
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:
   scan:
