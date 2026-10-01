@@ -16,17 +16,7 @@ resource "aws_iam_role" "spacelift" {
   assume_role_policy = data.aws_iam_policy_document.spacelift.json
 }
 
-import {
-  to = aws_iam_role.spacelift
-  id = "spacelift"
-}
-
 resource "aws_iam_role_policy_attachment" "spacelift" {
   role       = aws_iam_role.spacelift.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-}
-
-import {
-  to = aws_iam_role_policy_attachment.spacelift
-  id = "spacelift/arn:aws:iam::aws:policy/AdministratorAccess"
 }
