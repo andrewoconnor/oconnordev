@@ -18,16 +18,6 @@ locals {
   tofu_version = "1.12.6"
 }
 
-variable "security_account_id" {
-  description = "AWS account ID of the security (Security Tooling) account. The account is created out of band in the Organizations console, so its ID cannot be derived from anything in this stack. Set TF_VAR_security_account_id on the oconnordev stack to supply it; it is passed through to the oconnordev-security stack."
-  type        = string
-
-  validation {
-    condition     = can(regex("^[0-9]{12}$", var.security_account_id))
-    error_message = "security_account_id must be a 12-digit AWS account ID."
-  }
-}
-
 resource "spacelift_space" "oconnordev" {
   name = "oconnordev"
 
@@ -235,12 +225,4 @@ resource "spacelift_aws_integration_attachment" "oconnordev_security" {
 resource "spacelift_stack_dependency" "security_general" {
   stack_id            = spacelift_stack.oconnordev_security.id
   depends_on_stack_id = spacelift_stack.oconnordev_general.id
-}
-
-resource "spacelift_environment_variable" "security_account_id" {
-  stack_id    = spacelift_stack.oconnordev_security.id
-  name        = "TF_VAR_security_account_id"
-  value       = var.security_account_id
-  write_only  = false
-  description = "AWS account ID of the security account, used by the security stack's provider to assume its deploy role"
 }
