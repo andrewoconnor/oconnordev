@@ -199,10 +199,21 @@ data "aws_iam_policy_document" "hermes_gateway_core" {
 
 data "aws_iam_policy_document" "github_target_credentials" {
   statement {
-    sid       = "GetGitHubPATFromAgentCoreIdentity"
-    effect    = "Allow"
-    actions   = ["bedrock-agentcore:GetResourceApiKey"]
-    resources = [aws_bedrockagentcore_api_key_credential_provider.github.credential_provider_arn]
+    sid     = "GetGitHubPATFromAgentCoreIdentity"
+    effect  = "Allow"
+    actions = ["bedrock-agentcore:GetResourceApiKey"]
+
+    # AgentCore authorizes this action against the *workload identity* the
+    # gateway assumes, not against the credential provider ARN. Granting only
+    # the provider ARN leaves the call denied, and the gateway reports that as
+    # the opaque "An internal error occurred. Please retry later." on every
+    # GitHub tool call, while tools/list still succeeds from the cached target
+    # listing. Both resources are listed so the grant does not depend on which
+    # ARN a given call path uses.
+    resources = [
+      aws_bedrockagentcore_api_key_credential_provider.github.credential_provider_arn,
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",
+    ]
   }
 
   statement {
