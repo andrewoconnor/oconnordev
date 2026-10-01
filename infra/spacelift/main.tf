@@ -35,7 +35,7 @@ resource "spacelift_stack" "oconnordev" {
 
   repository   = "oconnordev"
   branch       = "master"
-  project_root = "infra/stacks/spacelift"
+  project_root = "infra/spacelift"
 
   autodeploy            = false
   github_action_deploy  = false
@@ -60,7 +60,7 @@ resource "spacelift_stack" "oconnordev_general" {
 
   repository   = "oconnordev"
   branch       = "master"
-  project_root = "infra/stacks/general"
+  project_root = "infra/aws/general"
 
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
@@ -78,7 +78,7 @@ resource "spacelift_stack" "oconnordev_production" {
 
   repository   = "oconnordev"
   branch       = "master"
-  project_root = "infra/stacks/production"
+  project_root = "infra/aws/production"
 
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
@@ -96,7 +96,7 @@ resource "spacelift_stack" "oconnordev_hermes" {
 
   repository   = "oconnordev"
   branch       = "master"
-  project_root = "infra/stacks/hermes"
+  project_root = "infra/aws/hermes"
 
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
@@ -114,7 +114,7 @@ resource "spacelift_stack" "drumrollworld" {
 
   repository   = "oconnordev"
   branch       = "master"
-  project_root = "infra/stacks/drumrollworld"
+  project_root = "infra/aws/drumrollworld"
 
   autodeploy = false
   labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]

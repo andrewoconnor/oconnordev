@@ -71,7 +71,7 @@ locals {
   hermes_policy_engine_name = "hermes_policy_engine"
   github_target_name        = "github"
   gateway_scope             = "hermes-mcp/invoke"
-  github_tool_manifest      = jsondecode(file("${path.module}/adapter/github-mcp-tools.json"))
+  github_tool_manifest      = jsondecode(file("${local.adapter_root}/github-mcp-tools.json"))
   github_native_tools       = toset(local.github_tool_manifest.tools)
   github_read_tools         = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read"])
   github_branch_tools       = toset(["create_branch", "push_files", "delete_file"])

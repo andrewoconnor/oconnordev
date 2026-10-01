@@ -22,7 +22,7 @@ variable "hermes_aws_mcp_sigv4_service" {
 
 locals {
   hermes_aws_target_name  = "aws"
-  aws_tool_manifest       = jsondecode(file("${path.module}/adapter/aws-mcp-tools.json"))
+  aws_tool_manifest       = jsondecode(file("${local.adapter_root}/aws-mcp-tools.json"))
   aws_native_tools        = toset(local.aws_tool_manifest.tools)
   hermes_aws_readonly_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/ReadOnlyAccess"
 
