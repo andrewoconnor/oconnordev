@@ -38,9 +38,15 @@ AWS_TOOLS = {
     "aws___run_script",
     "aws___search_documentation",
 }
-EXPECTED_TOOLS = GITHUB_TOOLS | AWS_TOOLS
+SPACELIFT_TOOLS = {
+    "discover",
+    "provider",
+    "query",
+}
+EXPECTED_TOOLS = GITHUB_TOOLS | AWS_TOOLS | SPACELIFT_TOOLS
 GITHUB_TARGET = next(target for target in TARGETS if target.name == "github")
 AWS_TARGET = next(target for target in TARGETS if target.name == "aws")
+SPACELIFT_TARGET = next(target for target in TARGETS if target.name == "spacelift")
 EXPECTED_TOOL_HEADER = ",".join(sorted(GITHUB_TOOLS))
 
 
@@ -151,11 +157,13 @@ def exposed_names(forwarder, params=None):
 
 class TargetManifestTests(unittest.TestCase):
     def test_every_registered_target_matches_its_verified_allowlist(self):
-        self.assertEqual({target.name for target in TARGETS}, {"github", "aws"})
+        self.assertEqual({target.name for target in TARGETS}, {"github", "aws", "spacelift"})
         self.assertEqual(GITHUB_TARGET.tools, GITHUB_TOOLS)
         self.assertEqual(AWS_TARGET.tools, AWS_TOOLS)
+        self.assertEqual(SPACELIFT_TARGET.tools, SPACELIFT_TOOLS)
         self.assertEqual(len(GITHUB_TARGET.tools), 8)
         self.assertEqual(len(AWS_TARGET.tools), 7)
+        self.assertEqual(len(SPACELIFT_TARGET.tools), 3)
 
     def test_manifests_on_disk_are_the_allowlists(self):
         for target in TARGETS:
@@ -165,6 +173,15 @@ class TargetManifestTests(unittest.TestCase):
     def test_write_capable_aws_tool_is_excluded(self):
         # get_presigned_url mints S3 upload URLs, so it is outside the boundary.
         self.assertNotIn("aws___get_presigned_url", AWS_TARGET.tools)
+
+    def test_write_capable_spacelift_tools_are_excluded(self):
+        # mutate runs GraphQL mutations -- run trigger/confirm/discard, stack,
+        # context and policy writes, state changes -- and intent imports and
+        # deletes infrastructure. The upstream advertises both even to a
+        # reader-scoped key, because the listing describes the server rather
+        # than the caller, so excluding them here is what keeps them out.
+        for tool in ("mutate", "intent"):
+            self.assertNotIn(tool, SPACELIFT_TARGET.tools)
 
     def test_target_prefixes_are_unambiguous(self):
         # The ___ separator means no target prefix can be a prefix of another,
@@ -197,7 +214,7 @@ class TargetManifestTests(unittest.TestCase):
 class ExposureTests(unittest.TestCase):
     def test_tools_list_exposes_every_targets_manifest_tools(self):
         self.assertEqual(exposed_names(make_forwarder()), EXPECTED_TOOLS)
-        self.assertEqual(len(EXPECTED_TOOLS), 15)
+        self.assertEqual(len(EXPECTED_TOOLS), 18)
 
     def test_extra_tools_are_not_exposed(self):
         transport = FakeTransport()
@@ -211,7 +228,7 @@ class ExposureTests(unittest.TestCase):
 
     def test_a_missing_target_fails_closed(self):
         # One target silently absent must not look like a smaller catalog.
-        for hidden in ("github", "aws"):
+        for hidden in ("github", "aws", "spacelift"):
             transport = FakeTransport()
             transport.hide_target = hidden
             result = make_forwarder(transport).handle(rpc("tools/list"))
@@ -228,9 +245,9 @@ class ExposureTests(unittest.TestCase):
         transport.page_size = 3
         result = make_forwarder(transport).handle(rpc("tools/list"))
         self.assertEqual({tool["name"] for tool in result["result"]["tools"]}, EXPECTED_TOOLS)
-        # Fifteen tools over pages of three, so five gateway calls, and the
+        # Eighteen tools over pages of three, so six gateway calls, and the
         # paging cursor must not be handed on to the client.
-        self.assertEqual(len(transport.gateway_calls), 5)
+        self.assertEqual(len(transport.gateway_calls), 6)
         self.assertNotIn("nextCursor", result["result"])
 
     def test_paging_still_fails_closed_when_a_manifest_is_incomplete(self):
@@ -261,18 +278,37 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "aws___aws___list_regions")
         self.assertNotIn("x-mcp-tools", {key.lower() for key in transport.gateway_calls[0][2]})
 
+    def test_spacelift_call_is_forwarded_with_its_prefix_and_no_toolset_header(self):
+        # Spacelift's upstream does not namespace its own tools, so the gateway
+        # action is the single-prefixed spacelift___<tool>. The read-only
+        # narrowing lives in the target's URL, not in a request header.
+        transport = FakeTransport()
+        result = make_forwarder(transport).handle(rpc("tools/call", {"name": "query", "arguments": {"operation": "stacks"}}))
+        self.assertEqual(result["result"]["content"][0]["text"], "safe")
+        self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "spacelift___query")
+        self.assertNotIn("x-mcp-tools", {key.lower() for key in transport.gateway_calls[0][2]})
+
     def test_one_token_serves_every_target(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
         forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {}}))
         forwarder.handle(rpc("tools/call", {"name": "aws___list_regions", "arguments": {}}))
+        forwarder.handle(rpc("tools/call", {"name": "query", "arguments": {}}))
         self.assertEqual(transport.token_calls, 1)
-        self.assertEqual(len(transport.gateway_calls), 2)
+        self.assertEqual(len(transport.gateway_calls), 3)
 
     def test_unknown_and_cross_target_names_are_rejected_without_forwarding(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
-        for name in ("aws___get_presigned_url", "repository_info", "github___get_file_contents", "aws___aws___list_regions"):
+        for name in (
+            "aws___get_presigned_url",
+            "repository_info",
+            "github___get_file_contents",
+            "aws___aws___list_regions",
+            "spacelift___query",
+            "mutate",
+            "intent",
+        ):
             self.assertEqual(forwarder.handle(rpc("tools/call", {"name": name}))["error"]["code"], -32602, name)
         self.assertEqual(transport.gateway_calls, [])
 
