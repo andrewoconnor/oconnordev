@@ -13,7 +13,7 @@
 variable "hermes_gateway_log_retention_days" {
   description = "Retention in days for the AgentCore gateway application log group."
   type        = number
-  default     = 365
+  default     = 7
 
   # CloudWatch Logs accepts a fixed set of retention values, not an arbitrary
   # range, so the constraint is an allow-list rather than a numeric bound.
@@ -28,13 +28,20 @@ variable "hermes_gateway_log_retention_days" {
 
 locals {
   # Vended log delivery requires the destination log group to live under
-  # /aws/vendedlogs/. This mirrors the name AgentCore's console uses by
-  # default, so the group is also where the console would expect to find it.
-  hermes_gateway_log_group_name = "/aws/vendedlogs/bedrock-agentcore/gateway/APPLICATION_LOGS/${aws_bedrockagentcore_gateway.hermes.gateway_id}"
+  # /aws/vendedlogs/.
+  #
+  # The name is deliberately NOT derived from the gateway ID. AgentCore's
+  # console convention is .../gateway/APPLICATION_LOGS/<gateway-id>, but a
+  # gateway replacement then produces a different log group name, so the group
+  # is destroyed and its history lost exactly when the logs are most wanted.
+  # A fixed name survives a gateway replacement; the delivery source and
+  # destination are what get rebound to the new gateway.
+  hermes_gateway_log_group_name = "/aws/vendedlogs/bedrock-agentcore/gateway/hermes"
 }
 
 resource "aws_cloudwatch_log_group" "gateway_application_logs" {
   # checkov:skip=CKV_AWS_158:Encrypted at rest with the default AWS-owned key. An AWS-managed key cannot be referenced here -- alias/aws/logs is created lazily by the service and does not resolve beforehand -- and a customer-managed key would need a key policy granting the log-delivery service kms:GenerateDataKey*, where a policy wrong in either direction fails the delivery silently rather than loudly.
+  # checkov:skip=CKV_AWS_338:Retention is deliberately 7 days, not a year. These are high-volume diagnostic records carrying MCP request and response bodies, kept to debug an active problem rather than as an audit trail, and the shorter retention bounds their storage. Raise var.hermes_gateway_log_retention_days to keep them longer.
   name              = local.hermes_gateway_log_group_name
   retention_in_days = var.hermes_gateway_log_retention_days
 }
