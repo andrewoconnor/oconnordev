@@ -8,9 +8,7 @@ data "aws_secretsmanager_secret" "github_machine_user_pat_existing" {
 resource "aws_secretsmanager_secret" "github_machine_user_pat" {
   name        = data.aws_secretsmanager_secret.github_machine_user_pat_existing.name
   description = data.aws_secretsmanager_secret.github_machine_user_pat_existing.description
-  # Preserve an explicit customer-managed key. An empty metadata value means
-  # Secrets Manager's default aws/secretsmanager KMS key, so leave this unset.
-  kms_key_id = trimspace(data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id) != "" ? data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id : null
+  kms_key_id  = trimspace(data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id) != "" ? data.aws_secretsmanager_secret.github_machine_user_pat_existing.kms_key_id : null
 
   lifecycle {
     prevent_destroy = true
@@ -96,8 +94,6 @@ resource "aws_bedrockagentcore_api_key_credential_provider" "github" {
   name                  = "hermes-github-machine-user-pat"
   api_key_secret_source = "EXTERNAL"
 
-  # Manually provision SecretString as a JSON object containing json_key. Do
-  # not add aws_secretsmanager_secret_version: keep the PAT outside Terraform.
   api_key_secret_config {
     secret_id = aws_secretsmanager_secret.github_machine_user_pat.arn
     json_key  = var.hermes_github_machine_user_pat_json_key
@@ -147,8 +143,6 @@ resource "aws_cognito_resource_server" "hermes" {
   }
 
   lifecycle {
-    # Cognito permits both resource servers during the scope transition.
-    # Keep the old scope until the client and Gateway use the new one.
     create_before_destroy = true
   }
 }
@@ -198,14 +192,6 @@ data "aws_iam_policy_document" "github_target_credentials" {
     effect  = "Allow"
     actions = ["bedrock-agentcore:GetResourceApiKey"]
 
-    # AgentCore authorizes this action against four separate resources in the
-    # same call path: the token vault, the workload-identity directory, the
-    # workload identity the gateway assumes, and the credential provider
-    # itself. It is NOT authorized against the provider ARN alone. Each is
-    # resolved independently, so covering only some of them still leaves the
-    # call denied and the gateway reports that as the opaque "An internal error
-    # occurred. Please retry later." on every GitHub tool call. This list
-    # mirrors the resource set in the AgentCore outbound-authorization docs.
     resources = [
       aws_bedrockagentcore_api_key_credential_provider.github.credential_provider_arn,
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:token-vault/default",
@@ -230,8 +216,6 @@ data "aws_iam_policy_document" "hermes_gateway_policy_authorization" {
       "bedrock-agentcore:AuthorizeAction",
       "bedrock-agentcore:PartiallyAuthorizeActions",
     ]
-    # Name-scoped ARN patterns avoid depending on generated resource IDs, so
-    # Terraform can attach this policy before creating or updating the gateway.
     resources = [
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:policy-engine/${local.hermes_policy_engine_name}*",
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:gateway/${local.hermes_gateway_name}*",
@@ -295,17 +279,6 @@ resource "aws_bedrockagentcore_gateway" "hermes" {
   ]
 }
 
-# One-shot trigger that forces the GitHub target to be replaced.
-#
-# The target's capability catalog is incomplete: it routes all seven manifest
-# tools (each one verified by calling it) but tools/list advertises only four,
-# and an explicit SynchronizeGatewayTargets call does not repair it. Replacing
-# the target rebuilds the catalog, because CreateGatewayTarget performs implicit
-# synchronization against the upstream server.
-#
-# This is deliberately a one-shot trigger rather than a recurring recreation:
-# bump the token only when another forced rebuild is actually wanted, otherwise
-# every apply would destroy and recreate a working target.
 resource "terraform_data" "github_target_catalog_rebuild" {
   triggers_replace = ["initial-catalog-rebuild"]
 }
@@ -327,13 +300,7 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
   target_configuration {
     mcp {
       mcp_server {
-        endpoint = local.github_tool_manifest.hosted_endpoint
-        # DEFAULT caches the MCP resource list at the control plane. An AgentCore
-        # policy engine cannot enumerate a DYNAMIC target live, so creating the
-        # Cedar policies fails while this target is dynamic ("its tools must be
-        # listed live from the gateway and that listing failed"). The local
-        # adapter still narrows tools/list to the seven GitHub-native tools in
-        # the manifest, and Cedar default-deny still gates every other tool.
+        endpoint     = local.github_tool_manifest.hosted_endpoint
         listing_mode = "DEFAULT"
       }
     }
@@ -349,7 +316,6 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
       error_message = "The GitHub MCP manifest must contain exactly the seven tool names covered by the Cedar policies."
     }
 
-    # Rebuild this target's capability catalog when the trigger above changes.
     replace_triggered_by = [terraform_data.github_target_catalog_rebuild]
   }
 
@@ -389,8 +355,6 @@ resource "aws_bedrockagentcore_policy" "github_read" {
   depends_on = [aws_bedrockagentcore_gateway_target.github]
 }
 
-# JSON-schema arrays become Cedar Sets. The policy rejects an empty push_files
-# batch; Cedar cannot quantify nested file records or enforce item/byte limits.
 resource "aws_bedrockagentcore_policy" "github_branch_write" {
   for_each = local.github_branch_policy_matrix
 
@@ -425,10 +389,6 @@ resource "aws_bedrockagentcore_policy" "github_branch_write" {
   depends_on = [aws_bedrockagentcore_gateway_target.github]
 }
 
-# Cedar's validator cannot prove safety for `!(x has A) || x.A ...`, so the two
-# optional-attribute guards below negate a positively guarded test instead.
-# Written the obvious way, the policy engine rejects the policy with "unable to
-# guarantee safety of access to optional attribute input.reviewers in context".
 resource "aws_bedrockagentcore_policy" "github_create_draft_pr" {
   for_each = {
     for repository, branch in var.hermes_github_default_branches : repository => branch
@@ -518,7 +478,6 @@ output "hermes_cognito_scope" {
   value       = local.gateway_scope
 }
 
-# Preserve legacy output names during the local adapter migration.
 output "hermes_github_gateway_url" {
   description = "Deprecated compatibility alias for hermes_gateway_url."
   value       = aws_bedrockagentcore_gateway.hermes.gateway_url
