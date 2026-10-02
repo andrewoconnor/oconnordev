@@ -1,6 +1,7 @@
 import json
 import os
 import pathlib
+import tempfile
 import unittest
 from unittest import mock
 from urllib.parse import parse_qs
@@ -13,6 +14,7 @@ from hermes_agentcore_adapter import (
     Target,
     TokenCache,
     _load_forwarder,
+    _load_target,
 )
 
 GATEWAY_URL = "https://gateway-id.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
@@ -29,6 +31,9 @@ GITHUB_TOOLS = {
     "create_pull_request",
     "pull_request_read",
 }
+# The client keeps the canonical AWS names even though these tools now arrive
+# through two gateways. The extra hop lives in the manifest's declared wire
+# prefix, not in the names Hermes sees.
 AWS_TOOLS = {
     "aws___get_regional_availability",
     "aws___get_tasks",
@@ -157,6 +162,8 @@ def exposed_names(forwarder, params=None):
 
 class TargetManifestTests(unittest.TestCase):
     def test_every_registered_target_matches_its_verified_allowlist(self):
+        # One target per upstream, and exactly one target for AWS: the AWS
+        # tools come through the security gateway rather than alongside it.
         self.assertEqual({target.name for target in TARGETS}, {"github", "aws", "spacelift"})
         self.assertEqual(GITHUB_TARGET.tools, GITHUB_TOOLS)
         self.assertEqual(AWS_TARGET.tools, AWS_TOOLS)
@@ -192,14 +199,30 @@ class TargetManifestTests(unittest.TestCase):
                     self.assertFalse(right.prefix.startswith(left.prefix))
                     self.assertFalse(left.prefix.startswith(right.prefix))
 
-    def test_gateway_action_names_double_the_aws_prefix(self):
-        # AgentCore prefixes each action with the target name, and the AWS MCP
-        # Server already namespaces its tools with aws___. The gateway action is
-        # therefore aws___aws___<tool>. Recording the manifest names without the
-        # server's own prefix produced "unrecognized action" policy failures.
-        self.assertEqual(AWS_TARGET.prefix + "aws___run_script", "aws___aws___run_script")
+    def test_gateway_action_names_nest_without_changing_the_client_names(self):
+        # AgentCore prefixes each action with the target name; the security
+        # gateway adds its own target prefix (aws) to the AWS MCP Server's
+        # aws___ namespace, and this gateway adds a third. So the action on the
+        # wire is aws___aws___aws___<tool> while the client keeps the canonical
+        # aws___<tool>. That gap is declared by gateway_action_prefix rather
+        # than baked into every tool name.
+        self.assertEqual(AWS_TARGET.prefix, "aws___aws___")
+        self.assertEqual(AWS_TARGET.prefix + "aws___run_script", "aws___aws___aws___run_script")
         for tool in AWS_TOOLS:
             self.assertTrue(tool.startswith("aws___"), tool)
+            self.assertFalse(tool.startswith("aws___aws___"), tool)
+
+    def test_a_malformed_gateway_action_prefix_fails_closed(self):
+        # The declared prefix must end in the separator, or action-name routing
+        # would mis-split and the tool-set check would compare wrong names.
+        with tempfile.TemporaryDirectory() as directory:
+            (pathlib.Path(directory) / "bad-mcp-tools.json").write_text(
+                json.dumps({"tools": ["x"], "gateway_action_prefix": "aws__"})
+            )
+            with mock.patch("hermes_agentcore_adapter.MANIFEST_DIR", pathlib.Path(directory)):
+                with self.assertRaises(AdapterError) as caught:
+                    _load_target("bad", "bad-mcp-tools.json")
+        self.assertEqual(caught.exception.category, "invalid_gateway_action_prefix")
 
     def test_duplicate_tool_across_targets_fails_closed(self):
         overlapping = (
@@ -245,9 +268,9 @@ class ExposureTests(unittest.TestCase):
         transport.page_size = 3
         result = make_forwarder(transport).handle(rpc("tools/list"))
         self.assertEqual({tool["name"] for tool in result["result"]["tools"]}, EXPECTED_TOOLS)
-        # Eighteen tools over pages of three, so six gateway calls, and the
-        # paging cursor must not be handed on to the client.
-        self.assertEqual(len(transport.gateway_calls), 6)
+        # One call per page of three, so derive the page count from the tool
+        # count rather than restating it whenever a target is added.
+        self.assertEqual(len(transport.gateway_calls), -(-len(EXPECTED_TOOLS) // 3))
         self.assertNotIn("nextCursor", result["result"])
 
     def test_paging_still_fails_closed_when_a_manifest_is_incomplete(self):
@@ -271,11 +294,14 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "github___get_file_contents")
         self.assertEqual(transport.gateway_calls[0][2]["X-MCP-Tools"], EXPECTED_TOOL_HEADER)
 
-    def test_aws_call_is_forwarded_with_the_doubled_prefix_and_no_toolset_header(self):
+    def test_aws_call_is_forwarded_with_the_nested_prefix_and_no_toolset_header(self):
+        # The client names the tool aws___list_regions; on the wire it becomes
+        # aws___aws___aws___list_regions, because the security gateway and this
+        # one each add a prefix on top of the server's own namespace.
         transport = FakeTransport()
         result = make_forwarder(transport).handle(rpc("tools/call", {"name": "aws___list_regions", "arguments": {}}))
         self.assertEqual(result["result"]["content"][0]["text"], "safe")
-        self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "aws___aws___list_regions")
+        self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "aws___aws___aws___list_regions")
         self.assertNotIn("x-mcp-tools", {key.lower() for key in transport.gateway_calls[0][2]})
 
     def test_spacelift_call_is_forwarded_with_its_prefix_and_no_toolset_header(self):
@@ -304,7 +330,9 @@ class RoutingTests(unittest.TestCase):
             "aws___get_presigned_url",
             "repository_info",
             "github___get_file_contents",
-            "aws___aws___list_regions",
+            # The raw wire action, which the client never sees and must not
+            # reach by naming directly; the client name is one level shorter.
+            "aws___aws___aws___list_regions",
             "spacelift___query",
             "mutate",
             "intent",
