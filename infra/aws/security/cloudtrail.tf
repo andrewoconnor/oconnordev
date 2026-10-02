@@ -127,6 +127,10 @@ resource "aws_cloudtrail" "organization" {
   # records who reads or alters recorded configuration, and deliberately excludes
   # the CloudTrail bucket: logging object-level events on the tree CloudTrail
   # itself writes would have the trail logging its own writes.
+  #
+  # resources.ARN must be matched with starts_with, not equals. The value is an
+  # object-key PREFIX (everything under <bucket>/config/), and equals would only
+  # ever match an object whose key is exactly that prefix, i.e. nothing.
   dynamic "advanced_event_selector" {
     for_each = var.enable_config_data_events ? [1] : []
 
@@ -144,8 +148,8 @@ resource "aws_cloudtrail" "organization" {
       }
 
       field_selector {
-        field  = "resources.ARN"
-        equals = ["${aws_s3_bucket.config.arn}/${local.config_key_prefix}/"]
+        field       = "resources.ARN"
+        starts_with = ["${aws_s3_bucket.config.arn}/${local.config_key_prefix}/"]
       }
     }
   }
