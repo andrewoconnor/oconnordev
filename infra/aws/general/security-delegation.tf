@@ -52,6 +52,25 @@ resource "aws_organizations_delegated_administrator" "access_analyzer" {
   depends_on = [terraform_data.security_account_guard]
 }
 
+# An organization-level analyzer can only be created by the delegated
+# administrator once the Access Analyzer service-linked role exists in the
+# management account. Creating a management-account analyzer would create it
+# too, but that is a second analyzer nobody reads; creating the role directly
+# is the documented way to enable the service without one:
+#
+#   https://docs.aws.amazon.com/IAM/latest/UserGuide/access-analyzer-using-service-linked-roles.html
+#   "In the AWS CLI or the AWS API, create a service-linked role with the
+#    access-analyzer.amazonaws.com service name."
+#
+# Without this, the security stack's apply fails with:
+#   ConflictException: Access Analyzer Service Linked Role is not in the
+#   organizational management account
+#
+# The security stack depends on this one, so the ordering is already handled.
+resource "aws_iam_service_linked_role" "access_analyzer" {
+  aws_service_name = "access-analyzer.amazonaws.com"
+}
+
 # Human access to the new account, through the same Administrators permission
 # set the other three accounts use. Empty until the account exists, so this is
 # a no-op on the first plan.

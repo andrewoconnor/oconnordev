@@ -175,16 +175,20 @@ resource "aws_s3_bucket_policy" "config" {
 }
 
 resource "aws_config_configuration_recorder" "production" {
+  # checkov:skip=CKV2_AWS_48:Deliberate. This check wants the recorder to record every possible resource type, which is exactly the configuration this design exists to avoid -- AWS Config is billed per configuration item recorded. The recording group lists the resource types this organization actually deploys.
   name     = "default"
   role_arn = aws_iam_role.config_recorder.arn
 
   recording_group {
     all_supported = false
 
-    # The recorded set includes IAM roles and policies, which are global
-    # resource types. They are only recorded when this is true, and only in one
-    # Region per account; every stack in this organization is us-east-1.
-    include_global_resource_types = true
+    # include_global_resource_types must stay false. AWS rejects the recorder
+    # with InvalidRecordingGroupException when it is true while all_supported is
+    # false ("Before you set this field to true, set the allSupported field of
+    # RecordingGroup to true"), and it is unnecessary here: with all_supported
+    # false and the global IAM resource types listed in resource_types, Config
+    # records them regardless of this flag.
+    include_global_resource_types = false
     resource_types                = local.config_recorded_resource_types
   }
 }
