@@ -36,16 +36,13 @@
 # Spacelift applies a dependent stack only after its dependency succeeds, so a
 # failure here blocks the entire chain rather than just this stack.
 #
-# The consequence is that on the first apply this stack runs before the buckets
-# exist. Both resources are therefore gated behind var.enable_management_account_audit,
-# which defaults to false. Turning the management account's audit resources on
-# is a deliberate two-step:
-#
-#   1. Apply this change. The security stack then creates the two buckets.
-#   2. Set enable_management_account_audit = true and apply this stack again.
-#
-# Step 2 is a one-line change. It is separate only because the buckets these
-# resources write to cannot exist before this stack has run.
+# The bucket-creation phase has been applied. This follow-up enables the
+# management account's Config recorder and organization trail. Before applying,
+# the existing trail must be removed from SECURITY state and imported here as
+# aws_cloudtrail.organization[0], as documented in cloudtrail.tf. Do not confirm
+# an apply that plans to create a second trail: the existing trail must be adopted
+# first. The stack does not auto-deploy, so the reviewed plan can be imported and
+# checked before it is confirmed.
 # ---------------------------------------------------------------------------
 
 data "aws_caller_identity" "current" {}
@@ -73,9 +70,9 @@ locals {
 }
 
 variable "enable_management_account_audit" {
-  description = "Create the organization trail (cloudtrail.tf) and this account's Config recorder and delivery channel, both of which deliver into buckets owned by the security stack. Requires that stack to have applied once; see the apply-order note at the top of this file."
+  description = "Create the organization trail (cloudtrail.tf) and this account's Config recorder and delivery channel. Enable only after the security stack has created the destination buckets and the existing trail has been imported into this stack's state."
   type        = bool
-  default     = false
+  default     = true
 }
 
 data "aws_iam_policy_document" "config_recorder_assume_role" {
@@ -149,7 +146,7 @@ resource "aws_config_delivery_channel" "management" {
 }
 
 resource "aws_config_configuration_recorder_status" "management" {
-  # checkov:skip=CKV2_AWS_45:Deliberate. Recording every supported resource type is the configuration that makes this account expensive -- AWS Config is billed per configuration item recorded. The recording group in this stack lists the resource types this organization actually deploys; recording all supported types is the opposite of the intent of this change.
+  # checkov:skip=CKV2_AWS_45:Deliberate. Recording every supported resource type is the configuration that makes this design expensive -- AWS Config is billed per configuration item recorded. The recording group in this stack lists the resource types this organization actually deploys; recording all supported types is the opposite of the intent of this change.
   count = var.enable_management_account_audit ? 1 : 0
 
   name       = aws_config_configuration_recorder.management[0].name
