@@ -226,3 +226,25 @@ resource "spacelift_stack_dependency" "security_general" {
   stack_id            = spacelift_stack.oconnordev_security.id
   depends_on_stack_id = spacelift_stack.oconnordev_general.id
 }
+
+# The Hermes gateway targets the security account's gateway, so it consumes
+# values only that stack can produce: a gateway ID is generated at create time,
+# which makes both its URL and its ARN unknowable in advance. That is a real
+# data dependency rather than an ordering preference, and it is why this pair
+# keeps a gate -- unlike the account IDs, which are literals on both sides.
+resource "spacelift_stack_dependency" "hermes_security_gateway" {
+  stack_id            = spacelift_stack.oconnordev_hermes.id
+  depends_on_stack_id = spacelift_stack.oconnordev_security.id
+}
+
+resource "spacelift_stack_dependency_reference" "hermes_security_gateway_url" {
+  stack_dependency_id = spacelift_stack_dependency.hermes_security_gateway.id
+  output_name         = "security_gateway_url"
+  input_name          = "TF_VAR_security_gateway_url"
+}
+
+resource "spacelift_stack_dependency_reference" "hermes_security_gateway_arn" {
+  stack_dependency_id = spacelift_stack_dependency.hermes_security_gateway.id
+  output_name         = "security_gateway_arn"
+  input_name          = "TF_VAR_security_gateway_arn"
+}
