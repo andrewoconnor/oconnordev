@@ -123,8 +123,14 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
 # The client keeps the canonical aws___<tool> names even though the wire action
 # is aws___aws___aws___<tool>. Both sides read the prefix from the same manifest
 # key, so the permit cannot drift from the name the adapter actually sends.
+#
+# Gated on the same value as the target, and for the same reason: a Cedar action
+# name exists only while the target that advertises it exists. Creating the
+# permits without the target makes the policy engine reject them as unrecognized
+# actions, which fails the apply outright and takes the AWS tools away entirely
+# rather than leaving them simply unavailable.
 resource "aws_bedrockagentcore_policy" "aws_tool" {
-  for_each = local.aws_native_tools
+  for_each = local.security_gateway_enabled ? local.aws_native_tools : toset([])
 
   name             = "HermesAWS${replace(each.key, "_", "")}"
   policy_engine_id = aws_bedrockagentcore_policy_engine.hermes.policy_engine_id
