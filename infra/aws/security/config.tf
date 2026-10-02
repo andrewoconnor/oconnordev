@@ -1,5 +1,4 @@
 
-
 data "aws_iam_policy_document" "config_recorder_assume_role" {
   statement {
     effect  = "Allow"

@@ -22,3 +22,4 @@ The security-account gateway is a separate AWS_IAM trust boundary. Its resource 
 
 `general -> security -> hermes -> production`. `security` waits for management-account delegated-administrator setup. `hermes` consumes the generated security gateway URL and ARN. `production` consumes the generated Hermes gateway origin hostname. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow the bootstrap runbook.
 
+
