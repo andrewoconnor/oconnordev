@@ -45,11 +45,38 @@ locals {
   cloudtrail_bucket_name = "oconnordev-cloudtrail"
   config_bucket_name     = "oconnordev-config"
 
-  # Key prefixes inside those buckets. CloudTrail and Config both write under an
-  # AWSLogs/<account-id>/ layout, so each gets its own prefix and the bucket
-  # policies can name exact paths rather than sharing one namespace.
-  cloudtrail_key_prefix = "cloudtrail"
-  config_key_prefix     = "config"
+  # Neither bucket uses an s3_key_prefix any more, on the trail or on any Config
+  # delivery channel, so both write at the root of their own AWSLogs/<account-id>/
+  # layout and the bucket policies name those paths directly.
+
+  # The management account, not this one. The organization trail is created by
+  # the general stack, because AWS anchors an organization trail in the
+  # management account and CloudTrail refuses to operate on it from any other
+  # account's credentials:
+  #
+  #   Account number does not match caller's account.
+  #
+  #   https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-delegated-administrator.html
+  #   "The management account remains the owner of any CloudTrail organization
+  #    resources the delegated administrator creates."
+  #
+  # This account is still the CloudTrail delegated administrator and still
+  # performs operational administration. It is simply not the account Terraform
+  # creates the trail from.
+  management_account_id = "905418422177"
+
+  # Built as a literal rather than read from the trail resource, which now lives
+  # in the general stack: a cross-stack reference is impossible in this
+  # direction, and the bucket policy's aws:SourceArn condition must match the
+  # trail ARN exactly. Using this account's ID here would point the condition at
+  # a trail that does not exist, and CloudTrail's writes would be rejected:
+  #
+  #   https://docs.aws.amazon.com/awscloudtrail/latest/userguide/creating-an-organizational-trail-prepare.html
+  #   "The trail ARN must use the account ID of the management account."
+  #
+  # Must stay in step with local.cloudtrail_trail_arn in
+  # infra/aws/general/cloudtrail.tf.
+  cloudtrail_trail_arn = "arn:aws:cloudtrail:us-east-1:905418422177:trail/oconnordev-organization"
 
   # Deliberately narrow. AWS Config is billed per configuration item recorded,
   # so "all supported resource types" in every account is what turns a
