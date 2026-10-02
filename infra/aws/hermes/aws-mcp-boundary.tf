@@ -1,30 +1,12 @@
-variable "hermes_aws_mcp_endpoint" {
-  description = "AWS MCP Server endpoint fronted by the shared gateway target."
-  type        = string
-  default     = "https://aws-mcp.us-east-1.api.aws/mcp"
-
-  validation {
-    condition     = can(regex("^https://aws-mcp\\.[a-z0-9-]+\\.api\\.aws/mcp$", var.hermes_aws_mcp_endpoint))
-    error_message = "hermes_aws_mcp_endpoint must be an https AWS MCP Server endpoint of the form https://aws-mcp.<region>.api.aws/mcp."
-  }
-}
-
-variable "hermes_aws_mcp_sigv4_service" {
-  description = "SigV4 service name the gateway uses to sign requests to the AWS MCP Server. The MCP proxy for AWS infers this from the endpoint hostname; it is pinned here so the signature cannot silently follow a changed endpoint."
-  type        = string
-  default     = "aws-mcp"
-
-  validation {
-    condition     = can(regex("^[a-z0-9-]{1,63}$", var.hermes_aws_mcp_sigv4_service))
-    error_message = "hermes_aws_mcp_sigv4_service must be a lowercase AWS service name."
-  }
-}
-
 locals {
-  hermes_aws_target_name  = "aws"
-  aws_tool_manifest       = jsondecode(file("${local.adapter_root}/aws-mcp-tools.json"))
-  aws_native_tools        = toset(local.aws_tool_manifest.tools)
-  hermes_aws_readonly_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/ReadOnlyAccess"
+  hermes_aws_target_name = "aws"
+  aws_tool_manifest      = jsondecode(file("${local.adapter_root}/aws-mcp-tools.json"))
+  # Mirrors the adapter's Target.prefix: the manifest's declared wire prefix,
+  # or the plain target prefix when it declares none. One source of truth, so a
+  # policy cannot drift from the name the adapter actually sends.
+  hermes_aws_action_prefix = try(local.aws_tool_manifest.gateway_action_prefix, "${local.hermes_aws_target_name}___")
+  aws_native_tools         = toset(local.aws_tool_manifest.tools)
+  hermes_aws_readonly_arn  = "arn:${data.aws_partition.current.partition}:iam::aws:policy/ReadOnlyAccess"
 
   hermes_aws_required_scope = aws_cognito_resource_server.hermes.scope_identifiers[0]
 }
@@ -89,14 +71,22 @@ resource "aws_iam_role_policy" "hermes_gateway_readonly_guardrails" {
   }
 }
 
+# The upstream is the security account's gateway, not the AWS MCP Server, so
+# this target is a caller rather than a signer of AWS requests. Only one AWS
+# target exists: the AWS tools come *through* the security gateway, rather than
+# alongside a second copy of themselves.
 resource "aws_bedrockagentcore_gateway_target" "aws" {
+  count = local.security_gateway_enabled ? 1 : 0
+
   name               = local.hermes_aws_target_name
   gateway_identifier = aws_bedrockagentcore_gateway.hermes.gateway_id
-  description        = "Read-only AWS access through AWS's managed MCP Server, signed with the gateway role."
+  description        = "Read-only AWS access, routed through the security account's gateway, which holds the identity that reaches AWS APIs."
 
+  # A gateway-to-gateway hop is SigV4-signed for the AgentCore service itself.
+  # Signing with `aws-mcp` here would address the wrong service and fail.
   credential_provider_configuration {
     gateway_iam_role {
-      service = var.hermes_aws_mcp_sigv4_service
+      service = local.security_gateway_sigv4_service
       region  = data.aws_region.current.region
     }
   }
@@ -104,7 +94,7 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
   target_configuration {
     mcp {
       mcp_server {
-        endpoint     = var.hermes_aws_mcp_endpoint
+        endpoint     = local.security_gateway_url
         listing_mode = "DEFAULT"
       }
     }
@@ -115,6 +105,11 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
       condition     = length(local.aws_native_tools) == 7
       error_message = "The AWS MCP manifest must contain exactly the seven tool names covered by the Cedar policies and the Hermes adapter allowlist."
     }
+
+    precondition {
+      condition     = endswith(local.hermes_aws_action_prefix, "___")
+      error_message = "The AWS manifest's gateway_action_prefix must end with the ___ separator, or the Cedar action would not match the name the adapter sends."
+    }
   }
 
   depends_on = [
@@ -122,9 +117,13 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
     aws_iam_role_policy.hermes_gateway_readonly_guardrails,
     aws_iam_role_policy_attachment.hermes_gateway_readonly,
     aws_iam_role_policy.hermes_gateway_policy_authorization,
+    aws_iam_role_policy.hermes_gateway_security_gateway,
   ]
 }
 
+# The client keeps the canonical aws___<tool> names even though the wire action
+# is aws___aws___aws___<tool>. Both sides read the prefix from the same manifest
+# key, so the permit cannot drift from the name the adapter actually sends.
 resource "aws_bedrockagentcore_policy" "aws_tool" {
   for_each = local.aws_native_tools
 
@@ -138,7 +137,7 @@ resource "aws_bedrockagentcore_policy" "aws_tool" {
       statement = <<-CEDAR
         permit (
           principal is AgentCore::OAuthUser,
-          action == AgentCore::Action::"${local.hermes_aws_target_name}___${each.key}",
+          action == AgentCore::Action::"${local.hermes_aws_action_prefix}${each.key}",
           resource == AgentCore::Gateway::"${aws_bedrockagentcore_gateway.hermes.gateway_arn}"
         )
         when {
@@ -150,11 +149,6 @@ resource "aws_bedrockagentcore_policy" "aws_tool" {
   }
 
   depends_on = [aws_bedrockagentcore_gateway_target.aws]
-}
-
-output "hermes_aws_mcp_endpoint" {
-  description = "AWS MCP Server endpoint fronted by the shared gateway."
-  value       = var.hermes_aws_mcp_endpoint
 }
 
 output "hermes_aws_mcp_target_name" {
