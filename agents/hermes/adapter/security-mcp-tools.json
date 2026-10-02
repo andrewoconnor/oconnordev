@@ -1,0 +1,25 @@
+{
+  "upstream_service": "AWS MCP Server, reached through the security account's AgentCore Gateway",
+  "upstream_endpoint": "https://aws-mcp.us-east-1.api.aws/mcp",
+  "upstream_documentation": "https://docs.aws.amazon.com/agent-toolkit/latest/userguide/understanding-mcp-server-tools.html",
+  "tool_namespace": "awssec",
+  "tools": [
+    "awssec___get_regional_availability",
+    "awssec___get_tasks",
+    "awssec___list_regions",
+    "awssec___read_documentation",
+    "awssec___retrieve_skill",
+    "awssec___run_script",
+    "awssec___search_documentation"
+  ],
+  "excluded_tools": {
+    "awssec___get_presigned_url": "Issues pre-signed Amazon S3 URLs for upload and download. A pre-signed upload URL is a write capability, so it is outside this read-only boundary."
+  },
+  "notes": [
+    "These are the logical names the client sees. The security gateway fronts the same AWS MCP Server under its own target, which is named awssec rather than aws, so the server's aws___ prefix is replaced by awssec___ along this path.",
+    "The reason for the distinct namespace is ownership, not cosmetics: the Hermes account's own AWS target already owns aws___<tool>, and the adapter refuses two targets claiming one logical name. A second AWS target that reused aws___<tool> would collide at construction.",
+    "The gateway actions are security___awssec___<tool>, because AgentCore prefixes every action with the Hermes gateway target's name (security) on top of the name the security gateway advertises.",
+    "Read-only is enforced by IAM on the security gateway's execution role, with explicit denies for the APIs that return secret material. awssec___run_script cannot exceed that role.",
+    "This target reads the security account plus the organization-wide Config aggregator and Access Analyzer it owns. It does not replace aws___<tool>, which reads the Hermes account's own resources."
+  ]
+}

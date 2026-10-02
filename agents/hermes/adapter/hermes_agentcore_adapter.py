@@ -119,6 +119,10 @@ def _load_target(name: str, manifest_name: str, *, toolset_header: bool = False)
 TARGETS = (
     _load_target("github", "github-mcp-tools.json", toolset_header=True),
     _load_target("aws", "aws-mcp-tools.json"),
+    # The same upstream server as `aws`, reached through the security account's
+    # gateway. The manifest's awssec___ namespace is what keeps its logical
+    # names distinct from the Hermes-account target's.
+    _load_target("security", "security-mcp-tools.json"),
     _load_target("spacelift", "spacelift-mcp-tools.json"),
 )
 
