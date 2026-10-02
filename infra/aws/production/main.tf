@@ -1,35 +1,12 @@
-variable "spacelift_run_id" {
-  type = string
-}
 
-terraform {
-  required_version = ">= 1.12.0, < 2.0.0"
 
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 6.66.0"
-    }
-  }
-}
 
-provider "aws" {
-  assume_role {
-    role_arn     = "arn:aws:iam::767397796791:role/spacelift"
-    session_name = var.spacelift_run_id
-    external_id  = "spacelift-general"
-  }
 
-  region = "us-east-1"
-}
+
 
 data "aws_caller_identity" "current" {}
 
-locals {
-  zone_name       = "oconnor.dev"
-  web_bucket_name = "oconnordev-web"
-  s3_origin_id    = "oconnordevS3Origin"
-}
+
 
 resource "aws_route53_zone" "oconnordev" {
   # checkov:skip=CKV2_AWS_39:Query logging would need a CloudWatch log group and pay per ingested byte, and a public zone's query log is high-volume and low-value for a personal domain whose records are all managed here.
@@ -157,9 +134,6 @@ resource "aws_s3_bucket_versioning" "web" {
   }
 }
 
-# Bounds the storage that versioning adds: superseded objects are the only ones
-# that accumulate, because a deploy writes a new version rather than editing in
-# place.
 resource "aws_s3_bucket_lifecycle_configuration" "web" {
   bucket = aws_s3_bucket.web.id
 
@@ -279,7 +253,6 @@ resource "aws_route53_record" "oconnordev_validation" {
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
     }
-   # Skips the domain if it doesn't contain a wildcard
     if length(regexall("\\*\\..+", dvo.domain_name)) > 0
   }
 
