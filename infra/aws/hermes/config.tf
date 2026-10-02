@@ -7,13 +7,28 @@
 # account is what turns a sub-dollar line item into a monthly bill; this is the
 # set this account actually deploys.
 #
+# Delivery goes to the central Config bucket in the security account, the same
+# bucket GENERAL, PRODUCTION and SECURITY write to. That bucket is declared in
+# infra/aws/security/audit-bucket-config.tf. The per-account bucket this stack
+# used to create (oconnordev-config-421680664125) has been removed.
+#
 # This is the change that makes "how is this resource configured, and when did
 # it change" answerable from the security account without any cross-account
 # credential in the reader.
 # ---------------------------------------------------------------------------
 
 locals {
-  config_delivery_bucket_name = "oconnordev-config-${data.aws_caller_identity.current.account_id}"
+  # The central Config bucket lives in the security account. It is a literal
+  # rather than a Spacelift output reference because the same name is needed by
+  # four stacks, and threading a per-stack reference through each one would make
+  # the name change ripple through four sets of state for no benefit. Keep in
+  # sync with the security stack if it is ever renamed.
+  config_bucket_name = "oconnordev-config"
+
+  # Must match the delivery path the Config bucket policy grants:
+  # <prefix>/AWSLogs/<accountId>/Config/* in
+  # infra/aws/security/audit-bucket-config.tf.
+  config_key_prefix = "config"
 
   config_recorded_resource_types = [
     "AWS::Cognito::UserPool",
@@ -51,124 +66,15 @@ resource "aws_iam_role" "config_recorder" {
   assume_role_policy = data.aws_iam_policy_document.config_recorder_assume_role.json
 }
 
+# service-role/AWS_ConfigRole is also what satisfies the cross-account
+# HeadBucket requirement in the Config bucket's policy: it grants s3:ListBucket
+# on every resource, which is the permission AWS Config calls the S3 HeadBucket
+# API with to determine the bucket location. No inline policy is needed for it,
+# and none is needed for delivery either -- the PutObject writes into the bucket
+# are made by the Config service principal, not by this role.
 resource "aws_iam_role_policy_attachment" "config_recorder" {
   role       = aws_iam_role.config_recorder.name
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AWS_ConfigRole"
-}
-
-resource "aws_s3_bucket" "config" {
-  # checkov:skip=CKV_AWS_18:Access logging would need a second bucket and a log-delivery policy. This bucket holds Config's own configuration history and snapshots; nothing consumes access logs for it.
-  # checkov:skip=CKV_AWS_144:Cross-region replication would need a replica bucket and a replication role in a second Region. Everything in this organization is us-east-1.
-  # checkov:skip=CKV2_AWS_62:Event notifications need a consumer. Nothing subscribes to object-created events on the Config history bucket; Config delivers to it directly.
-  # checkov:skip=CKV_AWS_145:SSE-KMS would need a customer-managed key whose policy grants the Config recorder role kms:Decrypt and kms:GenerateDataKey. The AWS-managed aws/s3 key cannot be edited to add that grant, so a CMK here is a new key plus a policy, not a one-line change.
-  bucket = local.config_delivery_bucket_name
-}
-
-resource "aws_s3_bucket_public_access_block" "config" {
-  bucket = aws_s3_bucket.config.id
-
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
-}
-
-resource "aws_s3_bucket_versioning" "config" {
-  bucket = aws_s3_bucket.config.id
-
-  versioning_configuration {
-    status = "Enabled"
-  }
-}
-
-resource "aws_s3_bucket_lifecycle_configuration" "config" {
-  bucket = aws_s3_bucket.config.id
-
-  # Versioning is on so a bad write to configuration history can be rolled
-  # back; the rule below keeps that from accumulating storage unbounded.
-  rule {
-    id     = "expire-noncurrent-versions"
-    status = "Enabled"
-
-    filter {}
-
-    abort_incomplete_multipart_upload {
-      days_after_initiation = 7
-    }
-
-    noncurrent_version_expiration {
-      noncurrent_days = 30
-    }
-  }
-
-  depends_on = [aws_s3_bucket_versioning.config]
-}
-
-resource "aws_s3_bucket_server_side_encryption_configuration" "config" {
-  bucket = aws_s3_bucket.config.id
-
-  rule {
-    apply_server_side_encryption_by_default {
-      sse_algorithm = "AES256"
-    }
-  }
-}
-
-data "aws_iam_policy_document" "config_bucket" {
-  statement {
-    sid    = "ConfigBucketAcl"
-    effect = "Allow"
-
-    actions = [
-      "s3:GetBucketAcl",
-      "s3:ListBucket",
-    ]
-
-    resources = [aws_s3_bucket.config.arn]
-
-    principals {
-      type        = "Service"
-      identifiers = ["config.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:SourceAccount"
-      values   = [data.aws_caller_identity.current.account_id]
-    }
-  }
-
-  statement {
-    sid    = "ConfigBucketWrite"
-    effect = "Allow"
-
-    actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.config.arn}/*"]
-
-    principals {
-      type        = "Service"
-      identifiers = ["config.amazonaws.com"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "s3:x-amz-acl"
-      values   = ["bucket-owner-full-control"]
-    }
-
-    condition {
-      test     = "StringEquals"
-      variable = "aws:SourceAccount"
-      values   = [data.aws_caller_identity.current.account_id]
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "config" {
-  bucket = aws_s3_bucket.config.id
-  policy = data.aws_iam_policy_document.config_bucket.json
-
-  depends_on = [aws_s3_bucket_public_access_block.config]
 }
 
 resource "aws_config_configuration_recorder" "hermes" {
@@ -192,8 +98,13 @@ resource "aws_config_configuration_recorder" "hermes" {
 
 resource "aws_config_delivery_channel" "hermes" {
   name           = "default"
-  s3_bucket_name = aws_s3_bucket.config.bucket
+  s3_bucket_name = local.config_bucket_name
+  s3_key_prefix  = local.config_key_prefix
 
+  # The bucket lives in the security account and already exists by the time this
+  # stack runs: the Spacelift dependency chain is
+  # general -> security -> hermes -> production, so the stack that creates the
+  # bucket has completed before this one starts.
   depends_on = [aws_config_configuration_recorder.hermes]
 }
 
