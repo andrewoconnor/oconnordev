@@ -62,16 +62,42 @@ resource "aws_organizations_delegated_administrator" "access_analyzer" {
 #   "Adding a delegated administrator does not alter the management or operation
 #    of the organization's trails."
 #
-# So this is additive: the management account still owns and manages the trail
-# created by cloudtrail.tf. Registration goes through the Organizations API,
-# which -- unlike the CloudTrail API -- does not create CloudTrail's
-# service-linked roles as a side effect. Creating the trail from the management
-# account in cloudtrail.tf does create them, so the two together are sufficient.
+# So this is additive: the management account still owns the trail, which is
+# created and managed from the security account's own stack
+# (infra/aws/security/cloudtrail.tf). Nothing here needs to change if that
+# account is ever replaced.
+#
+# The service-linked role below is required here, and it is easy to miss.
+# Registering a delegated administrator through the Organizations API does NOT
+# create CloudTrail's service-linked roles, and a call made from the security
+# account does not create them in the management account either:
+#
+#   "When you add a delegated administrator using the AWS Organizations CLI or
+#    API operation, CloudTrail service-linked roles won't be created
+#    automatically if they don't exist. The service-linked roles are only created
+#    when you make a call from the management account directly to the CloudTrail
+#    service."
+#
+# Creating the organization trail from the security account is not such a call,
+# so the management account's role is created here instead. This mirrors the
+# Access Analyzer role further down, which exists for the same reason and for the
+# same shape of failure.
+#
+# If the role already exists in this account, apply fails with
+#   InvalidInput: Service role name AWSServiceRoleForCloudTrail has been taken
+# in this account
+# and the fix is to adopt the existing role rather than recreate it:
+#   terraform import aws_iam_service_linked_role.cloudtrail \
+#     arn:aws:iam::905418422177:role/aws-service-role/cloudtrail.amazonaws.com/AWSServiceRoleForCloudTrail
 resource "aws_organizations_delegated_administrator" "cloudtrail" {
   account_id        = local.security_account_ids[0]
   service_principal = "cloudtrail.amazonaws.com"
 
   depends_on = [terraform_data.security_account_guard]
+}
+
+resource "aws_iam_service_linked_role" "cloudtrail" {
+  aws_service_name = "cloudtrail.amazonaws.com"
 }
 
 # An organization-level analyzer can only be created by the delegated
