@@ -1,38 +1,4 @@
-# ---------------------------------------------------------------------------
-# oconnordev-cloudtrail -- the organization CloudTrail log bucket.
-#
-# CloudTrail writes here as a service principal, delivering every account's logs
-# for the organization trail. The trail itself is created by the management
-# account, in infra/aws/general/cloudtrail.tf, because AWS anchors an
-# organization trail in the management account and rejects operations on it from
-# any other account's credentials. The aws:SourceArn condition pins every write
-# to that one trail, so no other trail in any account in this organization can
-# write to this bucket.
-#
-# This bucket grants this account's own principals no read access in its policy.
-# The bucket lives in the account whose administrators read it, so same-account
-# identity policy covers that: account administrators hold AdministratorAccess
-# and the security gateway role holds ReadOnlyAccess. A bucket-policy read grant
-# would be a redundant second copy of a permission that already exists.
-#
-# No Object Lock. It was in the first cut of this change and has been dropped
-# deliberately: GOVERNANCE mode does not stop an account administrator, who
-# holds s3:BypassGovernanceRetention, and COMPLIANCE mode cannot be undone by
-# anyone, which turns a retention setting into a permanent decision. Versioning
-# plus the bucket-deletion deny cover the realistic failure modes at this size.
-#
-# The bucket lives here rather than in the management account because this
-# account is the organization's read vantage point, and because service control
-# policies apply to a member account but not to the management account.
-#
-# No s3_key_prefix is set on the trail, so it writes at AWSLogs/<account-id>/
-# directly under this bucket's root; the write paths below name that layout.
-# ---------------------------------------------------------------------------
 
-# Needed for the organization-trail write path below. A member account that is
-# the CloudTrail delegated administrator can call ListAccounts, so this resolves
-# without the management account's credentials.
-data "aws_organizations_organization" "current" {}
 
 resource "aws_s3_bucket" "cloudtrail" {
   # checkov:skip=CKV_AWS_18:Access logging would need a second bucket plus a log-delivery policy and grant. Nothing consumes access logs for the audit bucket; read access is already limited to this account's own administrator and gateway roles by identity policy.
@@ -54,11 +20,6 @@ resource "aws_s3_bucket_public_access_block" "cloudtrail" {
 resource "aws_s3_bucket_ownership_controls" "cloudtrail" {
   bucket = aws_s3_bucket.cloudtrail.id
 
-  # Disables ACLs entirely. CloudTrail writes as a service principal, so under
-  # BucketOwnerEnforced every object is owned by this account regardless of
-  # which account's events it carries. CloudTrail passes
-  # s3:x-amz-acl bucket-owner-full-control, which S3 accepts as a no-op under
-  # this setting, and the bucket policy still conditions on that header.
   rule {
     object_ownership = "BucketOwnerEnforced"
   }
@@ -79,7 +40,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail" {
     apply_server_side_encryption_by_default {
       sse_algorithm = "AES256"
     }
-    # SSE-C would let a caller supply its own key, which CloudTrail does not do.
     blocked_encryption_types = ["SSE-C"]
   }
 }
@@ -87,11 +47,6 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "cloudtrail" {
 resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
   bucket = aws_s3_bucket.cloudtrail.id
 
-  # No storage-class transition rule. This bucket is on the order of megabytes,
-  # so moving it to Glacier would save a fraction of a cent per month while
-  # adding 90- and 180-day minimum-storage-duration charges and retrieval
-  # complexity. Transitioning is a decision to make once the bucket is large
-  # enough to matter, not before.
   rule {
     id     = "abort-incomplete-multipart-uploads"
     status = "Enabled"
@@ -103,8 +58,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
     }
   }
 
-  # Versioning is on so a bad write to the audit log can be rolled back; this
-  # keeps that from accumulating storage unbounded.
   rule {
     id     = "expire-noncurrent-versions"
     status = "Enabled"
@@ -117,12 +70,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "cloudtrail" {
   }
 }
 
-# Three statements, which is the documented shape for an organization trail:
-# an ACL check, the write path used if the trail is ever changed back to a
-# single-account trail for the management account, and the organization write
-# path.
-#
-#   https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-create-and-update-an-organizational-trail-by-using-the-aws-cli.html
 data "aws_iam_policy_document" "cloudtrail_bucket" {
   statement {
     sid    = "AWSCloudTrailAclCheck"
@@ -143,10 +90,6 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
   }
 
-  # Management-account fallback prefix. CloudTrail writes under the trail
-  # owner's account ID if the trail is ever changed from an organization trail
-  # to a trail for one account only; leaving this out means logging silently
-  # stops the moment anyone makes that change.
   statement {
     sid    = "AWSCloudTrailWrite"
     effect = "Allow"
@@ -172,9 +115,6 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
   }
 
-  # Organization write path. An organization trail delivers every account's logs
-  # under the organization ID, so this is the path that carries all four
-  # accounts' events.
   statement {
     sid    = "AWSCloudTrailOrganizationWrite"
     effect = "Allow"
@@ -185,7 +125,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
 
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.cloudtrail.arn}/AWSLogs/${data.aws_organizations_organization.current.id}/*"]
+    resources = ["${aws_s3_bucket.cloudtrail.arn}/AWSLogs/${local.accounts["ORGANIZATION"]}/*"]
 
     condition {
       test     = "StringEquals"
@@ -223,10 +163,6 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
   }
 
-  # Deletion protection. This denies DeleteBucket to every principal including
-  # the account root, so an intentional teardown must remove this statement
-  # first. That is the point: the audit bucket should not be destroyable by a
-  # stray plan or a single mistaken console click.
   statement {
     sid    = "DenyBucketDeletion"
     effect = "Deny"
@@ -250,14 +186,4 @@ resource "aws_s3_bucket_policy" "cloudtrail" {
     aws_s3_bucket_ownership_controls.cloudtrail,
     aws_s3_bucket_versioning.cloudtrail,
   ]
-}
-
-output "cloudtrail_audit_bucket_name" {
-  description = "Name of the organization CloudTrail log bucket."
-  value       = aws_s3_bucket.cloudtrail.id
-}
-
-output "cloudtrail_audit_bucket_arn" {
-  description = "ARN of the organization CloudTrail log bucket."
-  value       = aws_s3_bucket.cloudtrail.arn
 }
