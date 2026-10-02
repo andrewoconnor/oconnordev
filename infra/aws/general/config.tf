@@ -146,7 +146,7 @@ resource "aws_config_delivery_channel" "management" {
 }
 
 resource "aws_config_configuration_recorder_status" "management" {
-  # checkov:skip=CKV2_AWS_45:Deliberate. Recording every supported resource type is the configuration that makes this design expensive -- AWS Config is billed per configuration item recorded. The recording group in this stack lists the resource types this organization actually deploys; recording all supported types is the opposite of the intent of this change.
+  # checkov:skip=CKV2_AWS_45:Deliberate. Recording every supported resource type is the configuration that makes this account expensive -- AWS Config is billed per configuration item recorded. The recording group in this stack lists the resource types this organization actually deploys; recording all supported types is the opposite of the intent of this change.
   count = var.enable_management_account_audit ? 1 : 0
 
   name       = aws_config_configuration_recorder.management[0].name
