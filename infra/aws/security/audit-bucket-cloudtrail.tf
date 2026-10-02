@@ -1,10 +1,13 @@
 # ---------------------------------------------------------------------------
 # oconnordev-cloudtrail -- the organization CloudTrail log bucket.
 #
-# CloudTrail writes here as a service principal from the management account,
-# which owns the trail even though this account creates and manages it. The
-# aws:SourceArn condition pins every write to that one trail, so no other trail
-# in any account in this organization can write to this bucket.
+# CloudTrail writes here as a service principal, delivering every account's logs
+# for the organization trail. The trail itself is created by the management
+# account, in infra/aws/general/cloudtrail.tf, because AWS anchors an
+# organization trail in the management account and rejects operations on it from
+# any other account's credentials. The aws:SourceArn condition pins every write
+# to that one trail, so no other trail in any account in this organization can
+# write to this bucket.
 #
 # This bucket grants this account's own principals no read access in its policy.
 # The bucket lives in the account whose administrators read it, so same-account
@@ -21,6 +24,9 @@
 # The bucket lives here rather than in the management account because this
 # account is the organization's read vantage point, and because service control
 # policies apply to a member account but not to the management account.
+#
+# No s3_key_prefix is set on the trail, so it writes at AWSLogs/<account-id>/
+# directly under this bucket's root; the write paths below name that layout.
 # ---------------------------------------------------------------------------
 
 # Needed for the organization-trail write path below. A member account that is
@@ -151,7 +157,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
 
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.cloudtrail.arn}/${local.cloudtrail_key_prefix}/AWSLogs/${local.management_account_id}/*"]
+    resources = ["${aws_s3_bucket.cloudtrail.arn}/AWSLogs/${local.management_account_id}/*"]
 
     condition {
       test     = "StringEquals"
@@ -179,7 +185,7 @@ data "aws_iam_policy_document" "cloudtrail_bucket" {
     }
 
     actions   = ["s3:PutObject"]
-    resources = ["${aws_s3_bucket.cloudtrail.arn}/${local.cloudtrail_key_prefix}/AWSLogs/${data.aws_organizations_organization.current.id}/*"]
+    resources = ["${aws_s3_bucket.cloudtrail.arn}/AWSLogs/${data.aws_organizations_organization.current.id}/*"]
 
     condition {
       test     = "StringEquals"
