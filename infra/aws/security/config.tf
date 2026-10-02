@@ -75,7 +75,6 @@ resource "aws_config_configuration_recorder" "security" {
 resource "aws_config_delivery_channel" "security" {
   name           = "default"
   s3_bucket_name = local.config_bucket_name
-  s3_key_prefix  = local.config_key_prefix
 
   # The bucket policy must exist before recording starts: AWS Config verifies
   # that the bucket is writable when the recorder is enabled, and a delivery
