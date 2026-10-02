@@ -38,14 +38,24 @@ AWS_TOOLS = {
     "aws___run_script",
     "aws___search_documentation",
 }
+SECURITY_TOOLS = {
+    "awssec___get_regional_availability",
+    "awssec___get_tasks",
+    "awssec___list_regions",
+    "awssec___read_documentation",
+    "awssec___retrieve_skill",
+    "awssec___run_script",
+    "awssec___search_documentation",
+}
 SPACELIFT_TOOLS = {
     "discover",
     "provider",
     "query",
 }
-EXPECTED_TOOLS = GITHUB_TOOLS | AWS_TOOLS | SPACELIFT_TOOLS
+EXPECTED_TOOLS = GITHUB_TOOLS | AWS_TOOLS | SECURITY_TOOLS | SPACELIFT_TOOLS
 GITHUB_TARGET = next(target for target in TARGETS if target.name == "github")
 AWS_TARGET = next(target for target in TARGETS if target.name == "aws")
+SECURITY_TARGET = next(target for target in TARGETS if target.name == "security")
 SPACELIFT_TARGET = next(target for target in TARGETS if target.name == "spacelift")
 EXPECTED_TOOL_HEADER = ",".join(sorted(GITHUB_TOOLS))
 
@@ -157,12 +167,14 @@ def exposed_names(forwarder, params=None):
 
 class TargetManifestTests(unittest.TestCase):
     def test_every_registered_target_matches_its_verified_allowlist(self):
-        self.assertEqual({target.name for target in TARGETS}, {"github", "aws", "spacelift"})
+        self.assertEqual({target.name for target in TARGETS}, {"github", "aws", "security", "spacelift"})
         self.assertEqual(GITHUB_TARGET.tools, GITHUB_TOOLS)
         self.assertEqual(AWS_TARGET.tools, AWS_TOOLS)
+        self.assertEqual(SECURITY_TARGET.tools, SECURITY_TOOLS)
         self.assertEqual(SPACELIFT_TARGET.tools, SPACELIFT_TOOLS)
         self.assertEqual(len(GITHUB_TARGET.tools), 8)
         self.assertEqual(len(AWS_TARGET.tools), 7)
+        self.assertEqual(len(SECURITY_TARGET.tools), 7)
         self.assertEqual(len(SPACELIFT_TARGET.tools), 3)
 
     def test_manifests_on_disk_are_the_allowlists(self):
@@ -173,6 +185,9 @@ class TargetManifestTests(unittest.TestCase):
     def test_write_capable_aws_tool_is_excluded(self):
         # get_presigned_url mints S3 upload URLs, so it is outside the boundary.
         self.assertNotIn("aws___get_presigned_url", AWS_TARGET.tools)
+        # Same exclusion on the security path: it fronts the same server, so the
+        # write-capable tool would otherwise reappear under the other namespace.
+        self.assertNotIn("awssec___get_presigned_url", SECURITY_TARGET.tools)
 
     def test_write_capable_spacelift_tools_are_excluded(self):
         # mutate runs GraphQL mutations -- run trigger/confirm/discard, stack,
@@ -214,7 +229,7 @@ class TargetManifestTests(unittest.TestCase):
 class ExposureTests(unittest.TestCase):
     def test_tools_list_exposes_every_targets_manifest_tools(self):
         self.assertEqual(exposed_names(make_forwarder()), EXPECTED_TOOLS)
-        self.assertEqual(len(EXPECTED_TOOLS), 18)
+        self.assertEqual(len(EXPECTED_TOOLS), 25)
 
     def test_extra_tools_are_not_exposed(self):
         transport = FakeTransport()
@@ -228,7 +243,7 @@ class ExposureTests(unittest.TestCase):
 
     def test_a_missing_target_fails_closed(self):
         # One target silently absent must not look like a smaller catalog.
-        for hidden in ("github", "aws", "spacelift"):
+        for hidden in ("github", "aws", "security", "spacelift"):
             transport = FakeTransport()
             transport.hide_target = hidden
             result = make_forwarder(transport).handle(rpc("tools/list"))
@@ -245,9 +260,9 @@ class ExposureTests(unittest.TestCase):
         transport.page_size = 3
         result = make_forwarder(transport).handle(rpc("tools/list"))
         self.assertEqual({tool["name"] for tool in result["result"]["tools"]}, EXPECTED_TOOLS)
-        # Eighteen tools over pages of three, so six gateway calls, and the
-        # paging cursor must not be handed on to the client.
-        self.assertEqual(len(transport.gateway_calls), 6)
+        # One call per page of three, so derive the page count from the tool
+        # count rather than restating it whenever a target is added.
+        self.assertEqual(len(transport.gateway_calls), -(-len(EXPECTED_TOOLS) // 3))
         self.assertNotIn("nextCursor", result["result"])
 
     def test_paging_still_fails_closed_when_a_manifest_is_incomplete(self):
@@ -302,6 +317,10 @@ class RoutingTests(unittest.TestCase):
         forwarder = make_forwarder(transport)
         for name in (
             "aws___get_presigned_url",
+            "awssec___get_presigned_url",
+            # The security target's raw gateway action, which the client never
+            # sees and must not be able to reach by naming it directly.
+            "security___awssec___run_script",
             "repository_info",
             "github___get_file_contents",
             "aws___aws___list_regions",
