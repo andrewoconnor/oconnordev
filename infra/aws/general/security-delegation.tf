@@ -52,6 +52,28 @@ resource "aws_organizations_delegated_administrator" "access_analyzer" {
   depends_on = [terraform_data.security_account_guard]
 }
 
+# CloudTrail delegated administration. The security account gains the same
+# administrative tasks over the organization's trails that the management
+# account has, without becoming the owner of them:
+#
+#   https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-delegated-administrator.html
+#   "The organization's management account remains the owner of any CloudTrail
+#    organization resources the delegated administrator creates."
+#   "Adding a delegated administrator does not alter the management or operation
+#    of the organization's trails."
+#
+# So this is additive: the management account still owns and manages the trail
+# created by cloudtrail.tf. Registration goes through the Organizations API,
+# which -- unlike the CloudTrail API -- does not create CloudTrail's
+# service-linked roles as a side effect. Creating the trail from the management
+# account in cloudtrail.tf does create them, so the two together are sufficient.
+resource "aws_organizations_delegated_administrator" "cloudtrail" {
+  account_id        = local.security_account_ids[0]
+  service_principal = "cloudtrail.amazonaws.com"
+
+  depends_on = [terraform_data.security_account_guard]
+}
+
 # An organization-level analyzer can only be created by the delegated
 # administrator once the Access Analyzer service-linked role exists in the
 # management account. Creating a management-account analyzer would create it
