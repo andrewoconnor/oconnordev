@@ -35,7 +35,21 @@ locals {
   # account -- but they do apply to a member account that is a delegated
   # administrator. A read vantage point in a member account is therefore inside
   # the organization's own guardrails; one in the management account is not.
-  config_delivery_bucket_name = "oconnordev-config-${data.aws_caller_identity.current.account_id}"
+  # The two central audit buckets this account owns: organization CloudTrail
+  # logs in one, Config history from all four accounts in the other. Both are
+  # declared in audit-bucket-cloudtrail.tf and audit-bucket-config.tf. The names
+  # are literals rather than derived from this account's ID because three other
+  # stacks point their Config delivery channels at the Config bucket; the
+  # general stack in particular is upstream of this one, so a Spacelift output
+  # reference would create the reverse dependency the stack graph forbids.
+  cloudtrail_bucket_name = "oconnordev-cloudtrail"
+  config_bucket_name     = "oconnordev-config"
+
+  # Key prefixes inside those buckets. CloudTrail and Config both write under an
+  # AWSLogs/<account-id>/ layout, so each gets its own prefix and the bucket
+  # policies can name exact paths rather than sharing one namespace.
+  cloudtrail_key_prefix = "cloudtrail"
+  config_key_prefix     = "config"
 
   # Deliberately narrow. AWS Config is billed per configuration item recorded,
   # so "all supported resource types" in every account is what turns a

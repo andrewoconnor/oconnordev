@@ -10,13 +10,19 @@ resource "aws_organizations_organization" "oconnordev" {
   #   aws organizations list-aws-service-access-for-organization
   # and add anything it returns that is not listed here.
   #
-  # config and access-analyzer are required before their delegated
-  # administrators can be registered (see security-delegation.tf).
+  # config, access-analyzer and cloudtrail are each required before the change
+  # that depends on them: config and access-analyzer before their delegated
+  # administrators can be registered (see security-delegation.tf), cloudtrail
+  # before an organization trail can be created (see
+  # infra/aws/security/cloudtrail.tf, which owns the trail and the log bucket).
+  # The five principals below were confirmed against the live organization, so
+  # applying this list disables nothing.
   aws_service_access_principals = [
     "iam.amazonaws.com",
     "sso.amazonaws.com",
     "config.amazonaws.com",
     "access-analyzer.amazonaws.com",
+    "cloudtrail.amazonaws.com",
   ]
 
   enabled_policy_types = [
@@ -30,7 +36,7 @@ data "aws_ssoadmin_instances" "organization" {}
 
 locals {
   identity_center_instance_arn = tolist(data.aws_ssoadmin_instances.organization.arns)[0]
-  identity_store_id             = tolist(data.aws_ssoadmin_instances.organization.identity_store_ids)[0]
+  identity_store_id            = tolist(data.aws_ssoadmin_instances.organization.identity_store_ids)[0]
 
   identity_center_accounts = {
     "OCONNORDEV-GENERAL"    = "905418422177"
