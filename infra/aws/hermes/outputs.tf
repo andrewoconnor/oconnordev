@@ -14,7 +14,7 @@ output "hermes_spacelift_target_name" {
 }
 
 output "hermes_spacelift_session_token_secret_arn" {
-  description = "ARN of the short-lived session-token secret. The gateway execution role's read allowlist in aws-mcp-boundary.tf must name exactly this secret and never the API key."
+  description = "ARN of the short-lived session-token secret. The gateway execution role's read allowlist in target-aws.tf must name exactly this secret and never the API key."
   value       = aws_secretsmanager_secret.spacelift_session_token.arn
 }
 
