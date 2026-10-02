@@ -6,15 +6,15 @@ locals {
   # policy cannot drift from the name the adapter actually sends.
   hermes_aws_action_prefix = try(local.aws_tool_manifest.gateway_action_prefix, "${local.hermes_aws_target_name}___")
   aws_native_tools         = toset(local.aws_tool_manifest.tools)
-  hermes_aws_readonly_arn  = "arn:${data.aws_partition.current.partition}:iam::aws:policy/ReadOnlyAccess"
 
   hermes_aws_required_scope = aws_cognito_resource_server.hermes.scope_identifiers[0]
 }
 
-resource "aws_iam_role_policy_attachment" "hermes_gateway_readonly" {
-  role       = aws_iam_role.hermes_gateway.name
-  policy_arn = local.hermes_aws_readonly_arn
-}
+# ReadOnlyAccess used to be attached to the gateway role here, because the AWS
+# target signed with that role and called the AWS MCP Server directly. The
+# target now calls the security account's gateway, so the identity that reaches
+# AWS APIs is the security role and this grant backed nothing. Removing it also
+# removes the gateway role's ability to read every resource in this account.
 
 locals {
   # The gateway execution role may read exactly these secrets at runtime, one
@@ -115,7 +115,6 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
   depends_on = [
     aws_iam_role_policy.hermes_gateway_core,
     aws_iam_role_policy.hermes_gateway_readonly_guardrails,
-    aws_iam_role_policy_attachment.hermes_gateway_readonly,
     aws_iam_role_policy.hermes_gateway_policy_authorization,
     aws_iam_role_policy.hermes_gateway_security_gateway,
   ]
