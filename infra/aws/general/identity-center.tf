@@ -1,22 +1,6 @@
-# Import and manage the existing AWS Organization from the management account.
 resource "aws_organizations_organization" "oconnordev" {
   feature_set = "ALL"
 
-  # Preserve existing organization integrations and governance while importing.
-  #
-  # WARNING: this list is authoritative. Applying it disables trusted access for
-  # any service principal that is enabled in the organization but absent from
-  # this list. Before applying, check the live list:
-  #   aws organizations list-aws-service-access-for-organization
-  # and add anything it returns that is not listed here.
-  #
-  # config, access-analyzer and cloudtrail are each required before the change
-  # that depends on them: config and access-analyzer before their delegated
-  # administrators can be registered (see security-delegation.tf), cloudtrail
-  # before an organization trail can be created (see
-  # infra/aws/security/cloudtrail.tf, which owns the trail and the log bucket).
-  # The five principals below were confirmed against the live organization, so
-  # applying this list disables nothing.
   aws_service_access_principals = [
     "iam.amazonaws.com",
     "sso.amazonaws.com",
@@ -30,8 +14,6 @@ resource "aws_organizations_organization" "oconnordev" {
   ]
 }
 
-# IAM Identity Center must first be enabled as an organization instance in
-# us-east-1 from the AWS console. This data source then reads that instance.
 data "aws_ssoadmin_instances" "organization" {}
 
 locals {
@@ -39,9 +21,9 @@ locals {
   identity_store_id            = tolist(data.aws_ssoadmin_instances.organization.identity_store_ids)[0]
 
   identity_center_accounts = {
-    "OCONNORDEV-GENERAL"    = "905418422177"
-    "OCONNORDEV-PRODUCTION" = "767397796791"
-    "OCONNORDEV-HERMES"     = "421680664125"
+    "OCONNORDEV-GENERAL"    = data.aws_caller_identity.current.account_id
+    "OCONNORDEV-PRODUCTION" = local.accounts["PRODUCTION"]
+    "OCONNORDEV-HERMES"     = local.accounts["HERMES"]
   }
 }
 
@@ -98,8 +80,6 @@ resource "aws_ssoadmin_account_assignment" "administrators" {
   target_type        = "AWS_ACCOUNT"
 }
 
-# Enables centrally managed root credentials and task-scoped root sessions for
-# member accounts. This does not delete or modify the iamadmin IAM user/key.
 resource "aws_iam_organizations_features" "centralized_root_access" {
   enabled_features = [
     "RootCredentialsManagement",
