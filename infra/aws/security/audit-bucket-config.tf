@@ -44,6 +44,11 @@ locals {
     for account_id in local.config_source_account_ids :
     "arn:${data.aws_partition.current.partition}:iam::${account_id}:role/oconnordev-config-recorder"
   ]
+
+  config_source_account_roots = [
+    for account_id in local.config_source_account_ids :
+    "arn:${data.aws_partition.current.partition}:iam::${account_id}:root"
+  ]
 }
 
 resource "aws_s3_bucket" "config" {
@@ -166,17 +171,32 @@ data "aws_iam_policy_document" "config_bucket" {
 
   # The cross-account HeadBucket check is made with each recorder's own IAM role,
   # not with the Config service principal, so the roles need their own grant.
+  #
+  # The principals are the four account roots, not the role ARNs themselves, and
+  # the role is pinned with aws:PrincipalArn instead. S3 rejects a bucket policy
+  # whose Principal names an IAM role that does not exist yet ("Invalid principal
+  # in policy"), and the management account's recorder role deliberately does not
+  # exist on the first apply -- it is gated behind
+  # var.enable_management_account_config in infra/aws/general/config.tf. Naming
+  # the account root removes that ordering hazard, while the condition still
+  # admits only the four recorder roles at request time.
   statement {
     sid    = "AWSConfigRecorderRoleExistenceCheck"
     effect = "Allow"
 
     principals {
       type        = "AWS"
-      identifiers = local.config_recorder_role_arns
+      identifiers = local.config_source_account_roots
     }
 
     actions   = ["s3:ListBucket"]
     resources = [aws_s3_bucket.config.arn]
+
+    condition {
+      test     = "ArnEquals"
+      variable = "aws:PrincipalArn"
+      values   = local.config_recorder_role_arns
+    }
   }
 
   statement {
