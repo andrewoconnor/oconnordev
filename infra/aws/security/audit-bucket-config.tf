@@ -19,9 +19,10 @@
 # every resource. The delivery writes are made by the Config service principal,
 # not by the recorder role.
 #
-# The delivery path is <prefix>/AWSLogs/<sourceAccountId>/Config/*, which is why
-# the delivery resources below are built per source account rather than
-# wildcarded.
+# The delivery path is AWSLogs/<sourceAccountId>/Config/*, which is why the
+# delivery resources below are built per source account rather than wildcarded.
+# No s3_key_prefix is set on any of the four delivery channels, so a prefix here
+# would be a mismatch and Config's writes would be refused.
 #
 # Like the CloudTrail bucket, this one grants this account's own principals no
 # read access in its policy: same-account identity policy already covers the
@@ -177,7 +178,7 @@ data "aws_iam_policy_document" "config_bucket" {
   # whose Principal names an IAM role that does not exist yet ("Invalid principal
   # in policy"), and the management account's recorder role deliberately does not
   # exist on the first apply -- it is gated behind
-  # var.enable_management_account_config in infra/aws/general/config.tf. Naming
+  # var.enable_management_account_audit in infra/aws/general/config.tf. Naming
   # the account root removes that ordering hazard, while the condition still
   # admits only the four recorder roles at request time.
   statement {
@@ -211,7 +212,7 @@ data "aws_iam_policy_document" "config_bucket" {
     actions = ["s3:PutObject"]
     resources = [
       for account_id in local.config_source_account_ids :
-      "${aws_s3_bucket.config.arn}/${local.config_key_prefix}/AWSLogs/${account_id}/Config/*"
+      "${aws_s3_bucket.config.arn}/AWSLogs/${account_id}/Config/*"
     ]
 
     condition {
