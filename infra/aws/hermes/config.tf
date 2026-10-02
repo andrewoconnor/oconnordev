@@ -25,11 +25,6 @@ locals {
   # sync with the security stack if it is ever renamed.
   config_bucket_name = "oconnordev-config"
 
-  # Must match the delivery path the Config bucket policy grants:
-  # <prefix>/AWSLogs/<accountId>/Config/* in
-  # infra/aws/security/audit-bucket-config.tf.
-  config_key_prefix = "config"
-
   config_recorded_resource_types = [
     "AWS::Cognito::UserPool",
     "AWS::IAM::Policy",
@@ -99,7 +94,6 @@ resource "aws_config_configuration_recorder" "hermes" {
 resource "aws_config_delivery_channel" "hermes" {
   name           = "default"
   s3_bucket_name = local.config_bucket_name
-  s3_key_prefix  = local.config_key_prefix
 
   # The bucket lives in the security account and already exists by the time this
   # stack runs: the Spacelift dependency chain is
