@@ -47,3 +47,8 @@ output "hermes_aws_mcp_target_name" {
   description = "Gateway target name that prefixes the AWS MCP tools."
   value       = local.hermes_aws_target_name
 }
+
+output "hermes_gateway_origin_hostname" {
+  description = "AgentCore Gateway hostname consumed by the production CloudFront endpoint."
+  value       = split("/", trimprefix(aws_bedrockagentcore_gateway.hermes.gateway_url, "https://"))[0]
+}
