@@ -26,6 +26,37 @@
 # The security account remains the CloudTrail delegated administrator for
 # operational administration. It is only Terraform's create path that moved.
 #
+# ---------------------------------------------------------------------------
+# STATE MIGRATION -- READ BEFORE APPLYING
+# ---------------------------------------------------------------------------
+#
+# The trail already exists. An earlier version of this change created it from
+# the security account, it lives at
+# arn:aws:cloudtrail:us-east-1:905418422177:trail/oconnordev-organization, and
+# it is currently tracked in the SECURITY stack's state as
+# aws_cloudtrail.organization. Deleting this file from that stack does not
+# remove it from that state, so unless the state is fixed first the security
+# stack will plan to DESTROY a trail it does not own, and CloudTrail will refuse
+# with the same "Account number does not match caller's account" error that made
+# the earlier apply fail. The security stack gates hermes and production, so
+# that failure blocks the whole chain again.
+#
+# This stack cannot simply create it either: CreateTrail against a name that
+# already exists fails. The trail has to be adopted, not recreated.
+#
+# So, before the two-step apply described in config.tf:
+#
+#   1. On the security stack, drop the trail from state:
+#        terraform state rm aws_cloudtrail.organization
+#   2. On this stack, adopt the existing trail (count-indexed address):
+#        terraform import 'aws_cloudtrail.organization[0]' oconnordev-organization
+#
+# Step 2 needs the trail's name, not its ARN, and only works once
+# enable_management_account_audit is true. After the import the plan is an
+# in-place update: what changes is s3_key_prefix, from the "cloudtrail" prefix
+# the earlier apply set to none.
+# ---------------------------------------------------------------------------
+#
 # The two sides cannot reference each other across stacks: the trail names the
 # security account's bucket as a literal, and the bucket policy names this
 # trail's ARN as a literal. That is what keeps the Spacelift dependency
