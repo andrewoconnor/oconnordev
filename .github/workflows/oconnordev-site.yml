@@ -1,0 +1,58 @@
+name: oconnordev site
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - "apps/oconnordev/**"
+  pull_request:
+    branches:
+      - master
+    paths:
+      - "apps/oconnordev/**"
+      - ".github/workflows/oconnordev-site.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  format:
+    name: Format HTML and CSS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.7
+      - name: Check HTML and CSS formatting
+        run: deno fmt --check apps/oconnordev/
+
+  deploy:
+    name: Deploy to S3 and invalidate CloudFront
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: format
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+        with:
+          deno-version: v2.9.7
+      - name: Check HTML and CSS formatting
+        run: deno fmt --check apps/oconnordev/
+      - name: Configure AWS credentials with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.OCONNORDEV_SITE_DEPLOY_ROLE_ARN }}
+          aws-region: us-east-1
+          role-session-name: oconnordev-site-${{ github.run_id }}
+          role-duration-seconds: 900
+      - name: Sync site to S3
+        run: aws s3 sync apps/oconnordev/ s3://oconnordev-web --delete
+      - name: Invalidate CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ vars.OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID }}
+        run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
