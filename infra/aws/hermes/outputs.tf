@@ -52,3 +52,35 @@ output "hermes_gateway_origin_hostname" {
   description = "AgentCore Gateway hostname consumed by the production CloudFront endpoint."
   value       = split("/", trimprefix(aws_bedrockagentcore_gateway.hermes.gateway_url, "https://"))[0]
 }
+
+# Keep the historical outputs available to existing stack consumers while
+# retaining the canonical output names above.
+output "hermes_gateway_url" {
+  description = "Backward-compatible AgentCore Gateway URL."
+  value       = aws_bedrockagentcore_gateway.hermes.gateway_url
+}
+
+output "hermes_github_gateway_url" {
+  description = "Backward-compatible AgentCore Gateway URL for the GitHub integration."
+  value       = aws_bedrockagentcore_gateway.hermes.gateway_url
+}
+
+output "hermes_github_cognito_scope" {
+  description = "Backward-compatible Cognito scope for the GitHub integration."
+  value       = local.gateway_scope
+}
+
+output "hermes_github_cognito_token_url" {
+  description = "Backward-compatible Cognito token URL for the GitHub integration."
+  value       = local.cognito_token_url
+}
+
+output "hermes_github_cognito_issuer" {
+  description = "Backward-compatible Cognito issuer for the GitHub integration."
+  value       = local.cognito_issuer
+}
+
+output "hermes_github_cognito_client_id" {
+  description = "Backward-compatible Cognito client ID for the GitHub integration."
+  value       = aws_cognito_user_pool_client.hermes.id
+}
