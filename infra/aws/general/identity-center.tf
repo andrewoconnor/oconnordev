@@ -24,6 +24,7 @@ locals {
     "OCONNORDEV-GENERAL"    = data.aws_caller_identity.current.account_id
     "OCONNORDEV-PRODUCTION" = local.accounts["PRODUCTION"]
     "OCONNORDEV-HERMES"     = local.accounts["HERMES"]
+    "OCONNORDEV-SECURITY"   = local.accounts["SECURITY"]
   }
 }
 
@@ -67,6 +68,11 @@ resource "aws_ssoadmin_managed_policy_attachment" "administrator_access" {
   instance_arn       = local.identity_center_instance_arn
   permission_set_arn = aws_ssoadmin_permission_set.administrators.arn
   managed_policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+moved {
+  from = aws_ssoadmin_account_assignment.administrators_security["482921124454"]
+  to   = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-SECURITY"]
 }
 
 resource "aws_ssoadmin_account_assignment" "administrators" {

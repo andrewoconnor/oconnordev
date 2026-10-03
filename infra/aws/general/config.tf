@@ -1,4 +1,3 @@
-
 data "aws_caller_identity" "current" {}
 data "aws_partition" "current" {}
 
@@ -6,6 +5,7 @@ locals {
   config_bucket_name = "oconnordev-config"
 
   config_recorded_resource_types = [
+    "AWS::CloudTrail::Trail",
     "AWS::IAM::Policy",
     "AWS::IAM::Role",
     "AWS::KMS::Key",
