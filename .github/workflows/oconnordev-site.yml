@@ -6,7 +6,6 @@ on:
       - master
     paths:
       - "apps/oconnordev/**"
-      - ".github/workflows/oconnordev-site.yml"
   pull_request:
     branches:
       - master
