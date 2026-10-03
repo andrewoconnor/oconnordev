@@ -1,44 +1,10 @@
-# ---------------------------------------------------------------------------
-# oconnordev-config -- Config history and snapshots from all four accounts.
-#
-# Cross-account delivery is why this policy is longer than a same-account one
-# would be. Config in GENERAL, PRODUCTION and HERMES writes here, which AWS
-# documents as requiring both a service-principal grant and a grant to each
-# recorder's IAM role:
-#
-#   https://docs.aws.amazon.com/config/latest/developerguide/s3-bucket-policy.html
-#   "The IAM role you assign to the configuration recorder needs explicit
-#    permission to perform the s3:ListBucket operation. This is because AWS
-#    Config calls the Amazon S3 HeadBucket API with this IAM role to determine
-#    the bucket location."
-#   "The S3 bucket policy must include permissions for the IAM role assigned to
-#    the configuration recorder."
-#
-# The recorder roles themselves need no extra inline permission: the managed
-# policy they already carry, service-role/AWS_ConfigRole, grants s3:ListBucket on
-# every resource. The delivery writes are made by the Config service principal,
-# not by the recorder role.
-#
-# The delivery path is AWSLogs/<sourceAccountId>/Config/*, which is why the
-# delivery resources below are built per source account rather than wildcarded.
-# No s3_key_prefix is set on any of the four delivery channels, so a prefix here
-# would be a mismatch and Config's writes would be refused.
-#
-# Like the CloudTrail bucket, this one grants this account's own principals no
-# read access in its policy: same-account identity policy already covers the
-# account administrators and the security gateway role. No Object Lock here
-# either; see the note in audit-bucket-cloudtrail.tf.
-# ---------------------------------------------------------------------------
 
 locals {
-  # Every account that delivers into this bucket, and the recorder role each one
-  # uses. The role name is fixed by the four config.tf files; it is repeated
-  # rather than looked up because three of the four live in other accounts.
   config_source_account_ids = [
-    "905418422177", # GENERAL
-    "767397796791", # PRODUCTION
-    "421680664125", # HERMES
-    "482921124454", # SECURITY, this account
+    local.accounts["GENERAL"],
+    local.accounts["PRODUCTION"],
+    local.accounts["HERMES"],
+    data.aws_caller_identity.current.account_id,
   ]
 
   config_recorder_role_arns = [
@@ -72,11 +38,6 @@ resource "aws_s3_bucket_public_access_block" "config" {
 resource "aws_s3_bucket_ownership_controls" "config" {
   bucket = aws_s3_bucket.config.id
 
-  # Disables ACLs entirely. Three other accounts write here, so object ownership
-  # matters: under BucketOwnerEnforced every object is owned by this account
-  # regardless of which account it came from. Config passes
-  # s3:x-amz-acl bucket-owner-full-control, which S3 accepts as a no-op under
-  # this setting, and the bucket policy still conditions on that header.
   rule {
     object_ownership = "BucketOwnerEnforced"
   }
@@ -115,10 +76,6 @@ resource "aws_s3_bucket_lifecycle_configuration" "config" {
     }
   }
 
-  # Versioning is on so a bad write to configuration history can be rolled back;
-  # this keeps that from accumulating storage unbounded. Config rewrites the same
-  # object paths as resources change, so noncurrent versions are the expected
-  # case here rather than an exception.
   rule {
     id     = "expire-noncurrent-versions"
     status = "Enabled"
@@ -170,17 +127,6 @@ data "aws_iam_policy_document" "config_bucket" {
     }
   }
 
-  # The cross-account HeadBucket check is made with each recorder's own IAM role,
-  # not with the Config service principal, so the roles need their own grant.
-  #
-  # The principals are the four account roots, not the role ARNs themselves, and
-  # the role is pinned with aws:PrincipalArn instead. S3 rejects a bucket policy
-  # whose Principal names an IAM role that does not exist yet ("Invalid principal
-  # in policy"), and the management account's recorder role deliberately does not
-  # exist on the first apply -- it is gated behind
-  # var.enable_management_account_audit in infra/aws/general/config.tf. Naming
-  # the account root removes that ordering hazard, while the condition still
-  # admits only the four recorder roles at request time.
   statement {
     sid    = "AWSConfigRecorderRoleExistenceCheck"
     effect = "Allow"
@@ -251,8 +197,6 @@ data "aws_iam_policy_document" "config_bucket" {
     }
   }
 
-  # Deletion protection, as on the CloudTrail bucket: an intentional teardown
-  # must remove this statement first.
   statement {
     sid    = "DenyBucketDeletion"
     effect = "Deny"
@@ -276,14 +220,4 @@ resource "aws_s3_bucket_policy" "config" {
     aws_s3_bucket_ownership_controls.config,
     aws_s3_bucket_versioning.config,
   ]
-}
-
-output "config_audit_bucket_name" {
-  description = "Name of the central Config bucket. Delivery channels in GENERAL, PRODUCTION and HERMES point at this name."
-  value       = aws_s3_bucket.config.id
-}
-
-output "config_audit_bucket_arn" {
-  description = "ARN of the central Config bucket."
-  value       = aws_s3_bucket.config.arn
 }

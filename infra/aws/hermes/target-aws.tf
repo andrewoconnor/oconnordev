@@ -1,28 +1,14 @@
 locals {
-  hermes_aws_target_name = "aws"
-  aws_tool_manifest      = jsondecode(file("${local.adapter_root}/aws-mcp-tools.json"))
-  # Mirrors the adapter's Target.prefix: the manifest's declared wire prefix,
-  # or the plain target prefix when it declares none. One source of truth, so a
-  # policy cannot drift from the name the adapter actually sends.
+  hermes_aws_target_name   = "aws"
+  aws_tool_manifest        = jsondecode(file("${local.adapter_root}/aws-mcp-tools.json"))
   hermes_aws_action_prefix = try(local.aws_tool_manifest.gateway_action_prefix, "${local.hermes_aws_target_name}___")
   aws_native_tools         = toset(local.aws_tool_manifest.tools)
 
   hermes_aws_required_scope = aws_cognito_resource_server.hermes.scope_identifiers[0]
 }
 
-# ReadOnlyAccess used to be attached to the gateway role here, because the AWS
-# target signed with that role and called the AWS MCP Server directly. The
-# target now calls the security account's gateway, so the identity that reaches
-# AWS APIs is the security role and this grant backed nothing. Removing it also
-# removes the gateway role's ability to read every resource in this account.
 
 locals {
-  # The gateway execution role may read exactly these secrets at runtime, one
-  # per upstream credential. Additions belong here and nowhere else, so that
-  # granting a new upstream credential is a deliberate, reviewable diff rather
-  # than a side effect of a tag or a path prefix. The long-lived Spacelift API
-  # key is deliberately absent: only the short-lived session token is readable
-  # by the gateway.
   hermes_gateway_readable_secret_arns = [
     aws_secretsmanager_secret.github_machine_user_pat.arn,
     aws_secretsmanager_secret.spacelift_session_token.arn,
@@ -71,10 +57,6 @@ resource "aws_iam_role_policy" "hermes_gateway_readonly_guardrails" {
   }
 }
 
-# The upstream is the security account's gateway, not the AWS MCP Server, so
-# this target is a caller rather than a signer of AWS requests. Only one AWS
-# target exists: the AWS tools come *through* the security gateway, rather than
-# alongside a second copy of themselves.
 resource "aws_bedrockagentcore_gateway_target" "aws" {
   count = local.security_gateway_enabled ? 1 : 0
 
@@ -82,8 +64,6 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
   gateway_identifier = aws_bedrockagentcore_gateway.hermes.gateway_id
   description        = "Read-only AWS access, routed through the security account's gateway, which holds the identity that reaches AWS APIs."
 
-  # A gateway-to-gateway hop is SigV4-signed for the AgentCore service itself.
-  # Signing with `aws-mcp` here would address the wrong service and fail.
   credential_provider_configuration {
     gateway_iam_role {
       service = local.security_gateway_sigv4_service
@@ -120,15 +100,6 @@ resource "aws_bedrockagentcore_gateway_target" "aws" {
   ]
 }
 
-# The client keeps the canonical aws___<tool> names even though the wire action
-# is aws___aws___aws___<tool>. Both sides read the prefix from the same manifest
-# key, so the permit cannot drift from the name the adapter actually sends.
-#
-# Gated on the same value as the target, and for the same reason: a Cedar action
-# name exists only while the target that advertises it exists. Creating the
-# permits without the target makes the policy engine reject them as unrecognized
-# actions, which fails the apply outright and takes the AWS tools away entirely
-# rather than leaving them simply unavailable.
 resource "aws_bedrockagentcore_policy" "aws_tool" {
   for_each = local.security_gateway_enabled ? local.aws_native_tools : toset([])
 
@@ -156,7 +127,55 @@ resource "aws_bedrockagentcore_policy" "aws_tool" {
   depends_on = [aws_bedrockagentcore_gateway_target.aws]
 }
 
-output "hermes_aws_mcp_target_name" {
-  description = "Gateway target name that prefixes the AWS MCP tools."
-  value       = local.hermes_aws_target_name
+variable "security_gateway_url" {
+  description = "MCP endpoint of the security account's AgentCore Gateway, exported by that stack through a Spacelift dependency reference."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.security_gateway_url == "" || can(regex("^https://[a-z0-9-]+\\.gateway\\.bedrock-agentcore\\.[a-z0-9-]+\\.amazonaws\\.com/mcp$", var.security_gateway_url))
+    error_message = "Set the security gateway's MCP endpoint only (no additional path or credentials)."
+  }
+}
+
+variable "security_gateway_arn" {
+  description = "ARN of the security account's AgentCore Gateway, exported by that stack through a Spacelift dependency reference. Scopes the Hermes gateway role's invoke permission to exactly that gateway."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = var.security_gateway_arn == "" || can(regex("^arn:aws:bedrock-agentcore:[a-z0-9-]+:${local.accounts["SECURITY"]}:gateway/[a-z0-9-]+$", var.security_gateway_arn))
+    error_message = "Set a gateway ARN in account ${local.accounts["SECURITY"]}. A wildcard or a different account would widen the Hermes gateway role beyond the one gateway it may call."
+  }
+}
+
+
+locals {
+  security_gateway_url = trimspace(var.security_gateway_url)
+  security_gateway_arn = trimspace(var.security_gateway_arn)
+
+  security_gateway_enabled = (
+    local.security_gateway_url != "" && local.security_gateway_arn != ""
+  )
+
+  security_gateway_sigv4_service = "bedrock-agentcore"
+}
+
+data "aws_iam_policy_document" "hermes_gateway_security_gateway" {
+  count = local.security_gateway_enabled ? 1 : 0
+
+  statement {
+    sid       = "InvokeSecurityGatewayOnly"
+    effect    = "Allow"
+    actions   = ["bedrock-agentcore:InvokeGateway"]
+    resources = [local.security_gateway_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "hermes_gateway_security_gateway" {
+  count = local.security_gateway_enabled ? 1 : 0
+
+  name   = "hermes-agentcore-security-gateway"
+  role   = aws_iam_role.hermes_gateway.id
+  policy = data.aws_iam_policy_document.hermes_gateway_security_gateway[0].json
 }

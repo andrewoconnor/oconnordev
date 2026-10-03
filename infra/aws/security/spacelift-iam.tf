@@ -4,7 +4,7 @@ data "aws_iam_policy_document" "spacelift" {
 
     principals {
       type        = "AWS"
-      identifiers = ["arn:aws:iam::905418422177:role/spacelift"]
+      identifiers = ["arn:aws:iam::${local.accounts["GENERAL"]}:role/spacelift"]
     }
 
     actions = ["sts:AssumeRole"]
@@ -22,26 +22,6 @@ resource "aws_iam_role_policy_attachment" "spacelift" {
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-# ---------------------------------------------------------------------------
-# Adoption of the bootstrap identity.
-#
-# This stack cannot create the role it assumes, so the `spacelift` role was
-# created by hand in the security account to bootstrap it -- exactly as for the
-# other three accounts. These blocks are what make the first apply adopt the
-# existing role instead of failing with EntityAlreadyExists.
-#
-# The attachment is imported separately: adopting a role does not adopt its
-# policy attachments.
-#
-# One-shot, and removed once the import has applied -- which is why no import
-# block survives anywhere else in this repository. Until then, expect the first
-# plan to show an import rather than a create.
-#
-# Expect the first plan to also show an in-place update to the role's trust
-# policy if what was created by hand differs from the policy declared above.
-# Review that delta before applying: it is the difference between the bootstrap
-# identity and the identity the other three accounts use.
-# ---------------------------------------------------------------------------
 
 import {
   to = aws_iam_role.spacelift

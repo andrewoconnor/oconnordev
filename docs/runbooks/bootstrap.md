@@ -1,0 +1,21 @@
+# Bootstrap and dependency ordering
+
+1. Apply `infra/spacelift` first to create the stack graph and AWS integration. The account bootstrap roles must already exist because each account stack assumes its own role.
+2. Before applying `infra/aws/general`, inspect its Spacelift state and the plan for `enable_management_account_audit`. This variable defaults to `true`, so an unset value enables the management-account CloudTrail and Config resources.
+3. For a **fresh General stack with none of the gated audit resources in state**, explicitly set `TF_VAR_enable_management_account_audit=false` on that stack before its first apply. This allows General to establish Organizations trusted access and delegated-administrator registrations without trying to create writers before the Security destination buckets exist. Confirm the plan has no destroys for the gated addresses before applying. Do not use `false` as a temporary switch on an established state: setting it changes each `count` from one to zero and plans to destroy the indexed resources.
+4. Apply `infra/aws/general` with the safe fresh-bootstrap setting from step 3. The delegated-administrator registrations must follow the Organizations resource so trusted access is enabled before registration. Do not proceed if the plan proposes replacement or destruction of an existing audit resource.
+5. Apply `infra/aws/security` and wait for its CloudTrail and Config destination buckets and bucket policies to finish. Verify both destinations exist and the delivery policies are in place before enabling the General writers.
+6. On a fresh stack, set `TF_VAR_enable_management_account_audit=true` and apply `infra/aws/general` again. First inspect the full plan: if any gated CloudTrail or Config resource already exists in AWS but is absent from General state, import it at its existing address before applying. Require no destroy/recreate of existing audit resources. For an established stack, leave the setting enabled; do not toggle it off to work around ordering. If a required bucket is absent, finish the Security apply first and re-plan General.
+7. Apply `infra/aws/security` before `infra/aws/hermes`; the Hermes AWS target consumes the generated security gateway URL and ARN through Spacelift references.
+8. Apply `infra/aws/hermes` before `infra/aws/production`; the CloudFront endpoint consumes the generated Hermes Gateway origin hostname.
+9. For each refactor PR, inspect every speculative plan and confirm only intended address moves, in-place changes, or no-ops are present before applying. A merge does not itself apply infrastructure.
+
+## Existing audit state and the enable flag
+
+The current General Spacelift state manages `aws_cloudtrail.organization[0]` and the management Config resources at their `[0]` addresses (recorder role, role-policy attachment, recorder, delivery channel, and recorder status). The stack has no explicit `TF_VAR_enable_management_account_audit` override, so the Terraform default `true` applies. Do not set it to `false` on this existing state: because the variable gates these resources with `count`, that would plan their deletion. Before any later change to the setting, re-read the live Spacelift state and plan; if the addresses or state have changed, stop and reconcile imports/state before proceeding.
+
+For a new environment where an organization trail or any of the gated Config resources already exists outside Terraform state, import each existing resource into General before enabling the flag. In particular, the trail address is `aws_cloudtrail.organization[0]`; never repeat a historical `state rm`/import migration when the resource is already managed.
+
+## State-preserving Spacelift refactor
+
+The Spacelift stack and integration-attachment resources are consolidated with `for_each`. `infra/spacelift/moved.tf` maps each existing singleton address to its keyed instance. Review the speculative plan and require Terraform to report address moves, not destroys/recreates, for the existing stack objects and attachments.

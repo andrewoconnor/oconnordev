@@ -22,8 +22,6 @@ data "aws_cloudfront_response_headers_policy" "hermes_mcp_security" {
 }
 
 locals {
-  # The current production certificate covers *.oconnor.dev. It does not cover
-  # mcp.hermes.oconnor.dev, so use the covered one-label name.
   hermes_mcp_domain_name = "mcp.oconnor.dev"
   hermes_mcp_enabled     = trimspace(var.hermes_gateway_origin_hostname) != ""
 }
@@ -103,9 +101,4 @@ resource "aws_route53_record" "hermes_mcp_ipv6" {
     zone_id                = aws_cloudfront_distribution.hermes_mcp[0].hosted_zone_id
     evaluate_target_health = false
   }
-}
-
-output "hermes_mcp_endpoint" {
-  description = "Custom HTTPS endpoint for the shared Hermes AgentCore Gateway; null until the upstream Gateway hostname is available."
-  value       = local.hermes_mcp_enabled ? "https://${local.hermes_mcp_domain_name}/mcp" : null
 }

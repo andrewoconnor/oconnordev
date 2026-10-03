@@ -163,13 +163,3 @@ resource "aws_bedrockagentcore_policy" "spacelift_tool" {
 
   depends_on = [aws_bedrockagentcore_gateway_target.spacelift]
 }
-
-output "hermes_spacelift_mcp_endpoint" {
-  description = "Narrowed Spacelift MCP endpoint fronted by the shared gateway."
-  value       = var.hermes_spacelift_mcp_endpoint
-}
-
-output "hermes_spacelift_target_name" {
-  description = "Gateway target name that prefixes the Spacelift MCP tools."
-  value       = local.spacelift_target_name
-}
