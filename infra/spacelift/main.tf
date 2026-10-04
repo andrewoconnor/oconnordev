@@ -17,9 +17,10 @@ locals {
       description  = "production account"
       project_root = "infra/aws/production"
     }
-    hermes = {
-      name         = "oconnordev-hermes"
-      description  = "Hermes account"
+    tools = {
+      name        = "oconnordev-tools"
+      description = "OCONNORDEV-TOOLS AWS account"
+      # This remains the Hermes service root; the AWS account identity is TOOLS.
       project_root = "infra/aws/hermes"
     }
     security = {
