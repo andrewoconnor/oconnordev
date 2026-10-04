@@ -4,7 +4,7 @@ output "config_aggregator_name" {
 }
 
 output "config_audit_bucket_name" {
-  description = "Name of the central Config bucket. Delivery channels in GENERAL, PRODUCTION and HERMES point at this name."
+  description = "Name of the central Config bucket. Delivery channels in GENERAL, PRODUCTION and TOOLS point at this name."
   value       = aws_s3_bucket.config.id
 }
 
@@ -34,7 +34,7 @@ output "security_gateway_arn" {
 }
 
 output "security_gateway_url" {
-  description = "MCP endpoint of the security account's gateway, consumed by the Hermes gateway target."
+  description = "MCP endpoint of the security account's gateway, consumed by the TOOLS account's Hermes gateway target."
   value       = aws_bedrockagentcore_gateway.security.gateway_url
 }
 

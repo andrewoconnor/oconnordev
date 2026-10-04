@@ -24,7 +24,7 @@ locals {
   identity_center_accounts = {
     "OCONNORDEV-GENERAL"    = data.aws_caller_identity.current.account_id
     "OCONNORDEV-PRODUCTION" = local.accounts["PRODUCTION"]
-    "OCONNORDEV-HERMES"     = local.accounts["HERMES"]
+    "OCONNORDEV-TOOLS"      = local.accounts["TOOLS"]
     "OCONNORDEV-SECURITY"   = local.accounts["SECURITY"]
   }
 }
@@ -74,6 +74,11 @@ resource "aws_ssoadmin_managed_policy_attachment" "administrator_access" {
 moved {
   from = aws_ssoadmin_account_assignment.administrators_security["482921124454"]
   to   = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-SECURITY"]
+}
+
+moved {
+  from = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-HERMES"]
+  to   = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-TOOLS"]
 }
 
 resource "aws_ssoadmin_account_assignment" "administrators" {
