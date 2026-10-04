@@ -173,4 +173,3 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
 }
 
 
-
