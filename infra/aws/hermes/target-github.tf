@@ -3,7 +3,7 @@ data "aws_secretsmanager_secret" "github_machine_user_pat_existing" {
 }
 
 resource "aws_secretsmanager_secret" "github_machine_user_pat" {
-  # checkov:skip=CKV_AWS_149:Adopted existing secret. It keeps whatever key the existing secret already uses (kms_key_id is read back from the data source and preserved). A customer-managed key would have to be created in the Hermes account and its policy would have to grant both the AgentCore credential provider's execution role and whoever rotates the value; a key policy wrong in either direction fails the credential read at request time rather than loudly at apply.
+  # checkov:skip=CKV_AWS_149:Adopted existing secret. It keeps whatever key the existing secret already uses (kms_key_id is read back from the data source and preserved). A customer-managed key would have to be created in the TOOLS AWS account and its policy would have to grant both the AgentCore credential provider's execution role and whoever rotates the value; a key policy wrong in either direction fails the credential read at request time rather than loudly at apply.
   # checkov:skip=CKV2_AWS_57:Automatic rotation would need a Lambda that can mint a replacement fine-grained GitHub PAT. A PAT cannot be rotated programmatically without a GitHub App or a token-minting service, so the rotation function would have nothing to call; the value is rotated by hand by the repository owner.
   name        = data.aws_secretsmanager_secret.github_machine_user_pat_existing.name
   description = data.aws_secretsmanager_secret.github_machine_user_pat_existing.description
@@ -171,5 +171,6 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
     aws_iam_role_policy.hermes_gateway_policy_authorization,
   ]
 }
+
 
 
