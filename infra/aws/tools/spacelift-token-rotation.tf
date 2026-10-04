@@ -35,7 +35,7 @@ resource "aws_lambda_function" "spacelift_rotation" {
 }
 
 resource "aws_lambda_function_event_invoke_config" "spacelift_rotation" {
-  function_name           = aws_lambda_function.spacelift_rotation.function_name
+  function_name          = aws_lambda_function.spacelift_rotation.function_name
   maximum_retry_attempts = 2
 
   destination_config {
