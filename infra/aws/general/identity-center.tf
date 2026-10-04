@@ -76,11 +76,6 @@ moved {
   to   = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-SECURITY"]
 }
 
-moved {
-  from = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-HERMES"]
-  to   = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-TOOLS"]
-}
-
 resource "aws_ssoadmin_account_assignment" "administrators" {
   for_each = local.identity_center_accounts
 

@@ -17,7 +17,7 @@ Infrastructure and agent code for oconnordev.
 │   │   ├── accounts.json    Account and organization identifiers
 │   │   ├── drumrollworld/   Static-site account stack
 │   │   ├── general/         Organizations management account
-│   │   ├── hermes/          Shared AgentCore gateway and target policies
+│   │   ├── tools/           Shared AgentCore gateway and target policies
 │   │   ├── production/      Public MCP endpoint
 │   │   └── security/        Central audit and security gateway
 │   ├── gcp/
@@ -31,4 +31,4 @@ AWS account identifiers and the Organizations ID are centralized in `infra/aws/a
 
 The Hermes adapter is application code under `agents/hermes/adapter/`. It registers once against the shared gateway and checks the union of target manifests; adding a gateway target does not grant it to an existing target's Cedar policy.
 
-See [architecture](docs/architecture/README.md) for trust boundaries and dependency ordering, and [runbooks](docs/runbooks/bootstrap.md) for bootstrap prerequisites.
+See [architecture](docs/architecture/README.md) for trust boundaries and dependency ordering, and [runbooks](docs/runbooks/infrastructure-bootstrap.md) for bootstrap and state-safety procedures.
