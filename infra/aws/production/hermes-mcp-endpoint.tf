@@ -1,5 +1,5 @@
 variable "hermes_gateway_origin_hostname" {
-  description = "Public AgentCore Gateway hostname exported by the Hermes stack through a Spacelift dependency reference."
+  description = "Public Hermes AgentCore Gateway hostname exported by the TOOLS account stack through a Spacelift dependency reference."
   type        = string
   default     = ""
 
