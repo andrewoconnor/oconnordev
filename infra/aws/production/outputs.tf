@@ -4,7 +4,7 @@ output "hermes_mcp_endpoint" {
 }
 
 output "oconnordev_site_deploy_role_arn" {
-  description = "GitHub Actions OIDC role ARN for deploying apps/oconnordev on master."
+  description = "PRODUCTION site deploy role ARN; GitHub Actions reaches it through the TOOLS OIDC broker."
   value       = aws_iam_role.github_actions_site_deploy.arn
 }
 
