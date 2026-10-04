@@ -31,6 +31,6 @@ The child stack manages exactly these three repository Actions variables:
 - `OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID` — from the PRODUCTION stack.
 - `OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` — from the TOOLS stack's `tools_github_actions_broker_role_arn` output.
 
-Accordingly, `oconnordev-github-repository-config` depends on both PRODUCTION and TOOLS. The broker ARN has no persistent Terraform default or validation literal; its normal source is the TOOLS Spacelift dependency reference. During this migration only, `.spacelift/config.yml` temporarily supplies `TF_VAR_oconnordev_tools_github_actions_broker_role_arn` so the speculative GitHub-stack plan can run before the new dependency and TOOLS output are available. Remove that override together with the rest of the bootstrap configuration after the broker cutover and dependency are established.
+Accordingly, `oconnordev-github-repository-config` depends on both PRODUCTION and TOOLS. The broker ARN has no Terraform default or validation literal; Spacelift supplies it only through the TOOLS dependency reference.
 
 The child stack does not manage other repository settings, Actions secrets, workflows, or AWS resources. If any of these Actions variables already exists, import it before first apply rather than attempting a duplicate create.
