@@ -26,7 +26,7 @@ locals {
   security_gateway_name    = "oconnordev-security"
   security_aws_target_name = "aws"
 
-  hermes_gateway_role_arn = "arn:aws:iam::${local.accounts["HERMES"]}:role/hermes-agentcore-gateway"
+  tools_agentcore_gateway_role_arn = "arn:aws:iam::${local.accounts["TOOLS"]}:role/hermes-agentcore-gateway"
 }
 
 
@@ -124,7 +124,7 @@ data "aws_iam_policy_document" "security_gateway_invocation" {
 
     principals {
       type        = "AWS"
-      identifiers = [local.hermes_gateway_role_arn]
+      identifiers = [local.tools_agentcore_gateway_role_arn]
     }
 
     actions   = ["bedrock-agentcore:InvokeGateway"]
@@ -146,7 +146,7 @@ data "aws_iam_policy_document" "security_gateway_invocation" {
     condition {
       test     = "ArnNotEquals"
       variable = "aws:PrincipalArn"
-      values   = [local.hermes_gateway_role_arn]
+      values   = [local.tools_agentcore_gateway_role_arn]
     }
   }
 }
