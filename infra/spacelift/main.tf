@@ -20,8 +20,8 @@ locals {
     tools = {
       name        = "oconnordev-tools"
       description = "OCONNORDEV-TOOLS AWS account"
-      # This remains the Hermes service root; the AWS account identity is TOOLS.
-      project_root = "infra/aws/hermes"
+      # Keep the existing stack ID/state while moving its project root.
+      project_root = "infra/aws/tools"
     }
     security = {
       name         = "oconnordev-security"

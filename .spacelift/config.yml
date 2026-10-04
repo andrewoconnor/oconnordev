@@ -1,0 +1,9 @@
+version: "2"
+stack_defaults: {}
+stacks:
+  # Historical immutable ID retained so the existing Spacelift state is reused.
+  oconnordev-hermes:
+    project_root: infra/aws/tools
+  oconnordev-production:
+    environment:
+      TF_VAR_retain_legacy_github_oidc_provider: "true"

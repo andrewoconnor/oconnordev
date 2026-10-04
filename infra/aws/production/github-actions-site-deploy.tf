@@ -1,5 +1,5 @@
 variable "retain_legacy_github_oidc_provider" {
-  description = "Temporarily retain the old PRODUCTION OIDC provider during the broker cutover. Set a temporary TF_VAR override to true for the first apply, then remove it after the chained workflow succeeds so the default false deletes the provider."
+  description = "Temporarily retain the old PRODUCTION OIDC provider and direct GitHub trust during broker cutover. The true setting adds the old master-only OIDC trust alongside the TOOLS broker trust; remove the runtime override only after the chained workflow succeeds."
   type        = bool
   default     = false
 }
@@ -13,6 +13,32 @@ data "aws_iam_policy_document" "github_actions_site_deploy_trust" {
     principals {
       type        = "AWS"
       identifiers = [local.tools_github_actions_broker_role_arn]
+    }
+  }
+
+  dynamic "statement" {
+    for_each = var.retain_legacy_github_oidc_provider ? [true] : []
+    content {
+      sid     = "GitHubActionsMasterOnly"
+      effect  = "Allow"
+      actions = ["sts:AssumeRoleWithWebIdentity"]
+
+      principals {
+        type        = "Federated"
+        identifiers = [aws_iam_openid_connect_provider.github_actions[0].arn]
+      }
+
+      condition {
+        test     = "StringEquals"
+        variable = "token.actions.githubusercontent.com:aud"
+        values   = ["sts.amazonaws.com"]
+      }
+
+      condition {
+        test     = "StringEquals"
+        variable = "token.actions.githubusercontent.com:sub"
+        values   = ["repo:andrewoconnor/oconnordev:ref:refs/heads/master"]
+      }
     }
   }
 }
