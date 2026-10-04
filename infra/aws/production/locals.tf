@@ -6,4 +6,6 @@ locals {
 
 locals {
   accounts = jsondecode(file("${path.module}/../accounts.json"))
+
+  tools_github_actions_broker_role_arn = "arn:aws:iam::${local.accounts["TOOLS"]}:role/oconnordev-github-actions-broker"
 }

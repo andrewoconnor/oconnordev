@@ -17,10 +17,11 @@ locals {
       description  = "production account"
       project_root = "infra/aws/production"
     }
-    hermes = {
-      name         = "oconnordev-hermes"
-      description  = "Hermes account"
-      project_root = "infra/aws/hermes"
+    tools = {
+      name        = "oconnordev-tools"
+      description = "OCONNORDEV-TOOLS AWS account"
+      # Keep the existing stack ID/state while moving its project root.
+      project_root = "infra/aws/tools"
     }
     security = {
       name         = "oconnordev-security"

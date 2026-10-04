@@ -3,7 +3,7 @@ locals {
   config_source_account_ids = [
     local.accounts["GENERAL"],
     local.accounts["PRODUCTION"],
-    local.accounts["HERMES"],
+    local.accounts["TOOLS"],
     data.aws_caller_identity.current.account_id,
   ]
 

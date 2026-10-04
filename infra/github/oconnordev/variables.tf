@@ -18,6 +18,11 @@ variable "oconnordev_cloudfront_distribution_id" {
   }
 }
 
+variable "oconnordev_tools_github_actions_broker_role_arn" {
+  description = "TOOLS stack output for the GitHub Actions OIDC broker role ARN, supplied by its Spacelift dependency."
+  type        = string
+}
+
 variable "github_app_id" {
   description = "Existing GitHub App ID supplied by the dedicated Spacelift auth context."
   type        = string
