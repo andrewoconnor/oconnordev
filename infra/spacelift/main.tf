@@ -18,9 +18,8 @@ locals {
       project_root = "infra/aws/production"
     }
     tools = {
-      name        = "oconnordev-tools"
-      description = "OCONNORDEV-TOOLS AWS account"
-      # Keep the existing stack ID/state while moving its project root.
+      name         = "oconnordev-tools"
+      description  = "OCONNORDEV-TOOLS AWS account"
       project_root = "infra/aws/tools"
     }
     security = {

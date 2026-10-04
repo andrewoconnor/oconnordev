@@ -53,11 +53,6 @@ output "tools_gateway_origin_hostname" {
   value       = split("/", trimprefix(aws_bedrockagentcore_gateway.hermes.gateway_url, "https://"))[0]
 }
 
-output "hermes_gateway_origin_hostname" {
-  description = "Deprecated compatibility alias for tools_gateway_origin_hostname; retained for external consumers during migration."
-  value       = split("/", trimprefix(aws_bedrockagentcore_gateway.hermes.gateway_url, "https://"))[0]
-}
-
 output "tools_github_actions_broker_role_arn" {
   description = "TOOLS account GitHub Actions OIDC broker role ARN, permitted to assume only the PRODUCTION site deploy role."
   value       = aws_iam_role.github_actions_broker.arn

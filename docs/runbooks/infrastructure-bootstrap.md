@@ -20,7 +20,7 @@ Do not set the flag to `false` on an established state as a temporary workaround
 
 ## TOOLS account and GitHub Actions deployment
 
-The live account is `OCONNORDEV-TOOLS` (`421680664125`); `infra/aws/accounts.json` is the repository source for its ID. Terraform does not rename the AWS account or change its primary email. The existing Spacelift stack ID `oconnordev-hermes` is retained for state continuity, with display name `oconnordev-tools` and project root `infra/aws/tools`, managed by `infra/spacelift`; do not create a replacement stack or restore a separate root override.
+The live account is `OCONNORDEV-TOOLS` (`421680664125`); `infra/aws/accounts.json` is the repository source for its ID. Its Spacelift stack is managed by `infra/spacelift` and uses the Terraform root `infra/aws/tools`; preserve the existing stack and state rather than creating a replacement.
 
 The deployment role chain is GitHub OIDC → `oconnordev-github-actions-broker` in TOOLS → the existing `oconnordev-site-deploy` role in PRODUCTION. The broker's trust is limited to the `andrewoconnor/oconnordev` `master` subject and `sts.amazonaws.com` audience, and its only permission is to assume that exact PRODUCTION role. Before applying TOOLS in a new environment, inspect account `421680664125` for the `https://token.actions.githubusercontent.com` provider and the broker role. If either already exists outside TOOLS state, import/reconcile it at `aws_iam_openid_connect_provider.github_actions` or `aws_iam_role.github_actions_broker` rather than attempting a duplicate create.
 

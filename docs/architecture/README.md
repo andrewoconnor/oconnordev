@@ -18,6 +18,10 @@ The bucket policies remain explicit policy documents attached directly to `aws_s
 
 The security-account gateway is a separate AWS_IAM trust boundary. Its resource policy admits the Hermes gateway role; its execution role's explicit read-deny policy remains directly inspectable. It does not use the Hermes OAuth Cedar engine.
 
+## GitHub Actions site deployment
+
+The site workflow authenticates with GitHub OIDC to the TOOLS broker role, then assumes the existing PRODUCTION site-deploy role. PRODUCTION trusts only that broker role; the GitHub Actions OIDC provider and broker are managed in TOOLS.
+
 ## Stack dependency order
 
 `general -> security -> tools -> production`. `security` waits for management-account delegated-administrator setup. TOOLS consumes the generated security gateway URL and ARN. PRODUCTION consumes the generated TOOLS outputs used by its workloads. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow [`docs/runbooks/infrastructure-bootstrap.md`](../runbooks/infrastructure-bootstrap.md).
