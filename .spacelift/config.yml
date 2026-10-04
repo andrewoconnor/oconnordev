@@ -7,3 +7,7 @@ stacks:
   oconnordev-production:
     environment:
       TF_VAR_retain_legacy_github_oidc_provider: "true"
+  oconnordev-github-repository-config:
+    environment:
+      # Temporary plan bootstrap until the TOOLS output dependency is applied.
+      TF_VAR_oconnordev_tools_github_actions_broker_role_arn: "arn:aws:iam::421680664125:role/oconnordev-github-actions-broker"

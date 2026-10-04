@@ -21,6 +21,16 @@ The private key is an ephemeral provider input and is not written to Terraform p
 
 1. Apply the administrative `infra/spacelift` stack with `enable_github_repository_config = false`. This creates the dedicated, empty auth context without creating the child stack.
 2. Create the dedicated GitHub App with the permissions and single-repository installation above, then populate its App ID, installation ID, and private key in the context as described. Do not put the key in Terraform, a repo variable, or chat.
-3. Set the administrative stack variable `TF_VAR_enable_github_repository_config=true` and apply again. This creates the GitHub configuration stack, attaches the auth context, and wires its inputs to the PRODUCTION outputs. If its first run starts before dependency references are visible, rerun it after the administrative apply completes.
+3. Set the administrative stack variable `TF_VAR_enable_github_repository_config=true` and apply again. This creates the GitHub configuration stack, attaches the auth context, and wires its inputs to outputs from both PRODUCTION and TOOLS. If its first run starts before dependency references are visible, rerun it after the administrative apply completes.
 
-The child stack manages only the two named repository Actions variables. It does not manage repository settings, Actions secrets, workflows, or AWS resources. If either Actions variable already exists, import it before first apply rather than attempting a duplicate create.
+## Managed Actions variables and dependencies
+
+The child stack manages exactly these three repository Actions variables:
+
+- `OCONNORDEV_SITE_DEPLOY_ROLE_ARN` — from the PRODUCTION stack.
+- `OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID` — from the PRODUCTION stack.
+- `OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` — from the TOOLS stack's `tools_github_actions_broker_role_arn` output.
+
+Accordingly, `oconnordev-github-repository-config` depends on both PRODUCTION and TOOLS. The broker ARN has no persistent Terraform default or validation literal; its normal source is the TOOLS Spacelift dependency reference. During this migration only, `.spacelift/config.yml` temporarily supplies `TF_VAR_oconnordev_tools_github_actions_broker_role_arn` so the speculative GitHub-stack plan can run before the new dependency and TOOLS output are available. Remove that override together with the rest of the bootstrap configuration after the broker cutover and dependency are established.
+
+The child stack does not manage other repository settings, Actions secrets, workflows, or AWS resources. If any of these Actions variables already exists, import it before first apply rather than attempting a duplicate create.
