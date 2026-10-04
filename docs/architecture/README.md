@@ -4,7 +4,7 @@
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to Terraform data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
 
-`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `hermes` owns the shared Cognito-protected gateway and its GitHub, AWS, and Spacelift targets. `production` owns the public MCP endpoint; `drumrollworld` owns the static site.
+`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, and Spacelift targets; Terraform resource and service names remain Hermes-specific. `production` owns the public MCP endpoint; `drumrollworld` owns the static site.
 
 ## Audit architecture
 
@@ -14,7 +14,7 @@ The bucket policies remain explicit policy documents attached directly to `aws_s
 
 ## AgentCore trust boundaries
 
-`hermes` owns one Cognito-protected AgentCore Gateway, one execution role, and the ENFORCE policy engine. Cognito client-credentials authentication establishes the machine caller; Cedar policies authorize target-prefixed action names. Shared gateway and authentication resources are in `gateway.tf` and `gateway-auth.tf`; target-specific credentials, target definitions, and Cedar rules are in `target-github.tf`, `target-aws.tf`, and `target-spacelift.tf`. GitHub PAT and Spacelift credentials remain separate from gateway-wide IAM.
+`tools` owns one Cognito-protected AgentCore Gateway, one execution role, and the ENFORCE policy engine. Cognito client-credentials authentication establishes the machine caller; Cedar policies authorize target-prefixed action names. Shared gateway and authentication resources are in `gateway.tf` and `gateway-auth.tf`; target-specific credentials, target definitions, and Cedar rules are in `target-github.tf`, `target-aws.tf`, and `target-spacelift.tf`. GitHub PAT and Spacelift credentials remain separate from gateway-wide IAM.
 
 The security-account gateway is a separate AWS_IAM trust boundary. Its resource policy admits the Hermes gateway role; its execution role's explicit read-deny policy remains directly inspectable. It does not use the Hermes OAuth Cedar engine.
 
