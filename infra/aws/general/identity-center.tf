@@ -4,6 +4,7 @@ resource "aws_organizations_organization" "oconnordev" {
   aws_service_access_principals = [
     "iam.amazonaws.com",
     "sso.amazonaws.com",
+    "account.amazonaws.com",
     "config.amazonaws.com",
     "access-analyzer.amazonaws.com",
     "cloudtrail.amazonaws.com",
