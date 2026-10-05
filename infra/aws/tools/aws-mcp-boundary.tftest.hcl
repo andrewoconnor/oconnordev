@@ -146,4 +146,3 @@ run "enabled_when_the_security_gateway_is_resolved" {
     error_message = "The Cedar read policy must name the GitHub target action exactly."
   }
 }
-
