@@ -1,50 +1,42 @@
 name: TFLint
+
 on:
   push:
     branches:
       - master
-    paths:
-      - 'infra/**'
+      - 'hermes/**'
   pull_request:
-    paths:
-      - 'infra/**'
+    branches:
+      - master
 
-# Least privilege at the workflow level. Without a top-level block the token
-# falls back to the repository default (write-all), which is what Checkov
-# CKV2_GHA_1 reports; a job-level block does not satisfy that check.
 permissions:
   contents: read
 
 jobs:
   tflint:
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      matrix:
-        os: [ubuntu-latest]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      MISE_LOCKED: '1'
 
     steps:
-    - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      name: Checkout source code
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        name: Checkout source code
+        with:
+          fetch-depth: 0
 
-    - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      name: Cache plugin dir
-      with:
-        path: ~/.tflint.d/plugins
-        key: ${{ matrix.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        name: Cache TFLint plugins
+        with:
+          path: ~/.tflint.d/plugins
+          key: ${{ runner.os }}-tflint-${{ hashFiles('.tflint.hcl') }}
 
-    - uses: terraform-linters/setup-tflint@1cf010d3c7aef302051ccdb68c14c5dc2efa34ef # v6.3.1
-      name: Setup TFLint
-      with:
-        tflint_version: v0.64.0
-    - name: Show version
-      run: tflint --version
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: '2026.10.3'
+          github_token: ${{ github.token }}
 
-    - name: Init TFLint
-      run: tflint --init
-      env:
-        # https://github.com/terraform-linters/tflint/blob/master/docs/user-guide/plugins.md#avoiding-rate-limiting
-        GITHUB_TOKEN: ${{ github.token }}
-
-    - name: Run TFLint
-      run: tflint -f compact --recursive
+      - name: Run TFLint
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: mise run lint

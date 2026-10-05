@@ -1,42 +1,43 @@
-name: Agent and session-token unit tests
+name: Agent and infrastructure unit tests
 
 on:
   push:
     branches:
-      - "master"
-      - "hermes/**"
-    paths:
-      - 'agents/**'
-      - 'infra/aws/tools/spacelift-token-rotation*'
-      - '.github/workflows/adapter-tests.yml'
+      - master
+      - 'hermes/**'
   pull_request:
     branches:
-      - "master"
-    paths:
-      - 'agents/**'
-      - 'infra/aws/tools/spacelift-token-rotation*'
-      - '.github/workflows/adapter-tests.yml'
+      - master
 
-  # Allows you to run this workflow manually from the Actions tab
+  # Allows you to run this workflow manually from the Actions tab.
   workflow_dispatch:
 
 permissions:
-  contents: read # for actions/checkout to fetch code
+  contents: read
 
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      MISE_LOCKED: '1'
 
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          python-version: '3.13'
+          fetch-depth: 0
 
-      - name: Run the adapter tests
-        working-directory: agents/hermes/adapter
-        run: python3 -m unittest discover -s test -t . -v
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: ${{ runner.os }}-opentofu-tests-${{ hashFiles('**/.terraform.lock.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-opentofu-tests-
 
-      - name: Run the Spacelift session-token rotation tests
-        run: python3 -m unittest discover -s agents/hermes/rotation/test -p 'test_*.py' -v
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
+        with:
+          version: '2026.10.3'
+          github_token: ${{ github.token }}
+
+      - name: Run unit and Terraform boundary tests
+        run: mise run test
