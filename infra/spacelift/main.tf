@@ -6,7 +6,7 @@ data "spacelift_role" "space_admin" {
 locals {
   tofu_version = "1.12.6"
 
-  account_stacks = {
+  managed_stacks = {
     general = {
       name         = "oconnordev-general"
       description  = "general account"
@@ -29,7 +29,7 @@ locals {
     }
     drumrollworld = {
       name         = "drumrollworld"
-      description  = "drumrollworld"
+      description  = "DrumrollWorld static-site workload in the PRODUCTION account"
       project_root = "infra/aws/drumrollworld"
     }
   }

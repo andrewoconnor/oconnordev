@@ -97,7 +97,7 @@ data "aws_iam_policy_document" "spacelift_rotation" {
   statement {
     sid       = "WriteShortLivedSpaceliftSessionToken"
     effect    = "Allow"
-    actions   = ["secretsmanager:PutSecretValue"]
+    actions   = ["secretsmanager:GetSecretValue", "secretsmanager:PutSecretValue"]
     resources = [aws_secretsmanager_secret.spacelift_session_token.arn]
   }
 

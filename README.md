@@ -15,7 +15,7 @@ Infrastructure and agent code for oconnordev.
 ├── infra/
 │   ├── aws/
 │   │   ├── accounts.json    Account and organization identifiers
-│   │   ├── drumrollworld/   Static-site account stack
+│   │   ├── drumrollworld/   Static-site workload (PRODUCTION account)
 │   │   ├── general/         Organizations management account
 │   │   ├── tools/           Shared AgentCore gateway and target policies
 │   │   ├── production/      Public MCP endpoint

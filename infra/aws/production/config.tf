@@ -5,6 +5,7 @@ locals {
   config_bucket_name = "oconnordev-config"
 
   config_recorded_resource_types = [
+    "AWS::ACM::Certificate",
     "AWS::CloudFront::Distribution",
     "AWS::IAM::Policy",
     "AWS::IAM::Role",

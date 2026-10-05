@@ -1,5 +1,5 @@
 resource "spacelift_stack" "accounts" {
-  for_each = local.account_stacks
+  for_each = local.managed_stacks
 
   name        = each.value.name
   description = each.value.description
@@ -9,8 +9,9 @@ resource "spacelift_stack" "accounts" {
   branch       = "master"
   project_root = each.value.project_root
 
-  autodeploy = false
-  labels     = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
+  autodeploy            = false
+  protect_from_deletion = true
+  labels                = ["managed", "depends-on:${spacelift_stack.oconnordev.id}"]
 
   terraform_workflow_tool      = "OPEN_TOFU"
   terraform_version            = local.tofu_version
