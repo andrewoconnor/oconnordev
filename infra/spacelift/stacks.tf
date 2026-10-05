@@ -5,9 +5,10 @@ resource "spacelift_stack" "accounts" {
   description = each.value.description
   space_id    = spacelift_space.oconnordev.id
 
-  repository   = "oconnordev"
-  branch       = "master"
-  project_root = each.value.project_root
+  repository               = "oconnordev"
+  branch                   = "master"
+  project_root             = each.value.project_root
+  additional_project_globs = each.value.additional_project_globs
 
   autodeploy            = false
   protect_from_deletion = true
