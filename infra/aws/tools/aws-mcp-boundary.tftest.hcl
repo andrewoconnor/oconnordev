@@ -130,4 +130,20 @@ run "enabled_when_the_security_gateway_is_resolved" {
     condition     = local.hermes_aws_action_prefix == "aws___aws___"
     error_message = "The wire prefix must come from the manifest's gateway_action_prefix."
   }
+
+  assert {
+    condition     = contains(local.github_native_tools, "get_job_logs") && contains(local.github_read_tools, "get_job_logs") && !contains(local.github_branch_tools, "get_job_logs")
+    error_message = "GitHub job logs must be in the manifest and read-only Cedar tool set, never the branch-write set."
+  }
+
+  assert {
+    condition     = contains(keys(aws_bedrockagentcore_policy.github_read), "get_job_logs")
+    error_message = "The GitHub job-logs tool must receive a repository-scoped read policy."
+  }
+
+  assert {
+    condition     = "${local.github_target_name}___get_job_logs" == "github___get_job_logs"
+    error_message = "The Cedar read policy must name the GitHub target action exactly."
+  }
 }
+
