@@ -1,0 +1,46 @@
+[tools]
+opentofu = "1.12.6"
+tflint = "0.64.0"
+actionlint = "1.7.12"
+python = "3.13.16"
+
+[settings]
+lockfile = true
+
+[tasks.fmt]
+description = "Check OpenTofu formatting across all roots"
+run = "tofu fmt -check -recursive"
+
+[tasks.lint]
+description = "Initialize TFLint plugins and lint every Terraform root"
+run = ["tflint --init", "tflint -f compact --recursive"]
+
+[tasks.validate]
+description = "Initialize and validate every affected Terraform root"
+run = "python3 scripts/ci/validate_terraform.py"
+
+[tasks.workflow-lint]
+description = "Lint GitHub Actions workflow files"
+run = "actionlint .github/workflows/*.yml"
+
+[tasks."test:python"]
+description = "Run adapter, rotation, and CI path-selection unit tests"
+run = [
+  "python3 -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v",
+  "python3 -m unittest discover -s agents/hermes/rotation/test -p 'test_*.py' -v",
+  "python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v",
+]
+
+[tasks."test:terraform-boundary"]
+description = "Run the offline OpenTofu AWS boundary tests"
+run = """
+set -eu
+export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-$HOME/.terraform.d/plugin-cache}"
+mkdir -p "$TF_PLUGIN_CACHE_DIR"
+tofu -chdir=infra/aws/tools init -backend=false -input=false -no-color -lockfile=readonly
+tofu -chdir=infra/aws/tools test -no-color
+"""
+
+[tasks.test]
+description = "Run Python unit tests and Terraform boundary tests"
+depends = ["test:python", "test:terraform-boundary"]

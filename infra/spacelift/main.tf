@@ -8,29 +8,38 @@ locals {
 
   managed_stacks = {
     general = {
-      name         = "oconnordev-general"
-      description  = "general account"
-      project_root = "infra/aws/general"
+      name                     = "oconnordev-general"
+      description              = "general account"
+      project_root             = "infra/aws/general"
+      additional_project_globs = ["infra/aws/accounts.json"]
     }
     production = {
-      name         = "oconnordev-production"
-      description  = "production account"
-      project_root = "infra/aws/production"
+      name                     = "oconnordev-production"
+      description              = "production account"
+      project_root             = "infra/aws/production"
+      additional_project_globs = ["infra/aws/accounts.json"]
     }
     tools = {
       name         = "oconnordev-tools"
       description  = "OCONNORDEV-TOOLS AWS account"
       project_root = "infra/aws/tools"
+      additional_project_globs = [
+        "infra/aws/accounts.json",
+        "agents/hermes/rotation/*.py",
+        "agents/hermes/adapter/*-mcp-tools.json",
+      ]
     }
     security = {
-      name         = "oconnordev-security"
-      description  = "security account"
-      project_root = "infra/aws/security"
+      name                     = "oconnordev-security"
+      description              = "security account"
+      project_root             = "infra/aws/security"
+      additional_project_globs = ["infra/aws/accounts.json"]
     }
     drumrollworld = {
-      name         = "drumrollworld"
-      description  = "DrumrollWorld static-site workload in the PRODUCTION account"
-      project_root = "infra/aws/drumrollworld"
+      name                     = "drumrollworld"
+      description              = "DrumrollWorld static-site workload in the PRODUCTION account"
+      project_root             = "infra/aws/drumrollworld"
+      additional_project_globs = ["infra/aws/accounts.json"]
     }
   }
 }
@@ -45,9 +54,10 @@ resource "spacelift_stack" "oconnordev" {
   name        = "oconnordev"
   description = "administrative stack"
 
-  repository   = "oconnordev"
-  branch       = "master"
-  project_root = "infra/spacelift"
+  repository               = "oconnordev"
+  branch                   = "master"
+  project_root             = "infra/spacelift"
+  additional_project_globs = ["infra/aws/accounts.json"]
 
   autodeploy            = false
   github_action_deploy  = false
