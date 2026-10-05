@@ -1,5 +1,5 @@
 
- data "aws_partition" "current" {}
+data "aws_partition" "current" {}
 
 locals {
   config_bucket_name = "oconnordev-config"
