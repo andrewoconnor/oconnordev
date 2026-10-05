@@ -2,9 +2,9 @@
 
 Use this runbook for new stack bootstraps and state-sensitive AWS changes. The current account boundaries and dependency graph are described in [the architecture overview](../architecture/README.md).
 
-## Account stack order
+## Stack apply order
 
-1. Apply `infra/spacelift` first to create or update the managed stack graph and AWS integration. The account bootstrap roles must already exist because each account stack assumes its own role.
+1. Apply `infra/spacelift` first to create or update the managed stack graph and AWS integration. The four organization account stacks assume their account's `role/spacelift`; the DrumrollWorld static-site workload stack also uses the PRODUCTION account's role.
 2. Apply `infra/aws/general` before `infra/aws/security`. For a fresh General stack with none of the gated audit resources in state, follow the audit enablement procedure below.
 3. Apply `infra/aws/security` and verify the CloudTrail and Config destination buckets and policies before enabling the General audit writers.
 4. Apply `infra/aws/tools` after Security; its AWS target consumes the Security gateway URL and ARN through Spacelift references. Apply `infra/aws/production` after TOOLS because the production CloudFront endpoint consumes the TOOLS output. Keep PRODUCTION's `TF_VAR_hermes_gateway_origin_hostname` wired from TOOLS's `tools_gateway_origin_hostname`; if that dependency is missing, gated CloudFront resources can plan for deletion.

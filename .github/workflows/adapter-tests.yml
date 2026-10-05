@@ -1,16 +1,21 @@
-name: Adapter tests
+name: Agent and session-token unit tests
 
 on:
   push:
     branches:
       - "master"
+      - "hermes/**"
     paths:
       - 'agents/**'
+      - 'infra/aws/tools/spacelift-token-rotation*'
+      - '.github/workflows/adapter-tests.yml'
   pull_request:
     branches:
       - "master"
     paths:
       - 'agents/**'
+      - 'infra/aws/tools/spacelift-token-rotation*'
+      - '.github/workflows/adapter-tests.yml'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -29,7 +34,9 @@ jobs:
         with:
           python-version: '3.13'
 
-      # The adapter is stdlib-only, so there is nothing to install.
       - name: Run the adapter tests
         working-directory: agents/hermes/adapter
         run: python3 -m unittest discover -s test -t . -v
+
+      - name: Run the Spacelift session-token rotation tests
+        run: python3 -m unittest discover -s agents/hermes/rotation/test -p 'test_*.py' -v
