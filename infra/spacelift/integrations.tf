@@ -23,7 +23,7 @@ resource "spacelift_environment_variable" "general_spacelift_account_id" {
 }
 
 resource "spacelift_aws_integration_attachment" "accounts" {
-  for_each = local.account_stacks
+  for_each = local.managed_stacks
 
   integration_id = spacelift_aws_integration.oconnordev.id
   stack_id       = spacelift_stack.accounts[each.key].id

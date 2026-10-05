@@ -61,7 +61,7 @@ resource "aws_cloudfront_distribution" "drumrollworld" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate.drumrollworld.arn
+    acm_certificate_arn      = aws_acm_certificate_validation.drumrollworld.certificate_arn
     minimum_protocol_version = "TLSv1.2_2021"
     ssl_support_method       = "sni-only"
   }
@@ -131,6 +131,11 @@ resource "aws_route53_record" "drumrollworld_validation" {
   ttl             = 60
   type            = each.value.type
   zone_id         = aws_route53_zone.drumrollworld.id
+}
+
+resource "aws_acm_certificate_validation" "drumrollworld" {
+  certificate_arn         = aws_acm_certificate.drumrollworld.arn
+  validation_record_fqdns = [for record in aws_route53_record.drumrollworld_validation : record.fqdn]
 }
 
 resource "aws_route53_record" "www" {

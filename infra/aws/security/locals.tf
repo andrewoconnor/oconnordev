@@ -8,6 +8,8 @@ locals {
   cloudtrail_trail_arn = "arn:aws:cloudtrail:us-east-1:${local.accounts["GENERAL"]}:trail/oconnordev-organization"
 
   config_recorded_resource_types = [
+    "AWS::BedrockAgentCore::Gateway",
+    "AWS::BedrockAgentCore::GatewayTarget",
     "AWS::CloudFront::Distribution",
     "AWS::Cognito::UserPool",
     "AWS::IAM::Policy",

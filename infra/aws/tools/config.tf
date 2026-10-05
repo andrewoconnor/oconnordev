@@ -1,9 +1,18 @@
 
+data "aws_partition" "current" {}
+
 locals {
   config_bucket_name = "oconnordev-config"
 
   config_recorded_resource_types = [
+    "AWS::BedrockAgentCore::Gateway",
+    "AWS::BedrockAgentCore::GatewayTarget",
+    "AWS::CloudWatch::Alarm",
     "AWS::Cognito::UserPool",
+    "AWS::Cognito::UserPoolClient",
+    "AWS::Cognito::UserPoolDomain",
+    "AWS::Cognito::UserPoolResourceServer",
+    "AWS::IAM::OIDCProvider",
     "AWS::IAM::Policy",
     "AWS::IAM::Role",
     "AWS::KMS::Key",
