@@ -69,7 +69,7 @@ locals {
   github_target_name   = "github"
   github_tool_manifest = jsondecode(file("${local.adapter_root}/github-mcp-tools.json"))
   github_native_tools  = toset(local.github_tool_manifest.tools)
-  github_read_tools    = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read"])
+  github_read_tools    = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read", "get_job_logs"])
   github_branch_tools  = toset(["create_branch", "push_files", "delete_file"])
   github_branch_tool_clauses = {
     push_files  = "context.input has files && !context.input.files.isEmpty() &&"
@@ -171,5 +171,4 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
     aws_iam_role_policy.hermes_gateway_policy_authorization,
   ]
 }
-
 

@@ -10,6 +10,7 @@
     "push_files",
     "delete_file",
     "create_pull_request",
-    "pull_request_read"
+    "pull_request_read",
+    "get_job_logs"
   ]
 }
