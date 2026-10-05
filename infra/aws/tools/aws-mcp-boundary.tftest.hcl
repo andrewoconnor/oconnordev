@@ -12,13 +12,75 @@
 # `mock_provider` keeps this offline: no credentials, no account, no apply.
 
 mock_provider "aws" {
-  # The provider validates several arguments as JSON policy documents during
-  # plan, so a generated placeholder fails before any assertion runs. An empty
-  # object is valid JSON and is all these assertions need: none of them read a
-  # rendered policy body.
+  # Policy preconditions decode Statement during plan, so return a minimal
+  # valid policy document instead of the mock provider's generated placeholder.
   mock_data "aws_iam_policy_document" {
     defaults = {
-      json = "{}"
+      json = "{\"Version\":\"2012-10-17\",\"Statement\":[]}"
+    }
+  }
+
+  # Keep computed values consumed by provider-side argument validation valid.
+  mock_resource "aws_iam_role" {
+    defaults = {
+      arn = "arn:aws:iam::421680664125:role/mock"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_log_group" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:421680664125:log-group:/aws/vendedlogs/bedrock-agentcore/gateway/hermes:*"
+    }
+  }
+
+  mock_resource "aws_cognito_resource_server" {
+    defaults = {
+      scope_identifiers = ["hermes-mcp/invoke"]
+    }
+  }
+
+  mock_resource "aws_bedrockagentcore_policy_engine" {
+    defaults = {
+      policy_engine_arn = "arn:aws:bedrock-agentcore:us-east-1:421680664125:policy-engine/hermes_policy_engine-abcdef1234"
+      policy_engine_id  = "hermes_policy_engine-abcdef1234"
+    }
+  }
+
+  mock_resource "aws_sqs_queue" {
+    defaults = {
+      arn = "arn:aws:sqs:us-east-1:421680664125:hermes-spacelift-rotation-mock"
+      id  = "https://sqs.us-east-1.amazonaws.com/421680664125/hermes-spacelift-rotation-mock"
+    }
+  }
+
+  mock_resource "aws_lambda_function" {
+    defaults = {
+      arn = "arn:aws:lambda:us-east-1:421680664125:function:hermes-spacelift-session-token-rotation"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_event_rule" {
+    defaults = {
+      arn = "arn:aws:events:us-east-1:421680664125:rule/hermes-spacelift-session-token-rotation"
+    }
+  }
+
+  mock_resource "aws_bedrockagentcore_gateway" {
+    defaults = {
+      gateway_arn = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-mock"
+      gateway_id  = "hermes-mock"
+    }
+  }
+
+  mock_resource "aws_bedrockagentcore_api_key_credential_provider" {
+    defaults = {
+      credential_provider_arn = "arn:aws:acps:us-east-1:421680664125:token-vault/default/apikeycredentialprovider/hermes-mock"
+    }
+  }
+
+  mock_resource "aws_cloudwatch_log_delivery_destination" {
+    defaults = {
+      arn = "arn:aws:logs:us-east-1:421680664125:delivery-destination:hermes-gateway-application-logs"
     }
   }
 
