@@ -61,4 +61,5 @@ data "archive_file" "spacelift_rotation" {
   type        = "zip"
   source_dir  = local.spacelift_rotation_source_dir
   output_path = local.spacelift_rotation_archive
+  excludes    = ["test/**", "**/__pycache__/**", "**/*.pyc"]
 }
