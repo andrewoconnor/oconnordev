@@ -171,3 +171,4 @@ resource "aws_bedrockagentcore_gateway_target" "github" {
     aws_iam_role_policy.hermes_gateway_policy_authorization,
   ]
 }
+
