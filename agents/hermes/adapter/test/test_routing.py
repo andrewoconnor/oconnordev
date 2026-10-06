@@ -18,6 +18,14 @@ class RoutingTests(unittest.TestCase):
         self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "aws___aws___aws___list_regions")
         self.assertNotIn("x-mcp-tools", {key.lower() for key in transport.gateway_calls[0][2]})
 
+    def test_knowledge_call_is_forwarded_to_the_new_target_without_alias_leakage(self):
+        transport = FakeTransport()
+        result = make_forwarder(transport).handle(rpc("tools/call", {"name": "knowledge___aws___read_documentation", "arguments": {"requests": []}}))
+        self.assertIn("result", result or {}, repr(result))
+        self.assertEqual(result["result"]["content"][0]["text"], "safe")
+        self.assertEqual(transport.gateway_calls[0][3]["params"]["name"], "knowledge___aws___read_documentation")
+        self.assertNotIn("x-mcp-tools", {key.lower() for key in transport.gateway_calls[0][2]})
+
     def test_spacelift_call_is_forwarded_with_its_prefix_and_no_toolset_header(self):
         # Spacelift's upstream does not namespace its own tools, so the gateway
         # action is the single-prefixed spacelift___<tool>. The read-only
@@ -33,15 +41,18 @@ class RoutingTests(unittest.TestCase):
         forwarder = make_forwarder(transport)
         forwarder.handle(rpc("tools/call", {"name": "get_file_contents", "arguments": {}}))
         forwarder.handle(rpc("tools/call", {"name": "aws___list_regions", "arguments": {}}))
+        forwarder.handle(rpc("tools/call", {"name": "knowledge___aws___read_documentation", "arguments": {}}))
         forwarder.handle(rpc("tools/call", {"name": "query", "arguments": {}}))
         self.assertEqual(transport.token_calls, 1)
-        self.assertEqual(len(transport.gateway_calls), 3)
+        self.assertEqual(len(transport.gateway_calls), 4)
 
     def test_unknown_and_cross_target_names_are_rejected_without_forwarding(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
         for name in (
             "aws___get_presigned_url",
+            "knowledge___aws___get_presigned_url",
+            "knowledge___aws___run_script",
             "repository_info",
             "github___get_file_contents",
             # The raw wire action, which the client never sees and must not
