@@ -52,7 +52,7 @@ resource "aws_bedrockagentcore_gateway_target" "knowledge" {
 resource "aws_bedrockagentcore_policy" "knowledge_tool" {
   for_each = local.knowledge_native_tools
 
-  name             = "HermesKnowledge${replace(each.key, "_", "")}" 
+  name             = "HermesKnowledge${replace(each.key, "_", "")}"
   policy_engine_id = aws_bedrockagentcore_policy_engine.hermes.policy_engine_id
   description      = "Permit the read-only AWS Knowledge MCP tool ${each.key} to callers holding the gateway scope."
   validation_mode  = "FAIL_ON_ANY_FINDINGS"
