@@ -48,7 +48,7 @@ mock_provider "aws" {
 
   mock_resource "aws_sqs_queue" {
     defaults = {
-      arn = "arn:aws:sqs:us-east-1:421680664125:hermes-spacelift-rotation-mock"
+      arn = "arn:aws:sqs:us-east-1:421680664125:***"
       id  = "https://sqs.us-east-1.amazonaws.com/421680664125/hermes-spacelift-rotation-mock"
     }
   }
@@ -109,6 +109,33 @@ mock_provider "archive" {}
 
 variables {
   spacelift_run_id = "terraform-test"
+}
+
+run "knowledge_target_exposes_all_read_only_tools" {
+  command = plan
+
+  assert {
+    condition     = aws_bedrockagentcore_gateway_target.knowledge.name == "knowledge" && local.knowledge_endpoint == "https://knowledge-mcp.global.api.aws"
+    error_message = "The public AWS Knowledge MCP endpoint must be configured as the knowledge target."
+  }
+
+  assert {
+    condition     = length(aws_bedrockagentcore_policy.knowledge_tool) == 5
+    error_message = "Cedar must permit all five currently advertised read-only AWS Knowledge tools."
+  }
+
+  assert {
+    condition = (
+      length(setsubtract(local.knowledge_native_tools, local.knowledge_read_only_tools)) == 0 &&
+      length(setsubtract(local.knowledge_read_only_tools, local.knowledge_native_tools)) == 0
+    )
+    error_message = "The target manifest must include exactly the complete read-only AWS Knowledge tool catalog."
+  }
+
+  assert {
+    condition     = "${local.knowledge_target_name}___aws___list_regions" == "knowledge___aws___list_regions"
+    error_message = "Cedar actions must include the target prefix and the upstream AWS namespace."
+  }
 }
 
 run "disabled_when_the_security_gateway_is_unresolved" {
