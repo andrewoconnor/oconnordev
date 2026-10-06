@@ -29,7 +29,7 @@ _ALL_ROOTS_INPUTS = ("mise.toml", "mise.lock")
 
 
 def roots_for_paths(paths: Iterable[str]) -> tuple[str, ...]:
-    """Return Terraform roots affected by repository-relative changed paths."""
+    """Return OpenTofu roots affected by repository-relative changed paths."""
     selected: set[str] = set()
 
     for raw_path in paths:
