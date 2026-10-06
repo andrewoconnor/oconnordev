@@ -189,6 +189,11 @@ resource "aws_bcmdataexports_export" "org_cost_usage" {
     }
   }
   depends_on = [aws_s3_bucket_policy.org_cost_usage]
+  lifecycle {
+    ignore_changes = [
+      export[0].data_query[0].table_configurations,
+    ]
+  }
 }
 output "cost_export_arn" {
   value = aws_bcmdataexports_export.org_cost_usage.arn
