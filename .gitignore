@@ -1,4 +1,4 @@
-# Local .terraform directories
+# Local OpenTofu .terraform directories
 **/.terraform/*
 
 # Lambda deployment archives built at plan time by archive_file
