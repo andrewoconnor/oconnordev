@@ -1,6 +1,6 @@
 # GCP stacks
 
-This directory holds Google Cloud Terraform/OpenTofu stacks, mirroring the
+This directory holds Google Cloud OpenTofu stacks, mirroring the
 `infra/aws/<stack>` layout.
 
 There are no GCP stacks yet. A new one belongs at `infra/gcp/<stack>/`, and its
