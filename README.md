@@ -25,7 +25,7 @@ Infrastructure and agent code for oconnordev.
 └── README.md
 ```
 
-Each directory under `infra/aws/` and `infra/gcp/` is an independent OpenTofu root module and maps to a Spacelift stack. `infra/spacelift/main.tf` owns the mapping and its explicit stack dependencies. Terraform/OpenTofu files in each AWS root are organized around versions, providers, locals, feature resources, and outputs. No new Terraform modules are introduced.
+Every directory under `infra/aws/` and `infra/gcp/` is an independent OpenTofu root module and maps to a Spacelift stack. `infra/spacelift/main.tf` owns the mapping and its explicit stack dependencies. OpenTofu configuration in each AWS root is organized around versions, providers, locals, feature resources, and outputs. No new modules are introduced.
 
 AWS account identifiers and the Organizations ID are centralized in `infra/aws/accounts.json`. A stack uses `data.aws_caller_identity.current.account_id` for its own account; the JSON map is for cross-account references. Spacelift dependencies remain only where one stack consumes a generated output, such as the AgentCore gateway URL/ARN.
 

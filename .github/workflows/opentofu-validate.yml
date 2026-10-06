@@ -1,22 +1,19 @@
-name: Agent and infrastructure unit tests
+name: OpenTofu validation
 
 on:
   push:
     branches:
-      - master
       - 'hermes/**'
   pull_request:
     branches:
       - master
 
-  # Allows you to run this workflow manually from the Actions tab.
-  workflow_dispatch:
-
 permissions:
   contents: read
 
 jobs:
-  test:
+  validate:
+    name: Format, workflow lint, and affected-root validation
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -30,14 +27,23 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.opentofu.d/plugin-cache
-          key: ${{ runner.os }}-opentofu-tests-${{ hashFiles('**/.terraform.lock.hcl') }}
+          key: ${{ runner.os }}-opentofu-validate-${{ hashFiles('**/.terraform.lock.hcl') }}
           restore-keys: |
-            ${{ runner.os }}-opentofu-tests-
+            ${{ runner.os }}-opentofu-validate-
 
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: '2026.10.3'
           github_token: ${{ github.token }}
 
-      - name: Run unit and OpenTofu boundary tests
-        run: mise run test
+      - name: Show OpenTofu version
+        run: tofu version
+
+      - name: Check OpenTofu formatting
+        run: mise run fmt
+
+      - name: Lint workflow files
+        run: mise run workflow-lint
+
+      - name: Validate changed OpenTofu roots
+        run: mise run validate
