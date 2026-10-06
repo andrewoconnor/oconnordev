@@ -1,4 +1,5 @@
 import json
+import re
 import unittest
 from pathlib import Path
 
@@ -64,6 +65,22 @@ class CostExportBoundaryTests(unittest.TestCase):
         self.assertNotIn('s3:*', self.iam)
         self.assertNotIn('athena:*', self.iam)
         self.assertIn('local.security_gateway_role_arn', self.general)
+        general_location_statement = re.search(
+            r'statement\s*\{\s*sid\s*=\s*"AllowSecurityGatewayGetBucketLocation"(?P<body>.*?)\n  \}',
+            self.general,
+            re.DOTALL,
+        )
+        if general_location_statement is None:
+            self.fail("GENERAL bucket-location policy statement is missing.")
+        general_location_statement = general_location_statement.group("body")
+        self.assertIn('actions = ["s3:GetBucketLocation"]', general_location_statement)
+        self.assertIn('identifiers = [local.security_gateway_role_arn]', general_location_statement)
+        self.assertIn('resources = [aws_s3_bucket.org_cost_usage.arn]', general_location_statement)
+        self.assertNotIn("condition", general_location_statement)
+        self.assertRegex(
+            self.iam,
+            r'\{ Sid = "GetCurBucketLocation", Effect = "Allow", Action = \["s3:GetBucketLocation"\], Resource = "arn:aws:s3:::\$\{local\.cost_export_bucket_name\}" \}',
+        )
         self.assertNotIn('s3:PutObject', self.iam.split('ReadCurExportObjects')[1].split('ListCurExportPrefix')[0])
         gateway = (ROOT / "infra/aws/security/gateway.tf").read_text()
         for expected in ('kms:Decrypt', 'sts:AssumeRole', 'iam:GetCredentialReport', 'iam:GetLoginProfile'):
@@ -73,6 +90,9 @@ class CostExportBoundaryTests(unittest.TestCase):
 
     def test_shared_schema_and_runbook(self):
         self.assertEqual(len(self.schema["columns"]), 17)
+        schema_types = {column["name"]: column["type"] for column in self.schema["columns"]}
+        self.assertEqual(schema_types["bill_billing_period_start_date"], "timestamp")
+        self.assertEqual(schema_types["bill_billing_period_end_date"], "timestamp")
         self.assertIn("cur_schema", self.general)
         self.assertIn("cur_columns", self.general)
         self.assertIn("cost_export_columns", self.security)
