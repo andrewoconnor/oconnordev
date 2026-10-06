@@ -2,7 +2,7 @@
 
 ## Decision
 
-Keep shared Hermes Gateway, Cognito authentication, policy-engine authorization, and generic gateway IAM separate from target-specific credentials, upstream targets, and Cedar actions. Keep security-account AWS_IAM Gateway/trust policies and the S3 policies for CloudTrail and Config directly visible in Terraform.
+Keep shared Hermes Gateway, Cognito authentication, policy-engine authorization, and generic gateway IAM separate from target-specific credentials, upstream targets, and Cedar actions. Keep security-account AWS_IAM Gateway/trust policies and the S3 policies for CloudTrail and Config directly visible in OpenTofu configuration.
 
 ## Rationale
 
