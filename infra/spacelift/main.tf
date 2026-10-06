@@ -11,7 +11,7 @@ locals {
       name                     = "oconnordev-general"
       description              = "general account"
       project_root             = "infra/aws/general"
-      additional_project_globs = ["infra/aws/accounts.json"]
+      additional_project_globs = ["infra/aws/accounts.json", "infra/aws/cost-export-schema.json"]
     }
     production = {
       name                     = "oconnordev-production"
@@ -33,7 +33,7 @@ locals {
       name                     = "oconnordev-security"
       description              = "security account"
       project_root             = "infra/aws/security"
-      additional_project_globs = ["infra/aws/accounts.json"]
+      additional_project_globs = ["infra/aws/accounts.json", "infra/aws/cost-export-schema.json"]
     }
     drumrollworld = {
       name                     = "drumrollworld"

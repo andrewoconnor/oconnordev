@@ -1,0 +1,22 @@
+{
+  "table_name": "cost_usage",
+  "columns": [
+    {"name": "bill_payer_account_id", "type": "string"},
+    {"name": "line_item_usage_account_id", "type": "string"},
+    {"name": "line_item_usage_account_name", "type": "string"},
+    {"name": "bill_billing_period_start_date", "type": "timestamp"},
+    {"name": "bill_billing_period_end_date", "type": "timestamp"},
+    {"name": "line_item_usage_start_date", "type": "timestamp"},
+    {"name": "line_item_usage_end_date", "type": "timestamp"},
+    {"name": "line_item_product_code", "type": "string"},
+    {"name": "product_region_code", "type": "string"},
+    {"name": "line_item_usage_type", "type": "string"},
+    {"name": "line_item_operation", "type": "string"},
+    {"name": "line_item_resource_id", "type": "string"},
+    {"name": "line_item_line_item_type", "type": "string"},
+    {"name": "line_item_currency_code", "type": "string"},
+    {"name": "line_item_usage_amount", "type": "double"},
+    {"name": "pricing_unit", "type": "string"},
+    {"name": "line_item_unblended_cost", "type": "double"}
+  ]
+}
