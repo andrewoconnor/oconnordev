@@ -17,7 +17,7 @@ class LiveOptInTests(unittest.TestCase):
         self.assertIn("opt-in", stderr.getvalue())
 
     def test_live_invocation_fails_before_network_when_server_credentials_are_missing(self):
-        argv = ["adapter_smoke_test.py", "--live", "--hermes", "/opt/hermes/.venv/bin/hermes", "--github-owner", "andrewoconnor", "--github-repo", "oconnordev"]
+        argv = ["adapter_smoke_test.py", "--live", "--hermes", sys.executable, "--github-owner", "andrewoconnor", "--github-repo", "oconnordev"]
         stderr = io.StringIO()
         hidden_value = "never-print-this-client-secret"
         environment = {"HERMES_AGENTCORE_COGNITO_CLIENT_SECRET": hidden_value}
