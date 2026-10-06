@@ -48,7 +48,7 @@ mock_provider "aws" {
 
   mock_resource "aws_sqs_queue" {
     defaults = {
-      arn = "arn:aws:sqs:us-east-1:421680664125:hermes-spacelift-rotation-mock"
+      arn = "arn:aws:sqs:us-east-1:421680664125:***"
       id  = "https://sqs.us-east-1.amazonaws.com/421680664125/hermes-spacelift-rotation-mock"
     }
   }
@@ -139,7 +139,7 @@ run "disabled_when_the_security_gateway_is_unresolved" {
   }
 
   # The target name is still exported, because the adapter's manifest is what
-  # defines it and the name does not depend on the URL.
+  # defines it and the name does not depend on the gate.
   assert {
     condition     = output.hermes_aws_mcp_target_name == "aws"
     error_message = "The AWS target name is a constant and must not depend on the gate."
@@ -192,6 +192,16 @@ run "enabled_when_the_security_gateway_is_resolved" {
   assert {
     condition     = local.hermes_aws_action_prefix == "aws___aws___"
     error_message = "The wire prefix must come from the manifest's gateway_action_prefix."
+  }
+
+  assert {
+    condition     = terraform_data.github_target_catalog_rebuild.triggers_replace == [sha256(jsonencode({ endpoint = local.github_tool_manifest.hosted_endpoint, tools = sort(tolist(local.github_native_tools)) }))]
+    error_message = "The GitHub cached tool catalog must be replaced whenever the endpoint or manifest tool names change."
+  }
+
+  assert {
+    condition     = terraform_data.github_target_catalog_rebuild.triggers_replace[0] != sha256(jsonencode({ endpoint = local.github_tool_manifest.hosted_endpoint, tools = sort(tolist(setunion(local.github_native_tools, toset(["__synthetic_manifest_change__"])))) }))
+    error_message = "Adding a GitHub manifest tool must change the target catalog replacement trigger."
   }
 
   assert {
