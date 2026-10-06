@@ -26,7 +26,7 @@ jobs:
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/.terraform.d/plugin-cache
+          path: ~/.opentofu.d/plugin-cache
           key: ${{ runner.os }}-opentofu-validate-${{ hashFiles('**/.terraform.lock.hcl') }}
           restore-keys: |
             ${{ runner.os }}-opentofu-validate-
@@ -39,11 +39,11 @@ jobs:
       - name: Show OpenTofu version
         run: tofu version
 
-      - name: Check Terraform formatting
+      - name: Check OpenTofu formatting
         run: mise run fmt
 
       - name: Lint workflow files
         run: mise run workflow-lint
 
-      - name: Validate changed Terraform roots
+      - name: Validate changed OpenTofu roots
         run: mise run validate

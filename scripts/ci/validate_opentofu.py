@@ -37,11 +37,11 @@ def _run(command: list[str], env: dict[str, str]) -> None:
 def main() -> int:
     roots = _selected_roots()
     if not roots:
-        print("No Terraform roots are affected by this change set; validation job reports success.")
+        print("No OpenTofu roots are affected by this change set; validation job reports success.")
         return 0
 
     plugin_cache = Path(
-        os.environ.get("TF_PLUGIN_CACHE_DIR", "~/.terraform.d/plugin-cache")
+        os.environ.get("TF_PLUGIN_CACHE_DIR", "~/.opentofu.d/plugin-cache")
     ).expanduser()
     plugin_cache.mkdir(parents=True, exist_ok=True)
     env = os.environ.copy()
@@ -63,7 +63,7 @@ def main() -> int:
         )
         _run(["tofu", f"-chdir={root}", "validate", "-no-color"], env)
 
-    print(f"Validated {len(roots)} Terraform root(s): {', '.join(roots)}")
+    print(f"Validated {len(roots)} OpenTofu root(s): {', '.join(roots)}")
     return 0
 
 

@@ -9,7 +9,7 @@ sys.path.insert(0, str(CI_DIR))
 from path_selection import ALL_ROOTS, ACCOUNT_MAP_CONSUMERS, roots_for_paths  # noqa: E402
 
 
-class TerraformRootSelectionTests(unittest.TestCase):
+class OpenTofuRootSelectionTests(unittest.TestCase):
     def test_cost_export_schema_change_selects_general_and_security(self):
         self.assertEqual(
             roots_for_paths(["infra/aws/cost-export-schema.json"]),
@@ -35,9 +35,9 @@ class TerraformRootSelectionTests(unittest.TestCase):
         )
         self.assertEqual(len(ACCOUNT_MAP_CONSUMERS), 6)
 
-    def test_workflow_only_change_selects_no_terraform_root(self):
+    def test_workflow_only_change_selects_no_opentofu_root(self):
         self.assertEqual(
-            roots_for_paths([".github/workflows/terraform-validate.yml"]),
+            roots_for_paths([".github/workflows/opentofu-validate.yml"]),
             (),
         )
 
@@ -66,7 +66,7 @@ class TerraformRootSelectionTests(unittest.TestCase):
 class RequiredWorkflowTriggerTests(unittest.TestCase):
     def test_required_workflows_run_for_workflow_only_pull_requests(self):
         workflows = (
-            ".github/workflows/terraform-validate.yml",
+            ".github/workflows/opentofu-validate.yml",
             ".github/workflows/adapter-tests.yml",
             ".github/workflows/tflint.yml",
             ".github/workflows/checkov.yml",
