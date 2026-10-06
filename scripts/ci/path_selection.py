@@ -22,6 +22,7 @@ ACCOUNT_MAP_CONSUMERS = (
 )
 
 _ACCOUNT_MAP = "infra/aws/accounts.json"
+_COST_EXPORT_SCHEMA = "infra/aws/cost-export-schema.json"
 _TOOLS_ROTATION_DIR = "agents/hermes/rotation/"
 _TOOLS_ADAPTER_DIR = "agents/hermes/adapter/"
 _ALL_ROOTS_INPUTS = ("mise.toml", "mise.lock")
@@ -45,6 +46,9 @@ def roots_for_paths(paths: Iterable[str]) -> tuple[str, ...]:
 
         if path == _ACCOUNT_MAP:
             selected.update(ACCOUNT_MAP_CONSUMERS)
+
+        if path == _COST_EXPORT_SCHEMA:
+            selected.update(("infra/aws/general", "infra/aws/security"))
 
         if path.startswith(_TOOLS_ROTATION_DIR):
             relative = path.removeprefix(_TOOLS_ROTATION_DIR)

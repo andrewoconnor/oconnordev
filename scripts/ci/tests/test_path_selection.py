@@ -10,6 +10,12 @@ from path_selection import ALL_ROOTS, ACCOUNT_MAP_CONSUMERS, roots_for_paths  # 
 
 
 class TerraformRootSelectionTests(unittest.TestCase):
+    def test_cost_export_schema_change_selects_general_and_security(self):
+        self.assertEqual(
+            roots_for_paths(["infra/aws/cost-export-schema.json"]),
+            ("infra/aws/general", "infra/aws/security"),
+        )
+
     def test_rotation_source_change_selects_only_tools(self):
         self.assertEqual(
             roots_for_paths(["agents/hermes/rotation/spacelift_session_token.py"]),
