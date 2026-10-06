@@ -14,6 +14,18 @@ resource "spacelift_stack_dependency" "security_general" {
   depends_on_stack_id = spacelift_stack.accounts["general"].id
 }
 
+resource "spacelift_stack_dependency_reference" "security_general_cost_export_bucket" {
+  stack_dependency_id = spacelift_stack_dependency.security_general.id
+  output_name         = "cost_export_bucket_name"
+  input_name          = "TF_VAR_cost_export_bucket_name"
+}
+
+resource "spacelift_stack_dependency_reference" "security_general_cost_export_location" {
+  stack_dependency_id = spacelift_stack_dependency.security_general.id
+  output_name         = "cost_export_data_location"
+  input_name          = "TF_VAR_cost_export_data_location"
+}
+
 resource "spacelift_stack_dependency" "tools_security_gateway" {
   stack_id            = spacelift_stack.accounts["tools"].id
   depends_on_stack_id = spacelift_stack.accounts["security"].id
