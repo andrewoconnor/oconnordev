@@ -48,7 +48,7 @@ mock_provider "aws" {
 
   mock_resource "aws_sqs_queue" {
     defaults = {
-      arn = "arn:aws:sqs:us-east-1:421680664125:***"
+      arn = "arn:aws:sqs:us-east-1:421680664125:hermes-spacelift-rotation-mock"
       id  = "https://sqs.us-east-1.amazonaws.com/421680664125/hermes-spacelift-rotation-mock"
     }
   }
