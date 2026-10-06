@@ -8,10 +8,11 @@ dropped. The adapter does catch that and raises `gateway_tool_set_mismatch`, but
 only at connection time, and the message does not say which side is stale.
 
 This runs the real registration through `hermes mcp test`, which spawns the
-adapter exactly as the agent does, and then asserts the discovered tool set is
-*exactly* what the manifests declare -- no missing tools, no extra ones, and no
-leaked wire prefix on any name -- so a mismatch fails the deploy with the
-offending names called out. Run it after every deploy, before using the tools.
+adapter exactly as the agent does, and asserts the discovered set exactly
+matches the adapter's client-visible manifest names, including any explicit
+client namespace. Missing tools, unexpected names, and leaked wire prefixes
+therefore fail the deploy with the offending names called out. Run it after
+every deploy, before using the tools.
 
 Exit codes: 0 match, 1 mismatch or connection failure, 2 the check could not run.
 
@@ -60,16 +61,13 @@ def load_expected_tools(adapter_dir: Path) -> tuple[set[str], dict[str, set[str]
     expected: set[str] = set()
     per_target: dict[str, set[str]] = {}
     for target in adapter.TARGETS:
-        tools = set(target.tools)
+        tools = set(target.client_tools)
         per_target[target.name] = tools
         expected |= tools
 
-    # A logical name is what the client sees, so it must never still carry a
-    # `___` separator: that would mean a wire prefix leaked into the client
-    # namespace, which is exactly the stale-manifest failure.
-    leaked = sorted(name for name in expected if "___" in name and name.count("___") > 1)
-    if leaked:
-        _fail(f"manifest declares a name with a leaked wire prefix: {leaked}")
+    # Client names may intentionally contain a target namespace. The exact
+    # comparison after discovery catches any unlisted wire prefix without
+    # rejecting a namespace declared by the adapter manifest.
     return expected, per_target
 
 
@@ -135,16 +133,15 @@ def main() -> int:
         hint = ""
         if any(name.count("___") > 1 for name in unexpected):
             hint = (
-                "\nThe gateway is advertising names with an extra namespace level. Most likely the "
-                "deployed adapter or manifest is stale, or the manifest's gateway_action_prefix no "
-                "longer matches the number of gateways in the path."
+                "\nUnexpected names include multiple namespace levels. Check the deployed adapter's "
+                "client_tool_prefix and gateway_action_prefix against the target manifests."
             )
         _fail(f"the deployed tool set does not match the manifests ({'; '.join(detail)}){hint}")
 
     print("OK: the deployed adapter agrees with the gateway.")
     for name in sorted(per_target):
         print(f"  {name}: {len(per_target[name])} tools")
-    print(f"  total: {len(discovered)} tools, all under canonical names")
+    print(f"  total: {len(discovered)} tools, all under client-visible names")
     return 0
 
 
