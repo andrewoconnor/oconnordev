@@ -33,6 +33,7 @@ if __package__:
         SmokeCheckError,
         missing_live_configuration,
         run_gateway_checks,
+        sanitize_diagnostic,
     )
 else:
     from gateway_validation import (
@@ -40,6 +41,7 @@ else:
         SmokeCheckError,
         missing_live_configuration,
         run_gateway_checks,
+        sanitize_diagnostic,
     )
 
 DEFAULT_SERVER = "agentcore"
@@ -97,7 +99,7 @@ def load_expected_tools(adapter_dir: Path) -> tuple[set[str], dict[str, set[str]
     return expected, per_target
 
 
-def discover(hermes_bin: str, server: str) -> tuple[set[str], str]:
+def discover(hermes_bin: str, server: str, *, sensitive_values=()) -> tuple[set[str], str]:
     try:
         result = subprocess.run(
             [hermes_bin, "mcp", "test", server],
@@ -107,23 +109,25 @@ def discover(hermes_bin: str, server: str) -> tuple[set[str], str]:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
-        _fail(f"could not run `hermes mcp test {server}`: {exc}")
+        _fail(f"could not run `hermes mcp test {server}`: {sanitize_diagnostic(str(exc), sensitive_values=sensitive_values)}")
     output = f"{result.stdout}\n{result.stderr}"
+    safe_output = sanitize_diagnostic(output, sensitive_values=sensitive_values)
     if result.returncode != 0:
-        _fail(f"`hermes mcp test {server}` exited {result.returncode}; the adapter did not connect or did not agree with the gateway.\n{output.strip()}")
+        detail = safe_output or "no diagnostic text was returned"
+        _fail(f"`hermes mcp test {server}` exited {result.returncode}: {detail}")
 
     match = DISCOVERED_RE.search(output)
     if not match:
-        print(output, file=sys.stderr)
+        print(safe_output or "could not parse the tool-discovery summary", file=sys.stderr)
         raise SystemExit(2)
     discovered = set(TOOL_LINE_RE.findall(output))
     if not discovered:
-        print(output, file=sys.stderr)
+        print(safe_output or "no tool names were listed", file=sys.stderr)
         raise SystemExit(2)
     declared = int(match.group(1))
     if declared != len(discovered):
         _fail(f"the server reported {declared} tools but {len(discovered)} names were listed; refusing to trust a partial read")
-    return discovered, output
+    return discovered, safe_output
 
 
 def main() -> int:
@@ -158,6 +162,11 @@ def main() -> int:
         return 2
     github_owner = str(github_owner)
     github_repo = str(github_repo)
+    sensitive_values = tuple(
+        gateway_env.get(name, "")
+        for name in EXPECTED_LIVE_ENV
+        if "CLIENT_ID" in name or "CLIENT_SECRET" in name
+    )
 
     adapter_dir = Path(args.checkout) / "agents" / "hermes" / "adapter"
     if not (adapter_dir / "hermes_agentcore_adapter.py").exists():
@@ -165,13 +174,14 @@ def main() -> int:
         return 2
 
     expected, per_target = load_expected_tools(adapter_dir)
-    discovered, _ = discover(hermes_bin, args.server)
+    discovered, _ = discover(hermes_bin, args.server, sensitive_values=sensitive_values)
     missing_tools = sorted(expected - discovered)
     unexpected_tools = sorted(discovered - expected)
     if missing_tools or unexpected_tools:
         _fail(f"the registered adapter tool set does not match the manifests (missing: {missing_tools}; unexpected: {unexpected_tools})")
 
     adapter = importlib.import_module("hermes_agentcore_adapter")
+    forwarder = None
     try:
         forwarder = adapter.AgentCoreForwarder(
             gateway_url=gateway_env["HERMES_AGENTCORE_GATEWAY_URL"],
@@ -179,9 +189,18 @@ def main() -> int:
             client_id=gateway_env["HERMES_AGENTCORE_COGNITO_CLIENT_ID"],
             client_secret=gateway_env["HERMES_AGENTCORE_COGNITO_CLIENT_SECRET"],
         )
-        results = run_gateway_checks(forwarder, per_target, github_owner, github_repo)
+        results = run_gateway_checks(
+            forwarder,
+            per_target,
+            github_owner,
+            github_repo,
+            sensitive_values=sensitive_values,
+        )
     except Exception as exc:
-        _fail(f"live gateway validation failed: {getattr(exc, 'category', type(exc).__name__)}")
+        detail = sanitize_diagnostic(str(exc), forwarder=forwarder, sensitive_values=sensitive_values)
+        if not detail:
+            detail = sanitize_diagnostic(getattr(exc, "category", type(exc).__name__), sensitive_values=sensitive_values)
+        _fail(f"live gateway validation failed: {detail or 'unknown error'}")
 
     print("OK: Hermes registration and direct gateway checks passed.")
     for result in results:
