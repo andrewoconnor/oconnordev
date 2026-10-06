@@ -10,8 +10,8 @@
 # not recognise rather than anything that looks like a failed deploy.
 #
 # This refuses to run against a dirty checkout -- a hand-patched copy is exactly
-# the state this exists to prevent -- then updates it, runs the adapter's own
-# tests, and smoke-tests the deployed registration against the live gateway.
+# the state this exists to prevent -- then updates that checkout and runs the
+# adapter's own tests. Live gateway checks are explicitly opt-in with --live-smoke.
 #
 # The reload itself is a step only the agent can perform, so this cannot finish
 # quietly: it exits 2 until the reload is confirmed. Pass --reloaded once you
@@ -23,6 +23,7 @@
 # Usage (the file is committed 0644, so invoke it through bash):
 #   bash scripts/deploy_hermes_adapter.sh [--checkout DIR] [--rev REF]
 #                                        [--server NAME] [--reloaded] [--skip-tests]
+#                                        [--live-smoke]
 
 set -euo pipefail
 
@@ -31,6 +32,7 @@ REV="master"
 SERVER="agentcore"
 RELOADED=0
 SKIP_TESTS=0
+LIVE_SMOKE=0
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -39,6 +41,7 @@ while [ $# -gt 0 ]; do
     --server)   SERVER="$2"; shift 2 ;;
     --reloaded) RELOADED=1; shift ;;
     --skip-tests) SKIP_TESTS=1; shift ;;
+    --live-smoke) LIVE_SMOKE=1; shift ;;
     -h|--help) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
   esac
@@ -81,12 +84,14 @@ if [ "$SKIP_TESTS" -eq 0 ]; then
   printf '  passed\n'
 fi
 
-step "Smoke-testing the deployed registration against the live gateway"
-# This is the step that catches a manifest and a gateway that disagree about how
-# many namespace levels a tool name carries -- the failure that otherwise shows
-# up as missing tools long after the deploy looked fine.
-"$PYTHON" "$SCRIPT_DIR/adapter_smoke_test.py" --checkout "$CHECKOUT" --server "$SERVER" \
-  || die "the deployed adapter does not agree with the gateway; not reloading"
+if [ "$LIVE_SMOKE" -eq 1 ]; then
+  step "Opted-in live gateway validation"
+  "$PYTHON" "$SCRIPT_DIR/adapter_smoke_test.py" --live --checkout "$CHECKOUT" --server "$SERVER" \
+    || die "the live adapter/gateway checks failed; not reloading"
+else
+  step "Skipping live gateway validation (opt-in)"
+  printf '  pass --live-smoke after setting the required HERMES_AGENTCORE_* and HERMES_SMOKE_GITHUB_* variables to run it\n'
+fi
 
 step "Reloading the adapter"
 if [ -n "${HERMES_ADAPTER_RELOAD_CMD:-}" ]; then
@@ -98,8 +103,7 @@ elif [ "$RELOADED" -eq 1 ]; then
 else
   cat >&2 <<'MSG'
 
-  Deployed and verified, but the running MCP server still holds the previous
-  code in memory. Reload it before using the tools:
+  Checkout updated, but the running MCP server still holds the previous code in memory. Reload it before using the tools:
 
       /reload-mcp
 
@@ -109,4 +113,8 @@ MSG
   exit 2
 fi
 
-printf '\nDeployed %s (%s), reloaded, and verified against the gateway.\n' "$AFTER" "$SERVER"
+if [ "$LIVE_SMOKE" -eq 1 ]; then
+  printf '\nDeployed %s (%s), reloaded, and live gateway validation passed.\n' "$AFTER" "$SERVER"
+else
+  printf '\nDeployed %s (%s), reloaded; live gateway validation skipped.\n' "$AFTER" "$SERVER"
+fi

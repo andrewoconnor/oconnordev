@@ -126,7 +126,13 @@ resource "aws_iam_role_policy" "github_target_credentials" {
 }
 
 resource "terraform_data" "github_target_catalog_rebuild" {
-  triggers_replace = ["initial-catalog-rebuild"]
+  # AWS provider 6.66.0 exposes no explicit catalog-refresh argument for an
+  # MCP server target. DEFAULT listings are cached by AgentCore, so replace the
+  # target when its relevant upstream manifest inputs change.
+  triggers_replace = [sha256(jsonencode({
+    endpoint = local.github_tool_manifest.hosted_endpoint
+    tools    = sort(tolist(local.github_native_tools))
+  }))]
 }
 
 resource "aws_bedrockagentcore_gateway_target" "github" {

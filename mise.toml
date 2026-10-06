@@ -24,11 +24,12 @@ description = "Lint GitHub Actions workflow files"
 run = "actionlint .github/workflows/*.yml"
 
 [tasks."test:python"]
-description = "Run adapter, rotation, and CI path-selection unit tests"
+description = "Run adapter, rotation, gateway smoke, and CI path-selection unit tests"
 run = [
   "python3 -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v",
   "python3 -m unittest discover -s agents/hermes/rotation/test -p 'test_*.py' -v",
   "python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v",
+  "python3 -m unittest scripts.test_adapter_smoke_test scripts.test_gateway_validation scripts.test_gateway_validation_adapter scripts.test_deploy_hermes_adapter -v",
 ]
 
 [tasks."test:terraform-boundary"]

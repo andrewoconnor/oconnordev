@@ -195,6 +195,16 @@ run "enabled_when_the_security_gateway_is_resolved" {
   }
 
   assert {
+    condition     = terraform_data.github_target_catalog_rebuild.triggers_replace == [sha256(jsonencode({ endpoint = local.github_tool_manifest.hosted_endpoint, tools = sort(tolist(local.github_native_tools)) }))]
+    error_message = "The GitHub cached tool catalog must be replaced whenever the endpoint or manifest tool names change."
+  }
+
+  assert {
+    condition     = terraform_data.github_target_catalog_rebuild.triggers_replace[0] != sha256(jsonencode({ endpoint = local.github_tool_manifest.hosted_endpoint, tools = sort(tolist(setunion(local.github_native_tools, toset(["__synthetic_manifest_change__"])))) }))
+    error_message = "Adding a GitHub manifest tool must change the target catalog replacement trigger."
+  }
+
+  assert {
     condition     = contains(local.github_native_tools, "get_job_logs") && contains(local.github_read_tools, "get_job_logs") && !contains(local.github_branch_tools, "get_job_logs")
     error_message = "GitHub job logs must be in the manifest and read-only Cedar tool set, never the branch-write set."
   }
