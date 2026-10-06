@@ -165,9 +165,11 @@ resource "aws_bcmdataexports_export" "org_cost_usage" {
       query_statement = "SELECT ${join(", ", local.cur_columns)} FROM COST_AND_USAGE_REPORT"
       table_configurations = {
         COST_AND_USAGE_REPORT = {
-          TIME_GRANULARITY                   = "DAILY"
-          INCLUDE_RESOURCES                  = "TRUE"
-          INCLUDE_SPLIT_COST_ALLOCATION_DATA = "FALSE"
+          TIME_GRANULARITY                      = "DAILY"
+          INCLUDE_RESOURCES                     = "TRUE"
+          INCLUDE_SPLIT_COST_ALLOCATION_DATA    = "FALSE"
+          BILLING_VIEW_ARN                      = "arn:aws:billing::905418422177:billingview/primary"
+          INCLUDE_MANUAL_DISCOUNT_COMPATIBILITY = "FALSE"
         }
       }
     }
@@ -189,11 +191,6 @@ resource "aws_bcmdataexports_export" "org_cost_usage" {
     }
   }
   depends_on = [aws_s3_bucket_policy.org_cost_usage]
-  lifecycle {
-    ignore_changes = [
-      export[0].data_query[0].table_configurations,
-    ]
-  }
 }
 output "cost_export_arn" {
   value = aws_bcmdataexports_export.org_cost_usage.arn
