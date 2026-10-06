@@ -59,12 +59,72 @@ def _json_rpc(message_id: int, method: str, params: dict | None = None) -> dict:
     return request
 
 
-def _require_result(response, label: str) -> dict:
+def _known_sensitive_values(forwarder=None, additional=()):
+    values = [value for value in additional if isinstance(value, str) and value]
+    token_cache = getattr(forwarder, "tokens", None)
+    for name in ("client_id", "client_secret", "_token"):
+        value = getattr(token_cache, name, None)
+        if isinstance(value, str) and value:
+            values.append(value)
+    return sorted(set(values), key=len, reverse=True)
+
+
+def sanitize_diagnostic(value, *, forwarder=None, sensitive_values=()) -> str:
+    """Return a bounded diagnostic with known secrets and token-shaped values redacted."""
+    if not isinstance(value, str):
+        return ""
+    text = " ".join(value.split())
+    for secret in _known_sensitive_values(forwarder, sensitive_values):
+        text = text.replace(secret, "[REDACTED]")
+    text = re.sub(r"(?i)\b(Bearer|Basic)\s+[^\s,;\"']+", lambda match: f"{match.group(1)} [REDACTED]", text)
+    text = re.sub(
+        r"(?i)\b(access[_ -]?token|refresh[_ -]?token|client[_ -]?secret|client[_ -]?id|authorization)\s*[:=]\s*[^\s,;\"']+",
+        lambda match: f"{match.group(1)}=[REDACTED]",
+        text,
+    )
+    text = re.sub(r"(?<![A-Za-z0-9_-])(?:eyJ[A-Za-z0-9_-]{8,}\.){2}[A-Za-z0-9_-]{8,}(?![A-Za-z0-9_-])", "[REDACTED]", text)
+    text = re.sub(r"(?<![A-Za-z0-9_-])[A-Za-z0-9_-]{32,}(?![A-Za-z0-9_-])", "[REDACTED]", text)
+    text = re.sub(r"\b(?:AKIA|ASIA)[A-Z0-9]{16}\b", "[REDACTED]", text)
+    return text[:240]
+
+
+def _response_error_detail(response, *, forwarder=None, sensitive_values=()) -> str:
+    if not isinstance(response, dict):
+        return ""
+    error = response.get("error")
+    if isinstance(error, dict):
+        code = error.get("code")
+        label = f"JSON-RPC error {code}" if isinstance(code, int) and not isinstance(code, bool) else "JSON-RPC error"
+        detail = sanitize_diagnostic(error.get("message"), forwarder=forwarder, sensitive_values=sensitive_values)
+        return f"{label}: {detail}" if detail else label
+    result = response.get("result")
+    if isinstance(result, dict) and result.get("isError") is True:
+        parts = []
+        content = result.get("content")
+        if isinstance(content, list):
+            parts.extend(item["text"] for item in content if isinstance(item, dict) and isinstance(item.get("text"), str))
+        structured = result.get("structuredContent")
+        if isinstance(structured, dict) and isinstance(structured.get("message"), str):
+            parts.append(structured["message"])
+        detail = sanitize_diagnostic(" ".join(parts), forwarder=forwarder, sensitive_values=sensitive_values)
+        return f"tool returned isError: {detail}" if detail else "tool returned isError"
+    return ""
+
+
+def _call_forwarder(forwarder, message, label, sensitive_values=()):
+    try:
+        return forwarder.handle(message)
+    except Exception as error:
+        detail = sanitize_diagnostic(str(error), forwarder=forwarder, sensitive_values=sensitive_values)
+        raise SmokeCheckError(f"{label} raised {detail or type(error).__name__}") from None
+
+
+def _require_result(response, label: str, *, forwarder=None, sensitive_values=()) -> dict:
     if not isinstance(response, dict):
         raise SmokeCheckError(f"{label} returned no JSON-RPC response")
     if "error" in response:
-        error = response.get("error")
-        raise SmokeCheckError(f"{label} returned JSON-RPC error: {error}")
+        detail = _response_error_detail(response, forwarder=forwarder, sensitive_values=sensitive_values)
+        raise SmokeCheckError(f"{label} failed: {detail or 'JSON-RPC error'}")
     result = response.get("result")
     if not isinstance(result, dict):
         raise SmokeCheckError(f"{label} returned no result")
@@ -85,23 +145,26 @@ def _is_policy_denial(response) -> bool:
     return bool(re.search(denial_pattern, str(result), re.IGNORECASE))
 
 
-def run_gateway_checks(forwarder, per_target: dict[str, set[str]], github_owner: str, github_repo: str) -> list[str]:
+def run_gateway_checks(forwarder, per_target: dict[str, set[str]], github_owner: str, github_repo: str, *, sensitive_values=()) -> list[str]:
     """Exercise discovery, safe reads on every target, and non-mutating scope denials."""
     expected = set().union(*per_target.values()) if per_target else set()
-    initialized = forwarder.handle(_json_rpc(1, "initialize", {
+    initialize_label = "gateway initialize"
+    initialized = _call_forwarder(forwarder, _json_rpc(1, "initialize", {
         "protocolVersion": "2025-03-26",
         "capabilities": {},
         "clientInfo": {"name": "adapter-smoke-test", "version": "1"},
-    }))
-    init_result = _require_result(initialized, "gateway initialize")
+    }), initialize_label, sensitive_values)
+    init_result = _require_result(initialized, initialize_label, forwarder=forwarder, sensitive_values=sensitive_values)
     if not isinstance(init_result.get("protocolVersion"), str):
-        raise SmokeCheckError("gateway initialize returned no MCP protocol version")
-    forwarder.handle({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        raise SmokeCheckError(f"{initialize_label} returned no MCP protocol version")
+    _call_forwarder(forwarder, {"jsonrpc": "2.0", "method": "notifications/initialized"}, "gateway initialized notification", sensitive_values)
 
-    listing = _require_result(forwarder.handle(_json_rpc(2, "tools/list")), "gateway tools/list")
+    listing_label = "gateway tools/list"
+    listing_response = _call_forwarder(forwarder, _json_rpc(2, "tools/list"), listing_label, sensitive_values)
+    listing = _require_result(listing_response, listing_label, forwarder=forwarder, sensitive_values=sensitive_values)
     tools = listing.get("tools")
     if not isinstance(tools, list):
-        raise SmokeCheckError("gateway tools/list returned no tools array")
+        raise SmokeCheckError(f"{listing_label} returned no tools array")
     discovered: set[str] = set()
     tool_specs: dict[str, dict] = {}
     for tool in tools:
@@ -126,13 +189,15 @@ def run_gateway_checks(forwarder, per_target: dict[str, set[str]], github_owner:
 
     message_id = 3
     for target_name, (tool, arguments) in sorted(calls.items()):
-        result = forwarder.handle(_json_rpc(message_id, "tools/call", {"name": tool, "arguments": arguments}))
-        response = _require_result(result, f"{target_name} read-only smoke call {tool}")
+        label = f"{target_name} read-only smoke call {tool}"
+        result = _call_forwarder(forwarder, _json_rpc(message_id, "tools/call", {"name": tool, "arguments": arguments}), label, sensitive_values)
+        response = _require_result(result, label, forwarder=forwarder, sensitive_values=sensitive_values)
         if response.get("isError") is True:
-            raise SmokeCheckError(f"{target_name} read-only smoke call failed: {tool}")
+            detail = _response_error_detail({"result": response}, forwarder=forwarder, sensitive_values=sensitive_values)
+            raise SmokeCheckError(f"{label} failed: {detail or 'tool reported an error'}")
         if "content" not in response and "structuredContent" not in response:
-            raise SmokeCheckError(f"{target_name} read-only smoke call returned no result payload: {tool}")
-        messages.append(f"PASS: {target_name} read-only tool call {tool}")
+            raise SmokeCheckError(f"{label} returned no result payload")
+        messages.append(f"PASS: {label}")
         message_id += 1
 
     github_tool = READ_ONLY_SMOKE_TOOLS["github"]
@@ -141,9 +206,12 @@ def run_gateway_checks(forwarder, per_target: dict[str, set[str]], github_owner:
         ("repository outside the allowed scope", {"owner": github_owner, "repo": INVALID_REPOSITORY_PROBE, "path": "README.md"}),
     )
     for description, arguments in probes:
-        response = forwarder.handle(_json_rpc(message_id, "tools/call", {"name": github_tool, "arguments": arguments}))
+        label = f"GitHub request for {description}"
+        response = _call_forwarder(forwarder, _json_rpc(message_id, "tools/call", {"name": github_tool, "arguments": arguments}), label, sensitive_values)
         if not _is_policy_denial(response):
-            raise SmokeCheckError(f"GitHub request for {description} was not confirmed as an authorization denial")
-        messages.append(f"PASS: GitHub request for {description} was denied by policy")
+            detail = _response_error_detail(response, forwarder=forwarder, sensitive_values=sensitive_values)
+            suffix = f": {detail}" if detail else ""
+            raise SmokeCheckError(f"{label} was not confirmed as an authorization denial{suffix}")
+        messages.append(f"PASS: {label} was denied by policy")
         message_id += 1
     return messages
