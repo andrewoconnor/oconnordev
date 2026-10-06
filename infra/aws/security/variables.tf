@@ -1,3 +1,7 @@
+variable "spacelift_run_id" {
+  type = string
+}
+
 variable "cost_export_bucket_name" {
   description = "GENERAL account bucket containing the organization CUR export."
   type        = string

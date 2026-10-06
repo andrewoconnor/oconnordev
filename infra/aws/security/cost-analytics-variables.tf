@@ -9,10 +9,10 @@ variable "cost_export_projection_start_month" {
 }
 variable "athena_bytes_scanned_cutoff_per_query" {
   description = "Athena per-query bytes scanned cutoff; not a monthly spending cap."
-  type = number
-  default = 1073741824
+  type        = number
+  default     = 1073741824
   validation {
-    condition = var.athena_bytes_scanned_cutoff_per_query > 0
+    condition     = var.athena_bytes_scanned_cutoff_per_query > 0
     error_message = "The cutoff must be positive."
   }
 }
