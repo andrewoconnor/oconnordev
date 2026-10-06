@@ -48,7 +48,7 @@ mock_provider "aws" {
 
   mock_resource "aws_sqs_queue" {
     defaults = {
-      arn = "arn:aws:sqs:us-east-1:421680664125:***"
+      arn = "arn:aws:sqs:us-east-1:421680664125:hermes-spacelift-rotation-mock"
       id  = "https://sqs.us-east-1.amazonaws.com/421680664125/hermes-spacelift-rotation-mock"
     }
   }
@@ -139,7 +139,7 @@ run "disabled_when_the_security_gateway_is_unresolved" {
   }
 
   # The target name is still exported, because the adapter's manifest is what
-  # defines it and the name does not depend on the gate.
+  # defines it and the name does not depend on the URL.
   assert {
     condition     = output.hermes_aws_mcp_target_name == "aws"
     error_message = "The AWS target name is a constant and must not depend on the gate."
