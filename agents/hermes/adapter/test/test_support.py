@@ -49,9 +49,18 @@ SPACELIFT_TOOLS = {
     "provider",
     "query",
 }
-EXPECTED_TOOLS = GITHUB_TOOLS | AWS_TOOLS | SPACELIFT_TOOLS
+KNOWLEDGE_TOOLS = {
+    "aws___get_regional_availability",
+    "aws___list_regions",
+    "aws___read_documentation",
+    "aws___retrieve_skill",
+    "aws___search_documentation",
+}
+KNOWLEDGE_CLIENT_TOOLS = {f"knowledge___{tool}" for tool in KNOWLEDGE_TOOLS}
+EXPECTED_TOOLS = GITHUB_TOOLS | AWS_TOOLS | KNOWLEDGE_CLIENT_TOOLS | SPACELIFT_TOOLS
 GITHUB_TARGET = next(target for target in TARGETS if target.name == "github")
 AWS_TARGET = next(target for target in TARGETS if target.name == "aws")
+KNOWLEDGE_TARGET = next(target for target in TARGETS if target.name == "knowledge")
 SPACELIFT_TARGET = next(target for target in TARGETS if target.name == "spacelift")
 EXPECTED_TOOL_HEADER = ",".join(sorted(GITHUB_TOOLS))
 
