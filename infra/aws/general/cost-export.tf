@@ -118,6 +118,16 @@ data "aws_iam_policy_document" "org_cost_usage" {
     }
   }
   statement {
+    sid     = "AllowSecurityGatewayGetBucketLocation"
+    effect  = "Allow"
+    actions = ["s3:GetBucketLocation"]
+    principals {
+      type        = "AWS"
+      identifiers = [local.security_gateway_role_arn]
+    }
+    resources = [aws_s3_bucket.org_cost_usage.arn]
+  }
+  statement {
     sid     = "DenyInsecureTransport"
     effect  = "Deny"
     actions = ["s3:*"]
