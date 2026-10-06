@@ -3,28 +3,19 @@ from .test_support import *
 class TargetManifestTests(unittest.TestCase):
     def test_every_registered_target_matches_its_verified_allowlist(self):
         # Each upstream is one target. The AWS MCP Server is reached through
-        # the security gateway; AWS Knowledge is a distinct backend whose
-        # overlapping tool names receive a client namespace.
-        self.assertEqual({target.name for target in TARGETS}, {"github", "aws", "knowledge", "spacelift"})
+        # the security gateway.
+        self.assertEqual({target.name for target in TARGETS}, {"github", "aws", "spacelift"})
         self.assertEqual(GITHUB_TARGET.tools, GITHUB_TOOLS)
         self.assertEqual(AWS_TARGET.tools, AWS_TOOLS)
-        self.assertEqual(KNOWLEDGE_TARGET.tools, KNOWLEDGE_TOOLS)
-        self.assertEqual(KNOWLEDGE_TARGET.client_tools, KNOWLEDGE_CLIENT_TOOLS)
         self.assertEqual(SPACELIFT_TARGET.tools, SPACELIFT_TOOLS)
         self.assertEqual(len(GITHUB_TARGET.tools), 9)
         self.assertEqual(len(AWS_TARGET.tools), 7)
-        self.assertEqual(len(KNOWLEDGE_TARGET.tools), 5)
         self.assertEqual(len(SPACELIFT_TARGET.tools), 3)
 
     def test_manifests_on_disk_are_the_allowlists(self):
         for target in TARGETS:
             document = json.loads((pathlib.Path(__file__).resolve().parent.parent / f"{target.name}-mcp-tools.json").read_text())
             self.assertEqual(set(document["tools"]), set(target.tools))
-
-    def test_knowledge_adapter_manifest_matches_the_gateway_manifest(self):
-        repository = pathlib.Path(__file__).resolve().parents[4]
-        gateway_manifest = json.loads((repository / "infra/aws/tools/knowledge-mcp-tools.json").read_text())
-        self.assertEqual(set(gateway_manifest["tools"]), KNOWLEDGE_TARGET.tools)
 
     def test_write_capable_aws_tool_is_excluded(self):
         # get_presigned_url mints S3 upload URLs, so it is outside the boundary.
@@ -60,11 +51,6 @@ class TargetManifestTests(unittest.TestCase):
         for tool in AWS_TOOLS:
             self.assertTrue(tool.startswith("aws___"), tool)
             self.assertFalse(tool.startswith("aws___aws___"), tool)
-        # Knowledge exposes the same five upstream names as the AWS target, but
-        # keeps them collision-free in Hermes with its own client-only namespace.
-        self.assertEqual(KNOWLEDGE_TARGET.prefix, "knowledge___")
-        self.assertEqual(KNOWLEDGE_TARGET.client_tool_prefix, "knowledge___")
-        self.assertEqual(KNOWLEDGE_TARGET.prefix + "aws___read_documentation", "knowledge___aws___read_documentation")
 
     def test_a_malformed_gateway_action_prefix_fails_closed(self):
         # The declared prefix must end in the separator, or action-name routing
@@ -81,7 +67,7 @@ class TargetManifestTests(unittest.TestCase):
     def test_a_malformed_client_tool_prefix_fails_closed(self):
         with tempfile.TemporaryDirectory() as directory:
             (pathlib.Path(directory) / "bad-mcp-tools.json").write_text(
-                json.dumps({"tools": ["x"], "client_tool_prefix": "knowledge__"})
+                json.dumps({"tools": ["x"], "client_tool_prefix": "invalid__"})
             )
             with mock.patch("adapter_config.MANIFEST_DIR", pathlib.Path(directory)):
                 with self.assertRaises(AdapterError) as caught:
@@ -98,19 +84,10 @@ class TargetManifestTests(unittest.TestCase):
         self.assertEqual(caught.exception.category, "duplicate_tool_across_targets")
 
 class ExposureTests(unittest.TestCase):
-    def test_knowledge_target_is_exposed_with_a_distinct_client_namespace(self):
-        knowledge_tools = {
-            "knowledge___aws___get_regional_availability",
-            "knowledge___aws___list_regions",
-            "knowledge___aws___read_documentation",
-            "knowledge___aws___retrieve_skill",
-            "knowledge___aws___search_documentation",
-        }
-        self.assertTrue(knowledge_tools <= exposed_names(make_forwarder()))
 
     def test_tools_list_exposes_every_targets_manifest_tools(self):
         self.assertEqual(exposed_names(make_forwarder()), EXPECTED_TOOLS)
-        self.assertEqual(len(EXPECTED_TOOLS), 24)
+        self.assertEqual(len(EXPECTED_TOOLS), 19)
 
     def test_extra_tools_are_not_exposed(self):
         transport = FakeTransport()
@@ -124,7 +101,7 @@ class ExposureTests(unittest.TestCase):
 
     def test_a_missing_target_fails_closed(self):
         # One target silently absent must not look like a smaller catalog.
-        for hidden in ("github", "aws", "knowledge", "spacelift"):
+        for hidden in ("github", "aws", "spacelift"):
             transport = FakeTransport()
             transport.hide_target = hidden
             result = make_forwarder(transport).handle(rpc("tools/list"))
