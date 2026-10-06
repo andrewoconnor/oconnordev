@@ -18,7 +18,8 @@ TARGET_TOOLS = {
     },
     "aws": {
         "aws___get_regional_availability", "aws___get_tasks", "aws___list_regions",
-        "aws___read_documentation", "aws___retrieve_skill", "aws___search_documentation",
+        "aws___read_documentation", "aws___retrieve_skill", "aws___run_script",
+        "aws___search_documentation",
     },
     "spacelift": {"discover", "provider", "query"},
 }
