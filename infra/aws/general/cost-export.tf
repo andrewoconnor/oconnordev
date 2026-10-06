@@ -80,7 +80,7 @@ data "aws_iam_policy_document" "org_cost_usage" {
       type        = "Service"
       identifiers = ["bcm-data-exports.amazonaws.com"]
     }
-    resources = ["${aws_s3_bucket.org_cost_usage.arn}/billing/*"]
+    resources = ["${aws_s3_bucket.org_cost_usage.arn}/*"]
     condition {
       test     = "StringEquals"
       variable = "aws:SourceAccount"
