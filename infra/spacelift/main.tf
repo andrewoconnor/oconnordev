@@ -20,9 +20,9 @@ locals {
       additional_project_globs = ["infra/aws/accounts.json"]
     }
     tools = {
-      name        = "oconnordev-tools"
-      description = "OCONNORDEV-TOOLS AWS account"
-      project_root = "infra/aws/tools"
+      name                     = "oconnordev-tools"
+      description              = "OCONNORDEV-TOOLS AWS account"
+      project_root             = "infra/aws/tools"
       additional_project_globs = [
         "infra/aws/accounts.json",
         "agents/hermes/rotation/*.py",
