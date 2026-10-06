@@ -132,7 +132,7 @@ class GatewaySmokeTests(unittest.TestCase):
         self.assertEqual(forwarder.calls, [])
 
     def test_failed_positive_read_call_fails(self):
-        with self.assertRaisesRegex(SmokeCheckError, "read-only smoke call failed"):
+        with self.assertRaisesRegex(SmokeCheckError, "read-only smoke call.*failed"):
             run_gateway_checks(FakeForwarder(fail_positive="aws___list_regions"), TARGET_TOOLS, "andrewoconnor", "oconnordev")
 
     def test_missing_positive_result_payload_fails(self):
