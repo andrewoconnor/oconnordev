@@ -114,4 +114,8 @@ MSG
   exit 2
 fi
 
-printf '\nDeployed %s (%s), reloaded, and verified against the gateway.\n' "$AFTER" "$SERVER"
+if [ "$LIVE_SMOKE" -eq 1 ]; then
+  printf '\nDeployed %s (%s), reloaded, and live gateway validation passed.\n' "$AFTER" "$SERVER"
+else
+  printf '\nDeployed %s (%s), reloaded; live gateway validation skipped.\n' "$AFTER" "$SERVER"
+fi
