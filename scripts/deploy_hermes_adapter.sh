@@ -50,8 +50,8 @@ done
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON="${PYTHON:-python3}"
 
-step() { printf '\\n== %s\\n' "$1"; }
-die()  { printf 'FAIL: %s\\n' "$1" >&2; exit 1; }
+step() { printf '\n== %s\n' "$1"; }
+die()  { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 step "Checking the checkout at $CHECKOUT"
 [ -d "$CHECKOUT/.git" ] || die "$CHECKOUT is not a git checkout; this deploys a checkout, never a copied tree"
@@ -65,41 +65,41 @@ if [ -n "$(git -C "$CHECKOUT" status --porcelain)" ]; then
 fi
 
 BEFORE="$(git -C "$CHECKOUT" rev-parse --short HEAD)"
-printf '  at %s, clean\\n' "$BEFORE"
+printf '  at %s, clean\n' "$BEFORE"
 
 step "Updating to origin/$REV"
 git -C "$CHECKOUT" fetch --quiet origin "$REV"
 git -C "$CHECKOUT" merge --ff-only --quiet "origin/$REV" || die "cannot fast-forward to origin/$REV; the checkout has diverged"
 AFTER="$(git -C "$CHECKOUT" rev-parse --short HEAD)"
 if [ "$BEFORE" = "$AFTER" ]; then
-  printf '  already at %s, nothing to update\\n' "$AFTER"
+  printf '  already at %s, nothing to update\n' "$AFTER"
 else
-  printf '  %s -> %s\\n' "$BEFORE" "$AFTER"
+  printf '  %s -> %s\n' "$BEFORE" "$AFTER"
 fi
 
 if [ "$SKIP_TESTS" -eq 0 ]; then
   step "Running the adapter tests"
-  ( cd "$CHECKOUT/agents/hermes/adapter" && "$PYTHON" -m unittest discover -s test -t . -q ) \\
+  ( cd "$CHECKOUT/agents/hermes/adapter" && "$PYTHON" -m unittest discover -s test -t . -q ) \
     || die "the adapter tests failed; not deploying"
-  printf '  passed\\n'
+  printf '  passed\n'
 fi
 
 if [ "$LIVE_SMOKE" -eq 1 ]; then
   step "Opted-in live gateway validation"
-  "$PYTHON" "$SCRIPT_DIR/adapter_smoke_test.py" --live --checkout "$CHECKOUT" --server "$SERVER" \\
+  "$PYTHON" "$SCRIPT_DIR/adapter_smoke_test.py" --live --checkout "$CHECKOUT" --server "$SERVER" \
     || die "the live adapter/gateway checks failed; not reloading"
 else
   step "Skipping live gateway validation (opt-in)"
-  printf '  pass --live-smoke after setting the required HERMES_AGENTCORE_* and HERMES_SMOKE_GITHUB_* variables to run it\\n'
+  printf '  pass --live-smoke after setting the required HERMES_AGENTCORE_* and HERMES_SMOKE_GITHUB_* variables to run it\n'
 fi
 
 step "Reloading the adapter"
 if [ -n "${HERMES_ADAPTER_RELOAD_CMD:-}" ]; then
-  printf '  running HERMES_ADAPTER_RELOAD_CMD\\n'
+  printf '  running HERMES_ADAPTER_RELOAD_CMD\n'
   sh -c "$HERMES_ADAPTER_RELOAD_CMD" || die "HERMES_ADAPTER_RELOAD_CMD failed"
-  printf '  reloaded\\n'
+  printf '  reloaded\n'
 elif [ "$RELOADED" -eq 1 ]; then
-  printf '  confirmed by --reloaded\\n'
+  printf '  confirmed by --reloaded\n'
 else
   cat >&2 <<'MSG'
 
@@ -114,7 +114,7 @@ MSG
 fi
 
 if [ "$LIVE_SMOKE" -eq 1 ]; then
-  printf '\\nDeployed %s (%s), reloaded, and live gateway validation passed.\\n' "$AFTER" "$SERVER"
+  printf '\nDeployed %s (%s), reloaded, and live gateway validation passed.\n' "$AFTER" "$SERVER"
 else
-  printf '\\nDeployed %s (%s), reloaded; live gateway validation skipped.\\n' "$AFTER" "$SERVER"
+  printf '\nDeployed %s (%s), reloaded; live gateway validation skipped.\n' "$AFTER" "$SERVER"
 fi
