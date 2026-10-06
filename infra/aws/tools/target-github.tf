@@ -55,7 +55,7 @@ variable "hermes_github_default_branches" {
 }
 
 variable "hermes_github_machine_user_pat_json_key" {
-  description = "JSON object key holding the GitHub PAT in the existing Secrets Manager secret. AgentCore EXTERNAL credential providers require SecretString to be a JSON object (for example, {\"api_key\":\"<PAT>\"}); plaintext SecretString is rejected. OpenTofu never reads or manages the value."
+  description = "JSON object key holding the GitHub PAT in the existing Secrets Manager secret. AgentCore EXTERNAL credential providers require SecretString to be a JSON object (for example, {\"api_key\":\"<PAT>\"}); plaintext SecretString is rejected. Terraform never reads or manages the value."
   type        = string
   default     = "api_key"
 
