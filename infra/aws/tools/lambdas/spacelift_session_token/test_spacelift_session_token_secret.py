@@ -139,6 +139,7 @@ class SessionTokenSecretTests(unittest.TestCase):
         self.secrets.put_secret_value.assert_not_called()
 
     def test_secret_write_failure_does_not_publish_success_metric(self):
+        self.previous_token = jwt_with_claims(iat=800, exp=1900)
         self.secrets.put_secret_value.side_effect = RuntimeError("secret write failed")
 
         with (

@@ -25,7 +25,7 @@ class RotationConfigTests(unittest.TestCase):
         block = variable_block(
             self.config, "hermes_spacelift_rotation_interval_minutes"
         )
-        default = re.search(r"(?m)^\\s*default\\s*=\\s*(\\d+)\\s*$", block)
+        default = re.search(r"(?m)^\s*default\s*=\s*(\d+)\s*$", block)
 
         if default is None:
             self.fail("rotation interval default is missing")
@@ -49,7 +49,7 @@ class RotationConfigTests(unittest.TestCase):
     def test_rotation_lambda_serializes_invocations(self):
         self.assertRegex(
             self.lambda_config,
-            r"(?m)^\\s*reserved_concurrent_executions\\s*=\\s*1\\s*$",
+            r"(?m)^\s*reserved_concurrent_executions\s*=\s*1\s*$",
         )
 
 
