@@ -80,12 +80,27 @@ class SessionTokenRotationTests(unittest.TestCase):
         ):
             return self.rotation.handler({}, None)
 
-    def test_equal_expiry_is_reported_without_assuming_a_fixed_lifetime(self):
+    def test_same_expiry_near_expiration_does_not_replace_current_token(self):
+        self.new_token = jwt_with_claims(iat=900, exp=1010)
+        self.previous_token = jwt_with_claims(iat=800, exp=1010)
+
         result = self.run_successful_rotation()
 
-        self.assertEqual(result["exp"], 2000)
-        self.assertEqual(result["remaining_seconds"], 1000)
+        self.assertEqual(result["exp"], 1010)
+        self.assertEqual(result["remaining_seconds"], 10)
         self.assertFalse(result["expiry_changed"])
+        self.assertFalse(result["token_unchanged"])
+        self.assertFalse(result["token_published"])
+        self.secrets.put_secret_value.assert_not_called()
+
+    def test_near_expiry_token_is_replaced_only_by_later_observed_expiry(self):
+        self.previous_token = jwt_with_claims(iat=800, exp=1010)
+
+        result = self.run_successful_rotation()
+
+        self.assertEqual(result["remaining_seconds"], 1000)
+        self.assertTrue(result["expiry_changed"])
+        self.assertTrue(result["token_published"])
         self.secrets.put_secret_value.assert_called_once_with(
             SecretId="session-token-secret",
             SecretString=json.dumps({"token": self.new_token}),
@@ -154,6 +169,7 @@ class SessionTokenRotationTests(unittest.TestCase):
         result = self.run_successful_rotation()
 
         self.assertTrue(result["token_unchanged"])
+        self.assertFalse(result["token_published"])
         self.secrets.put_secret_value.assert_not_called()
 
     def test_minted_token_without_expiry_is_not_published(self):
