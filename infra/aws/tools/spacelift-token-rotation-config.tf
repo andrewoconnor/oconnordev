@@ -51,7 +51,7 @@ locals {
   spacelift_rotation_metric_remaining = "SessionTokenRemainingSeconds"
   spacelift_rotation_schedule         = "rate(${var.hermes_spacelift_rotation_interval_minutes} ${var.hermes_spacelift_rotation_interval_minutes == 1 ? "minute" : "minutes"})"
   spacelift_rotation_alarm_period     = var.hermes_spacelift_rotation_interval_minutes * 60
-  spacelift_rotation_source_dir       = "${local.repo_root}/agents/hermes/rotation"
+  spacelift_rotation_source_dir       = "${local.repo_root}/infra/aws/tools/lambdas/spacelift_session_token"
   spacelift_rotation_archive          = "${path.module}/.terraform-archives/spacelift_session_token.zip"
   spacelift_host                      = split("/", replace(var.hermes_spacelift_mcp_endpoint, "https://", ""))[0]
   spacelift_graphql_endpoint          = "https://${local.spacelift_host}/graphql"
@@ -61,5 +61,5 @@ data "archive_file" "spacelift_rotation" {
   type        = "zip"
   source_dir  = local.spacelift_rotation_source_dir
   output_path = local.spacelift_rotation_archive
-  excludes    = ["test/**", "**/__pycache__/**", "**/*.pyc"]
+  excludes    = ["test_*.py", "test/**", "**/__pycache__/**", "**/*.pyc"]
 }
