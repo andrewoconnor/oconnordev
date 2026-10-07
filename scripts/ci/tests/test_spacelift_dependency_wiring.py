@@ -16,7 +16,9 @@ def resource_body(resource_type: str, resource_name: str) -> str:
         flags=re.DOTALL,
     )
     if match is None:
-        raise AssertionError(f"Missing {resource_type}.{resource_name} in {DEPENDENCIES_FILE}")
+        raise AssertionError(
+            f"Missing {resource_type}.{resource_name} in {DEPENDENCIES_FILE}"
+        )
     return match.group(1)
 
 
@@ -32,11 +34,11 @@ class SpaceliftDependencyWiringTests(unittest.TestCase):
                 'spacelift_stack.accounts["security"].id',
             ),
             "github_repository_config_production": (
-                'spacelift_stack.github_repository_config[0].id',
+                "spacelift_stack.github_repository_config[0].id",
                 'spacelift_stack.accounts["production"].id',
             ),
             "github_repository_config_tools": (
-                'spacelift_stack.github_repository_config[0].id',
+                "spacelift_stack.github_repository_config[0].id",
                 'spacelift_stack.accounts["tools"].id',
             ),
         }
@@ -96,11 +98,14 @@ class SpaceliftDependencyWiringTests(unittest.TestCase):
         ):
             with self.subTest(resource=name):
                 body = resource_body(
-                    "spacelift_stack_dependency" if name.endswith(("production", "tools"))
+                    "spacelift_stack_dependency"
+                    if name.endswith(("production", "tools"))
                     else "spacelift_stack_dependency_reference",
                     name,
                 )
-                self.assertIn("count = var.enable_github_repository_config ? 1 : 0", body)
+                self.assertIn(
+                    "count = var.enable_github_repository_config ? 1 : 0", body
+                )
 
 
 if __name__ == "__main__":
