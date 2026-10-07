@@ -1,6 +1,6 @@
 resource "aws_cloudwatch_log_group" "spacelift_rotation" {
   # checkov:skip=CKV_AWS_158:Encrypted at rest with the default AWS-owned key. An AWS-managed key cannot be referenced here -- alias/aws/logs is created lazily by the service and does not resolve beforehand -- and a customer-managed key would need a key policy granting the log-delivery service kms:GenerateDataKey*, where a policy wrong in either direction fails the delivery silently rather than loudly.
-  # checkov:skip=CKV_AWS_338:Retention is 14 days rather than a year. These records carry only token metadata -- iat, exp, remaining lifetime and whether the window rolled -- never the API key or the JWT, so the shorter retention bounds a diagnostic log rather than an audit trail.
+  # checkov:skip=CKV_AWS_338:Retention is 14 days rather than a year. These records carry only token metadata -- iat, exp, remaining lifetime and whether the expiry changed -- never the API key or the JWT, so the shorter retention bounds a diagnostic log rather than an audit trail.
   name              = "/aws/lambda/${local.spacelift_rotation_function_name}"
   retention_in_days = var.hermes_spacelift_rotation_log_retention_days
 }
