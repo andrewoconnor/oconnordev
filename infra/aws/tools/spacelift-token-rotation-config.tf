@@ -1,22 +1,22 @@
 variable "hermes_spacelift_rotation_interval_minutes" {
-  description = "How often the Spacelift session token is re-minted. Spacelift reuses one fixed ten-hour expiry window per API key and re-minting does not extend it, so this cadence is what bounds the gap between that window rolling and a usable token being published. The alarm below evaluates over two intervals, so keep the interval well inside the ten-hour window."
+  description = "Poll every minute while Spacelift's renewal behavior is unobserved. The function uses each JWT's exp claim to determine whether a candidate extends the published token; it never waits inside Lambda."
   type        = number
-  default     = 60
+  default     = 1
 
   validation {
-    condition     = var.hermes_spacelift_rotation_interval_minutes >= 1 && var.hermes_spacelift_rotation_interval_minutes <= 720 && floor(var.hermes_spacelift_rotation_interval_minutes) == var.hermes_spacelift_rotation_interval_minutes
-    error_message = "hermes_spacelift_rotation_interval_minutes must be a whole number of minutes between 1 and 720."
+    condition     = var.hermes_spacelift_rotation_interval_minutes == 1
+    error_message = "hermes_spacelift_rotation_interval_minutes must be 1 until JWT expiry behavior is observed across a real expiry boundary."
   }
 }
 
 variable "hermes_spacelift_token_remaining_floor_seconds" {
-  description = "Alert when the published session token's remaining lifetime drops below this many seconds. A rotation that writes a nearly-expired token is a successful invocation and a failed rotation, so the alarm keys on the token's remaining life rather than on the function's exit status."
+  description = "Alert when the published session token has less than this remaining lifetime. A successful rotation still alarms when it publishes a nearly-expired token."
   type        = number
   default     = 7200
 
   validation {
-    condition     = var.hermes_spacelift_token_remaining_floor_seconds >= 60 && var.hermes_spacelift_token_remaining_floor_seconds <= 32400
-    error_message = "hermes_spacelift_token_remaining_floor_seconds must be between 60 and 32400 (nine hours), leaving headroom below the ten-hour window."
+    condition     = var.hermes_spacelift_token_remaining_floor_seconds >= 60 && var.hermes_spacelift_token_remaining_floor_seconds <= 86400
+    error_message = "hermes_spacelift_token_remaining_floor_seconds must be between 60 and 86400 seconds."
   }
 }
 
@@ -35,13 +35,13 @@ variable "hermes_spacelift_rotation_log_retention_days" {
 }
 
 variable "hermes_spacelift_rotation_http_timeout_seconds" {
-  description = "Connect and read timeout for the rotation function's calls to the Spacelift GraphQL and MCP endpoints."
+  description = "Maximum timeout for each rotation HTTP request; runtime clamps it to Lambda's remaining execution time with a safety margin."
   type        = number
-  default     = 15
+  default     = 5
 
   validation {
-    condition     = var.hermes_spacelift_rotation_http_timeout_seconds >= 1 && var.hermes_spacelift_rotation_http_timeout_seconds <= 60
-    error_message = "hermes_spacelift_rotation_http_timeout_seconds must be between 1 and 60 seconds, and must stay below the function timeout."
+    condition     = var.hermes_spacelift_rotation_http_timeout_seconds >= 1 && var.hermes_spacelift_rotation_http_timeout_seconds <= 10 && floor(var.hermes_spacelift_rotation_http_timeout_seconds) == var.hermes_spacelift_rotation_http_timeout_seconds
+    error_message = "hermes_spacelift_rotation_http_timeout_seconds must be a whole number of seconds between 1 and 10."
   }
 }
 
@@ -49,6 +49,7 @@ locals {
   spacelift_rotation_function_name    = "hermes-spacelift-session-token-rotation"
   spacelift_rotation_metric_namespace = "Hermes/SpaceliftAuth"
   spacelift_rotation_metric_remaining = "SessionTokenRemainingSeconds"
+  spacelift_rotation_expected_tools   = jsonencode(sort(tolist(local.spacelift_native_tools)))
   spacelift_rotation_schedule         = "rate(${var.hermes_spacelift_rotation_interval_minutes} ${var.hermes_spacelift_rotation_interval_minutes == 1 ? "minute" : "minutes"})"
   spacelift_rotation_alarm_period     = var.hermes_spacelift_rotation_interval_minutes * 60
   spacelift_rotation_source_dir       = "${local.repo_root}/infra/aws/tools/lambdas/spacelift_session_token"

@@ -1,4 +1,4 @@
-"""Unit tests for Spacelift session-token rotation and expiry windows."""
+"""Tests for token rotation."""
 
 import base64
 import importlib.util
@@ -15,8 +15,8 @@ TEST_ENV = {
     "API_KEY_SECRET_ID": "api-key-secret",
     "TOKEN_SECRET_ID": "session-token-secret",
     "GRAPHQL_ENDPOINT": "https://example.invalid/graphql",
-    "METRIC_NAMESPACE": "Test/SpaceliftAuth",
-    "METRIC_REMAINING": "SessionTokenRemainingSeconds",
+    "VERIFY_ENDPOINT": "https://example.invalid/mcp",
+    "VERIFY_EXPECTED_TOOLS_JSON": '["discover", "provider", "query"]',
 }
 
 
@@ -27,12 +27,10 @@ def jwt_with_claims(**claims):
 
 def load_rotation_module():
     boto3_stub = types.ModuleType("boto3")
-    boto3_stub.client = Mock()
-    spec = importlib.util.spec_from_file_location(
-        "spacelift_session_token_under_test", ROTATION_MODULE
-    )
+    boto3_stub.__dict__["client"] = Mock()
+    spec = importlib.util.spec_from_file_location("rot_under_test", ROTATION_MODULE)
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Unable to load rotation module from {ROTATION_MODULE}")
+        raise RuntimeError("cannot load Lambda module")
     module = importlib.util.module_from_spec(spec)
     with (
         patch.dict(os.environ, TEST_ENV),
@@ -82,60 +80,112 @@ class SessionTokenRotationTests(unittest.TestCase):
         ):
             return self.rotation.handler({}, None)
 
-    def test_same_expiry_means_the_existing_ten_hour_window_did_not_roll(self):
+    def test_same_expiry_near_expiration_does_not_replace_healthy_current_token(self):
+        self.new_token = jwt_with_claims(iat=900, exp=1010)
+        self.previous_token = jwt_with_claims(iat=800, exp=1010)
+
+        with (
+            patch.object(self.rotation.time, "time", return_value=1000),
+            patch.object(self.rotation, "_mint", return_value=self.new_token),
+            patch.object(self.rotation, "_verify", return_value=["query"]) as verify,
+            patch.object(self.rotation, "_log"),
+        ):
+            result = self.rotation.handler({}, None)
+
+        self.assertEqual(result["exp"], 1010)
+        self.assertEqual(result["remaining_seconds"], 10)
+        self.assertFalse(result["expiry_changed"])
+        self.assertFalse(result["token_unchanged"])
+        self.assertFalse(result["token_published"])
+        self.assertEqual(verify.call_count, 2)
+        self.assertEqual(verify.call_args_list[0].args[0], self.new_token)
+        self.assertEqual(verify.call_args_list[1].args[0], self.previous_token)
+        self.secrets.put_secret_value.assert_not_called()
+
+    def test_near_expiry_token_is_replaced_only_by_later_observed_expiry(self):
+        self.previous_token = jwt_with_claims(iat=800, exp=1010)
+
         result = self.run_successful_rotation()
 
-        self.assertEqual(result["exp"], 2000)
         self.assertEqual(result["remaining_seconds"], 1000)
-        self.assertFalse(result["window_rolled"])
+        self.assertTrue(result["expiry_changed"])
+        self.assertTrue(result["token_published"])
         self.secrets.put_secret_value.assert_called_once_with(
             SecretId="session-token-secret",
             SecretString=json.dumps({"token": self.new_token}),
         )
 
-    def test_unchanged_expiry_after_window_expiration_is_reported_as_stale(self):
+    def test_expired_minted_token_keeps_the_current_secret(self):
         self.new_token = jwt_with_claims(iat=800, exp=950)
-        self.previous_token = jwt_with_claims(iat=700, exp=950)
-
-        result = self.run_successful_rotation()
-
-        self.assertEqual(result["remaining_seconds"], -50)
-        self.assertFalse(result["window_rolled"])
-
-    def test_changed_expiry_marks_a_new_upstream_window(self):
-        self.previous_token = jwt_with_claims(iat=800, exp=1500)
-
-        result = self.run_successful_rotation()
-
-        self.assertTrue(result["window_rolled"])
-
-    def test_unreadable_previous_token_does_not_block_rotation(self):
-        self.previous_secret_error = RuntimeError("not available")
-
-        result = self.run_successful_rotation()
-
-        self.assertFalse(result["window_rolled"])
-        self.secrets.put_secret_value.assert_called_once()
-
-    def test_malformed_previous_token_is_treated_as_unknown_window(self):
-        self.previous_token = "not-a-jwt"
-
-        result = self.run_successful_rotation()
-
-        self.assertFalse(result["window_rolled"])
-
-    def test_api_key_read_failure_stops_before_minting_or_writing(self):
-        self.secrets.get_secret_value.side_effect = RuntimeError("secret read failed")
-        mint = Mock()
 
         with (
-            patch.object(self.rotation, "_mint", mint),
+            patch.object(self.rotation.time, "time", return_value=1000),
+            patch.object(self.rotation, "_mint", return_value=self.new_token),
+            patch.object(self.rotation, "_verify") as verify,
             patch.object(self.rotation, "_log"),
-            self.assertRaisesRegex(RuntimeError, "secret read failed"),
+            self.assertRaisesRegex(self.rotation.RotationError, "minted_token_expired"),
         ):
             self.rotation.handler({}, None)
 
-        mint.assert_not_called()
+        verify.assert_not_called()
+        self.secrets.put_secret_value.assert_not_called()
+
+    def test_expiration_during_verification_prevents_publish(self):
+        with (
+            patch.object(self.rotation.time, "time", side_effect=[1000, 2000]),
+            patch.object(self.rotation, "_mint", return_value=self.new_token),
+            patch.object(self.rotation, "_verify", return_value=["query"]),
+            patch.object(self.rotation, "_log"),
+            self.assertRaisesRegex(self.rotation.RotationError, "minted_token_expired"),
+        ):
+            self.rotation.handler({}, None)
+
+        self.secrets.put_secret_value.assert_not_called()
+
+    def test_invalid_exp_claim_keeps_the_current_secret(self):
+        for expiry in ("2000", True, float("nan"), float("inf")):
+            with self.subTest(expiry=expiry):
+                self.new_token = jwt_with_claims(iat=900, exp=expiry)
+                with (
+                    patch.object(self.rotation.time, "time", return_value=1000),
+                    patch.object(self.rotation, "_mint", return_value=self.new_token),
+                    patch.object(self.rotation, "_log"),
+                    self.assertRaisesRegex(self.rotation.RotationError, "invalid_exp"),
+                ):
+                    self.rotation.handler({}, None)
+
+                self.secrets.put_secret_value.assert_not_called()
+
+    def test_earlier_candidate_expiry_keeps_the_current_secret(self):
+        self.new_token = jwt_with_claims(iat=900, exp=1900)
+        self.previous_token = jwt_with_claims(iat=800, exp=2000)
+
+        with (
+            patch.object(self.rotation.time, "time", return_value=1000),
+            patch.object(self.rotation, "_mint", return_value=self.new_token),
+            patch.object(self.rotation, "_log"),
+            self.assertRaisesRegex(
+                self.rotation.RotationError, "minted_token_expiry_regressed"
+            ),
+        ):
+            self.rotation.handler({}, None)
+
+        self.secrets.put_secret_value.assert_not_called()
+
+    def test_unchanged_jwt_is_verified_without_a_secret_write(self):
+        self.new_token = self.previous_token
+
+        with (
+            patch.object(self.rotation.time, "time", return_value=1000),
+            patch.object(self.rotation, "_mint", return_value=self.new_token),
+            patch.object(self.rotation, "_verify", return_value=["query"]) as verify,
+            patch.object(self.rotation, "_log"),
+        ):
+            result = self.rotation.handler({}, None)
+
+        self.assertTrue(result["token_unchanged"])
+        self.assertFalse(result["token_published"])
+        verify.assert_called_once()
         self.secrets.put_secret_value.assert_not_called()
 
     def test_minted_token_without_expiry_is_not_published(self):
@@ -167,21 +217,3 @@ class SessionTokenRotationTests(unittest.TestCase):
             self.rotation.handler({}, None)
 
         self.secrets.put_secret_value.assert_not_called()
-
-    def test_secret_write_failure_propagates_and_does_not_publish_success_metric(self):
-        self.secrets.put_secret_value.side_effect = RuntimeError("secret write failed")
-
-        with (
-            patch.object(self.rotation.time, "time", return_value=1000),
-            patch.object(self.rotation, "_mint", return_value=self.new_token),
-            patch.object(self.rotation, "_verify", return_value=["query"]),
-            patch.object(self.rotation, "_log"),
-            self.assertRaisesRegex(RuntimeError, "secret write failed"),
-        ):
-            self.rotation.handler({}, None)
-
-        self.cloudwatch.put_metric_data.assert_not_called()
-
-
-if __name__ == "__main__":
-    unittest.main()
