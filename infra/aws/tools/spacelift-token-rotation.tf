@@ -17,14 +17,15 @@ resource "aws_lambda_function" "spacelift_rotation" {
 
   environment {
     variables = {
-      API_KEY_SECRET_ID    = var.hermes_spacelift_api_key_secret_name
-      TOKEN_SECRET_ID      = var.hermes_spacelift_session_token_secret_name
-      TOKEN_JSON_KEY       = var.hermes_spacelift_session_token_json_key
-      GRAPHQL_ENDPOINT     = local.spacelift_graphql_endpoint
-      VERIFY_ENDPOINT      = var.hermes_spacelift_mcp_endpoint
-      METRIC_NAMESPACE     = local.spacelift_rotation_metric_namespace
-      METRIC_REMAINING     = local.spacelift_rotation_metric_remaining
-      HTTP_TIMEOUT_SECONDS = tostring(var.hermes_spacelift_rotation_http_timeout_seconds)
+      API_KEY_SECRET_ID          = var.hermes_spacelift_api_key_secret_name
+      TOKEN_SECRET_ID            = var.hermes_spacelift_session_token_secret_name
+      TOKEN_JSON_KEY             = var.hermes_spacelift_session_token_json_key
+      GRAPHQL_ENDPOINT           = local.spacelift_graphql_endpoint
+      VERIFY_ENDPOINT            = var.hermes_spacelift_mcp_endpoint
+      VERIFY_EXPECTED_TOOLS_JSON = local.spacelift_rotation_expected_tools
+      METRIC_NAMESPACE           = local.spacelift_rotation_metric_namespace
+      METRIC_REMAINING           = local.spacelift_rotation_metric_remaining
+      HTTP_TIMEOUT_SECONDS       = tostring(var.hermes_spacelift_rotation_http_timeout_seconds)
     }
   }
 
@@ -86,7 +87,7 @@ resource "aws_lambda_permission" "spacelift_rotation" {
 
 resource "aws_cloudwatch_metric_alarm" "spacelift_session_token_stale" {
   alarm_name          = "hermes-spacelift-session-token-stale"
-  alarm_description   = "The published Spacelift session token has less than the configured remaining lifetime, or no successful rotation has been recorded for two consecutive intervals. Spacelift reuses one fixed ten-hour expiry window per API key, so a rotation can succeed while publishing an expiring token; this alarm keys on the token's remaining life rather than on the function's exit status. Missing data is breaching because the metric is emitted on every successful rotation, so its absence is itself the failure."
+  alarm_description   = "The published session token has less than the configured remaining lifetime, or no successful rotation has been recorded for two consecutive intervals. The token lifetime is taken from the JWT exp claim on every run; no fixed provider lifetime is assumed. The alarm tracks remaining lifetime rather than invocation exit status."
   namespace           = local.spacelift_rotation_metric_namespace
   metric_name         = local.spacelift_rotation_metric_remaining
   statistic           = "Minimum"
