@@ -112,6 +112,10 @@ def _valid_expiry(value: object) -> TypeGuard[int | float]:
         return False
 
 
+def _authentication_failed(error):
+    return str(error) in {"verify_http_401", "verify_read_http_401"}
+
+
 def _previous_token(secrets):
     """Read the currently published token when it is available."""
     try:
@@ -185,6 +189,18 @@ def handler(event, context):
         _log("failed", stage="verify", error=str(error))
         raise
 
+    same_expiry = _valid_expiry(previous_exp) and expires_at == previous_exp
+    stored_token_rejected = False
+    if token != previous_token and same_expiry:
+        try:
+            _verify(previous_token, context=context)
+        except RotationError as error:
+            if not _authentication_failed(error):
+                _log("failed", stage="verify_stored_token", error=str(error))
+                raise
+            _log("stored_token_unauthenticated", error=str(error))
+            stored_token_rejected = True
+
     now = time.time()
     if expires_at <= now:
         _log("failed", stage="publish", error="minted_token_expired")
@@ -192,7 +208,9 @@ def handler(event, context):
     remaining = expires_at - now
     token_unchanged = token == previous_token
     token_published = not token_unchanged and (
-        not _valid_expiry(previous_exp) or expires_at > previous_exp
+        not _valid_expiry(previous_exp)
+        or expires_at > previous_exp
+        or stored_token_rejected
     )
     if token_published:
         secrets.put_secret_value(
