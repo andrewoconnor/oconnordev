@@ -25,7 +25,10 @@ class OpenTofuLockfileTests(unittest.TestCase):
                 )
                 self.assertTrue(providers, "Lockfile contains no provider entries")
                 self.assertTrue(
-                    all(provider.startswith("registry.opentofu.org/") for provider in providers),
+                    all(
+                        provider.startswith("registry.opentofu.org/")
+                        for provider in providers
+                    ),
                     f"Expected OpenTofu registry addresses, found: {providers}",
                 )
 

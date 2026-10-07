@@ -39,5 +39,8 @@ jobs:
           version: '2026.10.3'
           github_token: ${{ github.token }}
 
+      - name: Check Python lint and formatting
+        run: mise run lint:python
+
       - name: Run unit and OpenTofu boundary tests
         run: mise run test
