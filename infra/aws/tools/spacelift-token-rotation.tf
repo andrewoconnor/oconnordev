@@ -30,6 +30,7 @@ resource "aws_lambda_function" "spacelift_rotation" {
   }
 
   depends_on = [
+    aws_servicequotas_service_quota.lambda_concurrent_executions,
     aws_cloudwatch_log_group.spacelift_rotation,
     aws_iam_role_policy.spacelift_rotation,
   ]
