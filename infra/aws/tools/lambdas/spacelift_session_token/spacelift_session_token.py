@@ -191,7 +191,10 @@ def handler(event, context):
         raise RotationError("minted_token_expired")
     remaining = expires_at - now
     token_unchanged = token == previous_token
-    if not token_unchanged:
+    token_published = not token_unchanged and (
+        not _valid_expiry(previous_exp) or expires_at > previous_exp
+    )
+    if token_published:
         secrets.put_secret_value(
             SecretId=TOKEN_SECRET_ID, SecretString=json.dumps({TOKEN_JSON_KEY: token})
         )
@@ -218,6 +221,7 @@ def handler(event, context):
         previous_exp=previous_exp,
         expiry_changed=expiry_changed,
         token_unchanged=token_unchanged,
+        token_published=token_published,
         tool_count=len(tools),
     )
 
@@ -226,4 +230,5 @@ def handler(event, context):
         "remaining_seconds": round(remaining, 3),
         "expiry_changed": expiry_changed,
         "token_unchanged": token_unchanged,
+        "token_published": token_published,
     }
