@@ -13,6 +13,7 @@ ever expose the tools its manifest names -- `tools/list` asserts the exposed set
 equals the union of the manifests, and `tools/call` refuses any name no target
 owns -- so a new target cannot widen an existing target's allowlist.
 """
+
 from __future__ import annotations
 
 import json
@@ -20,13 +21,61 @@ import os
 import sys
 
 from adapter_config import (
-    AdapterError, CLOUDFRONT_GATEWAY_HOSTNAME, CONNECT_TIMEOUT_SECONDS,
-    MANIFEST_DIR, MAX_LINE_BYTES, MAX_RESPONSE_BYTES, MAX_TOOL_LIST_PAGES,
-    READ_TIMEOUT_SECONDS, REQUIRED_SCOPE, TARGETS, TOKEN_REFRESH_SKEW_SECONDS,
-    Target, _json_rpc_error, _load_target, _validate_https_endpoint,
+    CLOUDFRONT_GATEWAY_HOSTNAME as CLOUDFRONT_GATEWAY_HOSTNAME,
 )
-from adapter_forwarder import AgentCoreForwarder
-from adapter_transport import HttpResponse, HttpsTransport, TokenCache
+from adapter_config import (
+    CONNECT_TIMEOUT_SECONDS as CONNECT_TIMEOUT_SECONDS,
+)
+from adapter_config import (
+    MANIFEST_DIR as MANIFEST_DIR,
+)
+from adapter_config import (
+    MAX_LINE_BYTES as MAX_LINE_BYTES,
+)
+from adapter_config import (
+    MAX_RESPONSE_BYTES as MAX_RESPONSE_BYTES,
+)
+from adapter_config import (
+    MAX_TOOL_LIST_PAGES as MAX_TOOL_LIST_PAGES,
+)
+from adapter_config import (
+    READ_TIMEOUT_SECONDS as READ_TIMEOUT_SECONDS,
+)
+from adapter_config import (
+    REQUIRED_SCOPE as REQUIRED_SCOPE,
+)
+from adapter_config import (
+    TARGETS as TARGETS,
+)
+from adapter_config import (
+    TOKEN_REFRESH_SKEW_SECONDS as TOKEN_REFRESH_SKEW_SECONDS,
+)
+from adapter_config import (
+    AdapterError as AdapterError,
+)
+from adapter_config import (
+    Target as Target,
+)
+from adapter_config import (
+    _json_rpc_error as _json_rpc_error,
+)
+from adapter_config import (
+    _load_target as _load_target,
+)
+from adapter_config import (
+    _validate_https_endpoint as _validate_https_endpoint,
+)
+from adapter_forwarder import AgentCoreForwarder as AgentCoreForwarder
+from adapter_transport import (
+    HttpResponse as HttpResponse,
+)
+from adapter_transport import (
+    HttpsTransport as HttpsTransport,
+)
+from adapter_transport import (
+    TokenCache as TokenCache,
+)
+
 
 def _load_forwarder() -> AgentCoreForwarder:
     return AgentCoreForwarder(
@@ -61,7 +110,12 @@ def serve(stdin=None, stdout=None, forwarder=None) -> None:
                 response = _json_rpc_error(None, -32000, "adapter_failure")
         if response is not None:
             try:
-                stdout.write(json.dumps(response, separators=(",", ":"), ensure_ascii=False).encode("utf-8") + b"\n")
+                stdout.write(
+                    json.dumps(
+                        response, separators=(",", ":"), ensure_ascii=False
+                    ).encode("utf-8")
+                    + b"\n"
+                )
                 stdout.flush()
             except Exception:
                 return
