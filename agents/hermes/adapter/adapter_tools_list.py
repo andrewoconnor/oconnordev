@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from adapter_config import AdapterError, MAX_TOOL_LIST_PAGES
+from adapter_config import MAX_TOOL_LIST_PAGES, AdapterError
+
 
 class _ToolsListMixin:
     def _tools_list(self, message: dict[str, Any]) -> dict[str, Any] | None:
@@ -52,7 +53,7 @@ class _ToolsListMixin:
                     # never exposed; the equality check below is what enforces
                     # the allowlist.
                     continue
-                logical_name = name[len(target.prefix):]
+                logical_name = name[len(target.prefix) :]
                 client_name = f"{target.client_tool_prefix}{logical_name}"
                 # Expose only the owning target's manifest allowlist, even if
                 # the gateway or an upstream returns additional tools.
