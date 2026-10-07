@@ -1,10 +1,17 @@
-from .test_support import *
+import unittest
+
+from adapter_forwarder import TokenCache
+
+from .test_support import REQUIRED_SCOPE, TOKEN_URL, FakeTransport, make_forwarder, rpc
+
 
 class TokenTests(unittest.TestCase):
     def test_required_scope_matches_generic_cognito_resource_server(self):
         self.assertEqual(REQUIRED_SCOPE, "hermes-mcp/invoke")
 
-    def test_initial_token_acquisition_requests_client_credentials_and_exact_scope(self):
+    def test_initial_token_acquisition_requests_client_credentials_and_exact_scope(
+        self,
+    ):
         transport = FakeTransport()
         make_forwarder(transport).handle(rpc("ping"))
         self.assertEqual(transport.token_calls, 1)
@@ -34,7 +41,10 @@ class TokenTests(unittest.TestCase):
         self.assertIn("result", result)
         self.assertEqual(transport.token_calls, 2)
         self.assertEqual(len(transport.gateway_calls), 2)
-        self.assertNotEqual(transport.gateway_calls[0][2]["Authorization"], transport.gateway_calls[1][2]["Authorization"])
+        self.assertNotEqual(
+            transport.gateway_calls[0][2]["Authorization"],
+            transport.gateway_calls[1][2]["Authorization"],
+        )
 
     def test_repeated_401_fails_closed(self):
         transport = FakeTransport()
