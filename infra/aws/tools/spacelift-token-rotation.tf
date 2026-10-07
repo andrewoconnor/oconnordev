@@ -11,7 +11,7 @@ resource "aws_lambda_function" "spacelift_rotation" {
   architectures                  = ["arm64"]
   timeout                        = 30
   memory_size                    = 128
-  reserved_concurrent_executions = -1
+  reserved_concurrent_executions = 1
   filename                       = data.archive_file.spacelift_rotation.output_path
   source_code_hash               = data.archive_file.spacelift_rotation.output_base64sha256
 
