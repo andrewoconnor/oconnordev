@@ -8,24 +8,28 @@ nothing else: this function holds no AgentCore control-plane permission.
 
 Nothing here logs, returns or persists the API key or the JWT. Only token
 metadata is recorded -- ``iat``, ``exp``, the remaining lifetime, and whether
-the upstream issued a new expiry window.
-
-That last field exists because the upstream does not mint a fresh ten-hour
-session on every call. It reuses one fixed expiry window per API key, anchored
-to the first mint, and re-minting returns the same ``exp`` without extending
-it. A rotation is therefore only healthy while the window still has life left,
-which is why the emitted metric carries the remaining seconds rather than a
-plain success flag.
+the expiry changed since the currently published token.
 """
 
 import base64
 import json
+import math
 import os
 import time
 import urllib.error
 import urllib.request
+from typing import TypeGuard
 
 import boto3
+from spacelift_session_token_http import (
+    RotationError,
+)
+from spacelift_session_token_http import (
+    _post as _http_post,
+)
+from spacelift_session_token_http import (
+    _verify as _verify_mcp,
+)
 
 REGION = os.environ.get("AWS_REGION")
 API_KEY_SECRET_ID = os.environ["API_KEY_SECRET_ID"]
@@ -36,17 +40,11 @@ TOKEN_JSON_KEY = os.environ.get("TOKEN_JSON_KEY", "token")
 GRAPHQL_ENDPOINT = os.environ["GRAPHQL_ENDPOINT"]
 METRIC_NAMESPACE = os.environ.get("METRIC_NAMESPACE", "Hermes/SpaceliftAuth")
 METRIC_REMAINING = os.environ.get("METRIC_REMAINING", "SessionTokenRemainingSeconds")
-HTTP_TIMEOUT_SECONDS = int(os.environ.get("HTTP_TIMEOUT_SECONDS", "15"))
-VERIFY_ENDPOINT = os.environ.get("VERIFY_ENDPOINT", "")
 
 MUTATION = (
     "mutation GetSpaceliftToken($id: ID!, $secret: String!) "
     "{ apiKeyUser(id: $id, secret: $secret) { jwt } }"
 )
-
-
-class RotationError(Exception):
-    """A rotation failure whose message is safe to log."""
 
 
 def _log(event, **fields):
@@ -64,15 +62,11 @@ def _claim(token, name):
         return None
 
 
-def _post(url, payload, headers):
-    request = urllib.request.Request(
-        url, data=json.dumps(payload).encode("utf-8"), method="POST", headers=headers
-    )
-    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_SECONDS) as response:
-        return response.read().decode("utf-8", "replace")
+def _post(url, payload, headers, *, context=None):
+    return _http_post(url, payload, headers, context=context)
 
 
-def _mint(key_id, key_secret):
+def _mint(key_id, key_secret, *, context=None):
     """Exchange the API key for a session JWT.
 
     The mutation answers HTTP 200 even when the credential is rejected, so a
@@ -83,6 +77,7 @@ def _mint(key_id, key_secret):
             GRAPHQL_ENDPOINT,
             {"query": MUTATION, "variables": {"id": key_id, "secret": key_secret}},
             {"Content-Type": "application/json"},
+            context=context,
         )
     except urllib.error.HTTPError as error:
         raise RotationError(f"graphql_http_{error.code}") from None
@@ -104,66 +99,40 @@ def _mint(key_id, key_secret):
     return user["jwt"]
 
 
-def _tool_names(body):
-    """Read tool names out of an MCP response, tolerating SSE framing."""
-    documents = []
+def _verify(token, *, context=None):
+    return _verify_mcp(token, context=context, post_request=_post)
+
+
+def _valid_expiry(value: object) -> TypeGuard[int | float]:
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        return False
     try:
-        documents.append(json.loads(body))
-    except ValueError:
-        for line in body.splitlines():
-            if line.startswith("data:"):
-                try:
-                    documents.append(json.loads(line[5:].strip()))
-                except ValueError:
-                    continue
-
-    for document in documents:
-        result = (document or {}).get("result") or {}
-        tools = result.get("tools")
-        if isinstance(tools, list):
-            return [tool.get("name") for tool in tools if isinstance(tool, dict)]
-    return None
+        return math.isfinite(value)
+    except OverflowError:
+        return False
 
 
-def _verify(token):
-    """Confirm the minted JWT reaches the narrowed MCP endpoint.
-
-    Only the tool count is recorded; the response body is never logged.
-    """
-    if not VERIFY_ENDPOINT:
-        return None
-
+def _previous_token(secrets):
+    """Read the currently published token when it is available."""
     try:
-        body = _post(
-            VERIFY_ENDPOINT,
-            {"jsonrpc": "2.0", "id": 1, "method": "tools/list", "params": {}},
-            {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-                "Authorization": f"Bearer {token}",
-            },
-        )
-    except urllib.error.HTTPError as error:
-        raise RotationError(f"verify_http_{error.code}") from None
+        secret_value = secrets.get_secret_value(SecretId=TOKEN_SECRET_ID)
     except Exception as error:
-        raise RotationError(f"verify_transport_{type(error).__name__}") from None
-
-    names = _tool_names(body)
-    if names is None:
-        raise RotationError("verify_response_unparseable")
-    return names
-
-
-def _previous_exp(secrets):
-    """Read the expiry currently published, so a rolled window is detectable."""
-    try:
-        current = json.loads(
-            secrets.get_secret_value(SecretId=TOKEN_SECRET_ID)["SecretString"]
+        response = getattr(error, "response", None)
+        code = (
+            response.get("Error", {}).get("Code")
+            if isinstance(response, dict) and isinstance(response.get("Error"), dict)
+            else None
         )
-    except Exception:
+        if code == "ResourceNotFoundException":
+            return None
+        raise RotationError("token_secret_read_failed") from None
+
+    try:
+        current = json.loads(secret_value["SecretString"])
+    except (KeyError, TypeError, ValueError):
         return None
     token = current.get(TOKEN_JSON_KEY) if isinstance(current, dict) else None
-    return _claim(token, "exp") if token else None
+    return token if isinstance(token, str) else None
 
 
 def handler(event, context):
@@ -182,7 +151,7 @@ def handler(event, context):
     _log("api_key_loaded", key_id_length=len(key_id))
 
     try:
-        token = _mint(key_id, key_secret)
+        token = _mint(key_id, key_secret, context=context)
     except RotationError as error:
         _log("failed", stage="mint", error=str(error))
         raise
@@ -192,20 +161,40 @@ def handler(event, context):
     if expires_at is None:
         _log("failed", stage="mint", error="minted_token_missing_exp")
         raise RotationError("minted_token_missing_exp")
-
-    remaining = expires_at - time.time()
-    previous_exp = _previous_exp(secrets)
-    window_rolled = previous_exp is not None and previous_exp != expires_at
+    if not _valid_expiry(expires_at):
+        _log("failed", stage="mint", error="invalid_exp")
+        raise RotationError("invalid_exp")
+    if expires_at <= time.time():
+        _log("failed", stage="mint", error="minted_token_expired")
+        raise RotationError("minted_token_expired")
 
     try:
-        tools = _verify(token)
+        previous_token = _previous_token(secrets)
+    except RotationError as error:
+        _log("failed", stage="token_secret_read", error=str(error))
+        raise
+    previous_exp = _claim(previous_token, "exp") if previous_token else None
+    if _valid_expiry(previous_exp) and expires_at < previous_exp:
+        _log("failed", stage="mint", error="minted_token_expiry_regressed")
+        raise RotationError("minted_token_expiry_regressed")
+    expiry_changed = _valid_expiry(previous_exp) and previous_exp != expires_at
+
+    try:
+        tools = _verify(token, context=context)
     except RotationError as error:
         _log("failed", stage="verify", error=str(error))
         raise
 
-    secrets.put_secret_value(
-        SecretId=TOKEN_SECRET_ID, SecretString=json.dumps({TOKEN_JSON_KEY: token})
-    )
+    now = time.time()
+    if expires_at <= now:
+        _log("failed", stage="publish", error="minted_token_expired")
+        raise RotationError("minted_token_expired")
+    remaining = expires_at - now
+    token_unchanged = token == previous_token
+    if not token_unchanged:
+        secrets.put_secret_value(
+            SecretId=TOKEN_SECRET_ID, SecretString=json.dumps({TOKEN_JSON_KEY: token})
+        )
 
     cloudwatch = boto3.client("cloudwatch", region_name=REGION)
     cloudwatch.put_metric_data(
@@ -224,15 +213,17 @@ def handler(event, context):
         "rotated",
         iat=issued_at,
         exp=expires_at,
-        lifetime_seconds=(expires_at - issued_at) if issued_at else None,
+        lifetime_seconds=(expires_at - issued_at) if _valid_expiry(issued_at) else None,
         remaining_seconds=round(remaining, 3),
         previous_exp=previous_exp,
-        window_rolled=window_rolled,
-        tool_count=len(tools) if tools is not None else None,
+        expiry_changed=expiry_changed,
+        token_unchanged=token_unchanged,
+        tool_count=len(tools),
     )
 
     return {
         "exp": expires_at,
         "remaining_seconds": round(remaining, 3),
-        "window_rolled": window_rolled,
+        "expiry_changed": expiry_changed,
+        "token_unchanged": token_unchanged,
     }
