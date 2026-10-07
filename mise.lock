@@ -52,17 +52,40 @@ specifiers = ["3.13.16"]
 
 [tools.python."platforms.linux-x64"]
 checksum = "sha256:4595c5589fff7bf0cb158d9a88a797e0d791fa33830770fcb7bf3f4b104feeae"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.13.16+20261003-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/202\u0036\u0031\u0030\u0030\u0033/cpython-3.13.16+202\u0036\u0031\u0030\u0030\u0033-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.macos-arm64"]
 checksum = "sha256:9e01f63bbb08576cd9c8bc2d0564d098cb30c8453a0cd4bcf6aef458f6d2a147"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.13.16+20261003-aarch64-apple-darwin-install_only_stripped.tar.gz"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/202\u0036\u0031\u0030\u0030\u0033/cpython-3.13.16+202\u0036\u0031\u0030\u0030\u0033-aarch64-apple-darwin-install_only_stripped.tar.gz"
 provenance = "github-attestations"
 
 [tools.python."platforms.macos-x64"]
 checksum = "sha256:b4dad38ba6a344555ccb71a1b08caad0a6c0dda88c5803658bc95bd7f04e9f5c"
-url = "https://github.com/astral-sh/python-build-standalone/releases/download/20261003/cpython-3.13.16+20261003-x86_64-apple-darwin-install_only_stripped.tar.gz"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/202\u0036\u0031\u0030\u0030\u0033/cpython-3.13.16+202\u0036\u0031\u0030\u0030\u0033-x86_64-apple-darwin-install_only_stripped.tar.gz"
+provenance = "github-attestations"
+
+[[tools.ruff]]
+version = "0.16.10"
+backend = "aqua:astral-sh/ruff"
+specifiers = ["0.16.10"]
+
+[tools.ruff."platforms.linux-x64"]
+checksum = "sha256:9567ff1201e2fb3da31ff04c35587d768c66d6cb42dfa84de474e2bfe360b608"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-unknown-linux-gnu.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/603827060"
+provenance = "github-attestations"
+
+[tools.ruff."platforms.macos-arm64"]
+checksum = "sha256:f051cd306de2691262a0574f8857cd1f4d6bfcd448084ea23d61b9c1c37df510"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-aarch64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/603826852"
+provenance = "github-attestations"
+
+[tools.ruff."platforms.macos-x64"]
+checksum = "sha256:ace641df42926e962cf04bc52c79eb6c50ba1ae6a17b602f081960616ecc1bd1"
+url = "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-apple-darwin.tar.gz"
+url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/603827024"
 provenance = "github-attestations"
 
 [[tools.tflint]]
