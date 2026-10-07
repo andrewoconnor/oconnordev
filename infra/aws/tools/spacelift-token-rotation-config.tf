@@ -1,11 +1,11 @@
 variable "hermes_spacelift_rotation_interval_minutes" {
-  description = "How often the Spacelift session token is checked and refreshed. Keep this at or below one hour until the provider's expiry behavior has been observed across a real expiry boundary."
+  description = "Poll every minute while Spacelift's renewal behavior is unobserved. The function uses each JWT's exp claim to determine whether a candidate extends the published token; it never waits inside Lambda."
   type        = number
-  default     = 60
+  default     = 1
 
   validation {
-    condition     = var.hermes_spacelift_rotation_interval_minutes >= 1 && var.hermes_spacelift_rotation_interval_minutes <= 60 && floor(var.hermes_spacelift_rotation_interval_minutes) == var.hermes_spacelift_rotation_interval_minutes
-    error_message = "hermes_spacelift_rotation_interval_minutes must be a whole number of minutes between 1 and 60."
+    condition     = var.hermes_spacelift_rotation_interval_minutes == 1
+    error_message = "hermes_spacelift_rotation_interval_minutes must be 1 until JWT expiry behavior is observed across a real expiry boundary."
   }
 }
 
@@ -40,8 +40,8 @@ variable "hermes_spacelift_rotation_http_timeout_seconds" {
   default     = 5
 
   validation {
-    condition     = var.hermes_spacelift_rotation_http_timeout_seconds >= 1 && var.hermes_spacelift_rotation_http_timeout_seconds <= 10
-    error_message = "hermes_spacelift_rotation_http_timeout_seconds must be between 1 and 10 seconds."
+    condition     = var.hermes_spacelift_rotation_http_timeout_seconds >= 1 && var.hermes_spacelift_rotation_http_timeout_seconds <= 10 && floor(var.hermes_spacelift_rotation_http_timeout_seconds) == var.hermes_spacelift_rotation_http_timeout_seconds
+    error_message = "hermes_spacelift_rotation_http_timeout_seconds must be a whole number of seconds between 1 and 10."
   }
 }
 
