@@ -28,8 +28,14 @@ class MockGatewayTransport:
     def request(self, url, method, headers, body):
         http_response = sys.modules["hermes_agentcore_adapter"].HttpResponse
         if url == self.token_url:
-            token = {"access_token": self.access_token, "expires_in": 300, "token_type": "Bearer"}
-            return http_response(200, {"content-type": "application/json"}, json.dumps(token).encode())
+            token = {
+                "access_token": self.access_token,
+                "expires_in": 300,
+                "token_type": "Bearer",
+            }
+            return http_response(
+                200, {"content-type": "application/json"}, json.dumps(token).encode()
+            )
 
         message = json.loads(body)
         self.gateway_messages.append(message)
@@ -39,27 +45,47 @@ class MockGatewayTransport:
         if message["method"] == "initialize":
             response["result"] = {"protocolVersion": "2025-03-26", "capabilities": {}}
         elif message["method"] == "tools/list":
-            response["result"] = {"tools": [{
-                "name": "github___get_file_contents",
-                "inputSchema": {"type": "object", "required": ["owner", "repo", "path"]},
-            }]}
+            response["result"] = {
+                "tools": [
+                    {
+                        "name": "github___get_file_contents",
+                        "inputSchema": {
+                            "type": "object",
+                            "required": ["owner", "repo", "path"],
+                        },
+                    }
+                ]
+            }
         elif message["method"] == "tools/call":
             arguments = message["params"]["arguments"]
             if arguments.get("owner") == INVALID_OWNER_PROBE:
                 response["error"] = {
                     "code": -32002,
-                    "message": "Tool Execution Denied: Tool call not allowed due to policy enforcement",
+                    "message": (
+                        "Tool Execution Denied: Tool call not allowed due to "
+                        "policy enforcement"
+                    ),
                     "data": {"type": "AuthorizeActionException"},
                 }
             elif arguments.get("repo") == INVALID_REPOSITORY_PROBE:
                 response["result"] = {
                     "isError": True,
-                    "content": [{"type": "text", "text": "AuthorizeActionException: policy enforcement denied request"}],
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "AuthorizeActionException: policy enforcement "
+                                "denied request"
+                            ),
+                        }
+                    ],
                 }
             elif self.read_error is not None:
                 response.update(self.read_error)
             else:
-                response["result"] = {"content": [{"type": "text", "text": "safe read"}]}
+                response["result"] = {
+                    "content": [{"type": "text", "text": "safe read"}]
+                }
         return http_response(
             200,
             {"content-type": "application/json", "mcp-session-id": "smoke-session"},
@@ -70,7 +96,9 @@ class MockGatewayTransport:
 class RealAdapterGatewayTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        adapter_root = Path(__file__).resolve().parents[1] / "agents" / "hermes" / "adapter"
+        adapter_root = (
+            Path(__file__).resolve().parents[1] / "agents" / "hermes" / "adapter"
+        )
         sys.path.insert(0, str(adapter_root))
         cls.adapter = importlib.import_module("hermes_agentcore_adapter")
 
@@ -88,22 +116,48 @@ class RealAdapterGatewayTests(unittest.TestCase):
     def test_gateway_authorization_denials_pass_through_real_adapter(self):
         transport = MockGatewayTransport()
         forwarder = self.make_forwarder(transport)
-        messages = run_gateway_checks(forwarder, {"github": {"get_file_contents"}}, "andrewoconnor", "oconnordev")
-        self.assertEqual(sum("was denied by policy" in message for message in messages), 2)
-        calls = [message for message in transport.gateway_messages if message["method"] == "tools/call"]
+        messages = run_gateway_checks(
+            forwarder, {"github": {"get_file_contents"}}, "andrewoconnor", "oconnordev"
+        )
+        self.assertEqual(
+            sum("was denied by policy" in message for message in messages), 2
+        )
+        calls = [
+            message
+            for message in transport.gateway_messages
+            if message["method"] == "tools/call"
+        ]
         self.assertEqual(len(calls), 3)
-        self.assertTrue(all(message["params"]["name"] == "github___get_file_contents" for message in calls))
+        self.assertTrue(
+            all(
+                message["params"]["name"] == "github___get_file_contents"
+                for message in calls
+            )
+        )
 
-    def test_read_error_detail_names_target_and_redacts_credentials_and_access_token(self):
-        transport = MockGatewayTransport(read_error={
-            "error": {
-                "code": -32000,
-                "message": f"upstream timeout client_id={MockGatewayTransport.client_id} client_secret={MockGatewayTransport.client_secret} Bearer {MockGatewayTransport.access_token}",
-            },
-        })
+    def test_read_error_detail_names_target_and_redacts_credentials_and_access_token(
+        self,
+    ):
+        transport = MockGatewayTransport(
+            read_error={
+                "error": {
+                    "code": -32000,
+                    "message": (
+                        f"upstream timeout client_id={MockGatewayTransport.client_id} "
+                        f"client_secret={MockGatewayTransport.client_secret} "
+                        f"Bearer {MockGatewayTransport.access_token}"
+                    ),
+                },
+            }
+        )
         forwarder = self.make_forwarder(transport)
         with self.assertRaises(SmokeCheckError) as caught:
-            run_gateway_checks(forwarder, {"github": {"get_file_contents"}}, "andrewoconnor", "oconnordev")
+            run_gateway_checks(
+                forwarder,
+                {"github": {"get_file_contents"}},
+                "andrewoconnor",
+                "oconnordev",
+            )
         detail = str(caught.exception)
         self.assertIn("github read-only smoke call get_file_contents", detail)
         self.assertIn("upstream timeout", detail)

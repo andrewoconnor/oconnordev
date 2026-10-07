@@ -4,14 +4,13 @@ import base64
 import importlib.util
 import json
 import os
-from pathlib import Path
 import sys
 import types
 import unittest
+from pathlib import Path
 from unittest.mock import Mock, patch
 
-
-ROTATION_MODULE = Path(__file__).resolve().parents[1] / "spacelift_session_token.py"
+ROTATION_MODULE = Path(__file__).resolve().with_name("spacelift_session_token.py")
 TEST_ENV = {
     "API_KEY_SECRET_ID": "api-key-secret",
     "TOKEN_SECRET_ID": "session-token-secret",
@@ -28,12 +27,17 @@ def jwt_with_claims(**claims):
 
 def load_rotation_module():
     boto3_stub = types.ModuleType("boto3")
-    setattr(boto3_stub, "client", Mock())
-    spec = importlib.util.spec_from_file_location("spacelift_session_token_under_test", ROTATION_MODULE)
+    boto3_stub.client = Mock()
+    spec = importlib.util.spec_from_file_location(
+        "spacelift_session_token_under_test", ROTATION_MODULE
+    )
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Unable to load rotation module from {ROTATION_MODULE}")
     module = importlib.util.module_from_spec(spec)
-    with patch.dict(os.environ, TEST_ENV), patch.dict(sys.modules, {"boto3": boto3_stub}):
+    with (
+        patch.dict(os.environ, TEST_ENV),
+        patch.dict(sys.modules, {"boto3": boto3_stub}),
+    ):
         spec.loader.exec_module(module)
     return module
 
@@ -46,19 +50,23 @@ class SessionTokenRotationTests(unittest.TestCase):
     def setUp(self):
         self.secrets = Mock()
         self.cloudwatch = Mock()
-        setattr(self.rotation.boto3, "client", Mock(
+        self.rotation.boto3.client = Mock(
             side_effect=lambda service, **kwargs: {
                 "secretsmanager": self.secrets,
                 "cloudwatch": self.cloudwatch,
             }[service]
-        ))
+        )
         self.new_token = jwt_with_claims(iat=900, exp=2000)
         self.previous_token = jwt_with_claims(iat=800, exp=2000)
         self.previous_secret_error = None
 
         def get_secret_value(*, SecretId):
             if SecretId == "api-key-secret":
-                return {"SecretString": json.dumps({"api_key_id": "test-id", "api_key_secret": "test-secret"})}
+                return {
+                    "SecretString": json.dumps(
+                        {"api_key_id": "test-id", "api_key_secret": "test-secret"}
+                    )
+                }
             if self.previous_secret_error:
                 raise self.previous_secret_error
             return {"SecretString": json.dumps({"token": self.previous_token})}
@@ -120,9 +128,12 @@ class SessionTokenRotationTests(unittest.TestCase):
         self.secrets.get_secret_value.side_effect = RuntimeError("secret read failed")
         mint = Mock()
 
-        with patch.object(self.rotation, "_mint", mint), patch.object(self.rotation, "_log"):
-            with self.assertRaisesRegex(RuntimeError, "secret read failed"):
-                self.rotation.handler({}, None)
+        with (
+            patch.object(self.rotation, "_mint", mint),
+            patch.object(self.rotation, "_log"),
+            self.assertRaisesRegex(RuntimeError, "secret read failed"),
+        ):
+            self.rotation.handler({}, None)
 
         mint.assert_not_called()
         self.secrets.put_secret_value.assert_not_called()
@@ -133,9 +144,11 @@ class SessionTokenRotationTests(unittest.TestCase):
         with (
             patch.object(self.rotation, "_mint", return_value=token_without_exp),
             patch.object(self.rotation, "_log"),
+            self.assertRaisesRegex(
+                self.rotation.RotationError, "minted_token_missing_exp"
+            ),
         ):
-            with self.assertRaisesRegex(self.rotation.RotationError, "minted_token_missing_exp"):
-                self.rotation.handler({}, None)
+            self.rotation.handler({}, None)
 
         self.secrets.put_secret_value.assert_not_called()
 
@@ -143,11 +156,15 @@ class SessionTokenRotationTests(unittest.TestCase):
         with (
             patch.object(self.rotation.time, "time", return_value=1000),
             patch.object(self.rotation, "_mint", return_value=self.new_token),
-            patch.object(self.rotation, "_verify", side_effect=self.rotation.RotationError("verify_http_403")),
+            patch.object(
+                self.rotation,
+                "_verify",
+                side_effect=self.rotation.RotationError("verify_http_403"),
+            ),
             patch.object(self.rotation, "_log"),
+            self.assertRaisesRegex(self.rotation.RotationError, "verify_http_403"),
         ):
-            with self.assertRaisesRegex(self.rotation.RotationError, "verify_http_403"):
-                self.rotation.handler({}, None)
+            self.rotation.handler({}, None)
 
         self.secrets.put_secret_value.assert_not_called()
 
@@ -159,9 +176,9 @@ class SessionTokenRotationTests(unittest.TestCase):
             patch.object(self.rotation, "_mint", return_value=self.new_token),
             patch.object(self.rotation, "_verify", return_value=["query"]),
             patch.object(self.rotation, "_log"),
+            self.assertRaisesRegex(RuntimeError, "secret write failed"),
         ):
-            with self.assertRaisesRegex(RuntimeError, "secret write failed"):
-                self.rotation.handler({}, None)
+            self.rotation.handler({}, None)
 
         self.cloudwatch.put_metric_data.assert_not_called()
 

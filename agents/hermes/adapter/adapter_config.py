@@ -31,13 +31,24 @@ class AdapterError(Exception):
 
 
 def _json_rpc_error(message_id: Any, code: int, message: str) -> dict[str, Any]:
-    return {"jsonrpc": "2.0", "id": message_id, "error": {"code": code, "message": message}}
+    return {
+        "jsonrpc": "2.0",
+        "id": message_id,
+        "error": {"code": code, "message": message},
+    }
 
 
 def _validate_https_endpoint(value: str, kind: str) -> str:
     try:
         parsed = urlsplit(value)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password or parsed.query or parsed.fragment:
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.query
+            or parsed.fragment
+        ):
             raise ValueError
         if kind == "gateway":
             valid_host = parsed.hostname == CLOUDFRONT_GATEWAY_HOSTNAME or re.fullmatch(
@@ -46,7 +57,9 @@ def _validate_https_endpoint(value: str, kind: str) -> str:
             )
             valid_path = parsed.path == "/mcp"
         else:
-            valid_host = re.fullmatch(r"[a-z0-9-]+\.auth\.[a-z0-9-]+\.amazoncognito\.com", parsed.hostname)
+            valid_host = re.fullmatch(
+                r"[a-z0-9-]+\.auth\.[a-z0-9-]+\.amazoncognito\.com", parsed.hostname
+            )
             valid_path = parsed.path == "/oauth2/token"
         if not valid_host or not valid_path or parsed.port not in (None, 443):
             raise ValueError
@@ -98,7 +111,9 @@ class Target:
         return self.action_prefix or f"{self.name}___"
 
 
-def _load_target(name: str, manifest_name: str, *, toolset_header: bool = False) -> Target:
+def _load_target(
+    name: str, manifest_name: str, *, toolset_header: bool = False
+) -> Target:
     document = json.loads((MANIFEST_DIR / manifest_name).read_text(encoding="utf-8"))
     tools = frozenset(document["tools"])
     # The GitHub upstream accepts an X-MCP-Tools toolset filter; the AWS and
@@ -111,10 +126,14 @@ def _load_target(name: str, manifest_name: str, *, toolset_header: bool = False)
     # tools arrive through more than one gateway. It must end in the separator,
     # or action-name routing would silently mis-split.
     action_prefix = document.get("gateway_action_prefix")
-    if action_prefix is not None and (not isinstance(action_prefix, str) or not action_prefix.endswith("___")):
+    if action_prefix is not None and (
+        not isinstance(action_prefix, str) or not action_prefix.endswith("___")
+    ):
         raise AdapterError("invalid_gateway_action_prefix")
     client_tool_prefix = document.get("client_tool_prefix", "")
-    if not isinstance(client_tool_prefix, str) or (client_tool_prefix and not client_tool_prefix.endswith("___")):
+    if not isinstance(client_tool_prefix, str) or (
+        client_tool_prefix and not client_tool_prefix.endswith("___")
+    ):
         raise AdapterError("invalid_client_tool_prefix")
     return Target(
         name=name,

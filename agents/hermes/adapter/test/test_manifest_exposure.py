@@ -1,10 +1,34 @@
-from .test_support import *
+import json
+import pathlib
+import tempfile
+import unittest
+from unittest import mock
+
+from adapter_config import AdapterError, Target, _load_target
+
+from .test_support import (
+    AWS_TARGET,
+    AWS_TOOLS,
+    EXPECTED_TOOLS,
+    GITHUB_TARGET,
+    GITHUB_TOOLS,
+    SPACELIFT_TARGET,
+    SPACELIFT_TOOLS,
+    TARGETS,
+    FakeTransport,
+    exposed_names,
+    make_forwarder,
+    rpc,
+)
+
 
 class TargetManifestTests(unittest.TestCase):
     def test_every_registered_target_matches_its_verified_allowlist(self):
         # Each upstream is one target. The AWS MCP Server is reached through
         # the security gateway.
-        self.assertEqual({target.name for target in TARGETS}, {"github", "aws", "spacelift"})
+        self.assertEqual(
+            {target.name for target in TARGETS}, {"github", "aws", "spacelift"}
+        )
         self.assertEqual(GITHUB_TARGET.tools, GITHUB_TOOLS)
         self.assertEqual(AWS_TARGET.tools, AWS_TOOLS)
         self.assertEqual(SPACELIFT_TARGET.tools, SPACELIFT_TOOLS)
@@ -14,7 +38,12 @@ class TargetManifestTests(unittest.TestCase):
 
     def test_manifests_on_disk_are_the_allowlists(self):
         for target in TARGETS:
-            document = json.loads((pathlib.Path(__file__).resolve().parent.parent / f"{target.name}-mcp-tools.json").read_text())
+            document = json.loads(
+                (
+                    pathlib.Path(__file__).resolve().parent.parent
+                    / f"{target.name}-mcp-tools.json"
+                ).read_text()
+            )
             self.assertEqual(set(document["tools"]), set(target.tools))
 
     def test_write_capable_aws_tool_is_excluded(self):
@@ -47,7 +76,9 @@ class TargetManifestTests(unittest.TestCase):
         # aws___<tool>. That gap is declared by gateway_action_prefix rather
         # than baked into every tool name.
         self.assertEqual(AWS_TARGET.prefix, "aws___aws___")
-        self.assertEqual(AWS_TARGET.prefix + "aws___run_script", "aws___aws___aws___run_script")
+        self.assertEqual(
+            AWS_TARGET.prefix + "aws___run_script", "aws___aws___aws___run_script"
+        )
         for tool in AWS_TOOLS:
             self.assertTrue(tool.startswith("aws___"), tool)
             self.assertFalse(tool.startswith("aws___aws___"), tool)
@@ -59,9 +90,11 @@ class TargetManifestTests(unittest.TestCase):
             (pathlib.Path(directory) / "bad-mcp-tools.json").write_text(
                 json.dumps({"tools": ["x"], "gateway_action_prefix": "aws__"})
             )
-            with mock.patch("adapter_config.MANIFEST_DIR", pathlib.Path(directory)):
-                with self.assertRaises(AdapterError) as caught:
-                    _load_target("bad", "bad-mcp-tools.json")
+            with (
+                mock.patch("adapter_config.MANIFEST_DIR", pathlib.Path(directory)),
+                self.assertRaises(AdapterError) as caught,
+            ):
+                _load_target("bad", "bad-mcp-tools.json")
         self.assertEqual(caught.exception.category, "invalid_gateway_action_prefix")
 
     def test_a_malformed_client_tool_prefix_fails_closed(self):
@@ -69,9 +102,11 @@ class TargetManifestTests(unittest.TestCase):
             (pathlib.Path(directory) / "bad-mcp-tools.json").write_text(
                 json.dumps({"tools": ["x"], "client_tool_prefix": "invalid__"})
             )
-            with mock.patch("adapter_config.MANIFEST_DIR", pathlib.Path(directory)):
-                with self.assertRaises(AdapterError) as caught:
-                    _load_target("bad", "bad-mcp-tools.json")
+            with (
+                mock.patch("adapter_config.MANIFEST_DIR", pathlib.Path(directory)),
+                self.assertRaises(AdapterError) as caught,
+            ):
+                _load_target("bad", "bad-mcp-tools.json")
         self.assertEqual(caught.exception.category, "invalid_client_tool_prefix")
 
     def test_duplicate_tool_across_targets_fails_closed(self):
@@ -83,8 +118,8 @@ class TargetManifestTests(unittest.TestCase):
             make_forwarder(targets=overlapping)
         self.assertEqual(caught.exception.category, "duplicate_tool_across_targets")
 
-class ExposureTests(unittest.TestCase):
 
+class ExposureTests(unittest.TestCase):
     def test_tools_list_exposes_every_targets_manifest_tools(self):
         self.assertEqual(exposed_names(make_forwarder()), EXPECTED_TOOLS)
         self.assertEqual(len(EXPECTED_TOOLS), 19)
@@ -105,7 +140,9 @@ class ExposureTests(unittest.TestCase):
             transport = FakeTransport()
             transport.hide_target = hidden
             result = make_forwarder(transport).handle(rpc("tools/list"))
-            self.assertEqual(result["error"]["message"], "gateway_tool_set_mismatch", hidden)
+            self.assertEqual(
+                result["error"]["message"], "gateway_tool_set_mismatch", hidden
+            )
 
     def test_missing_tool_fails_closed(self):
         transport = FakeTransport()
@@ -117,7 +154,9 @@ class ExposureTests(unittest.TestCase):
         transport = FakeTransport()
         transport.page_size = 3
         result = make_forwarder(transport).handle(rpc("tools/list"))
-        self.assertEqual({tool["name"] for tool in result["result"]["tools"]}, EXPECTED_TOOLS)
+        self.assertEqual(
+            {tool["name"] for tool in result["result"]["tools"]}, EXPECTED_TOOLS
+        )
         # One call per page of three, so derive the page count from the tool
         # count rather than restating it whenever a target is added.
         self.assertEqual(len(transport.gateway_calls), -(-len(EXPECTED_TOOLS) // 3))
@@ -133,4 +172,6 @@ class ExposureTests(unittest.TestCase):
     def test_client_supplied_cursor_cannot_narrow_the_tool_set(self):
         transport = FakeTransport()
         transport.page_size = 3
-        self.assertEqual(exposed_names(make_forwarder(transport), {"cursor": "3"}), EXPECTED_TOOLS)
+        self.assertEqual(
+            exposed_names(make_forwarder(transport), {"cursor": "3"}), EXPECTED_TOOLS
+        )

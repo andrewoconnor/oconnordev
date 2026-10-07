@@ -25,7 +25,6 @@ locals {
       project_root = "infra/aws/tools"
       additional_project_globs = [
         "infra/aws/accounts.json",
-        "agents/hermes/rotation/*.py",
         "agents/hermes/adapter/*-mcp-tools.json",
       ]
     }

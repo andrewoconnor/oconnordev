@@ -3,6 +3,7 @@ opentofu = "1.12.6"
 tflint = "0.64.0"
 actionlint = "1.7.12"
 python = "3.13.16"
+ruff = "0.16.10"
 
 [settings]
 lockfile = true
@@ -23,11 +24,19 @@ run = "python3 scripts/ci/validate_opentofu.py"
 description = "Lint GitHub Actions workflow files"
 run = "actionlint .github/workflows/*.yml"
 
+[tasks."lint:python"]
+description = "Lint and format-check every tracked Python file with Ruff"
+run = """
+set -eu
+git ls-files -z -- '*.py' | xargs -0 ruff check
+git ls-files -z -- '*.py' | xargs -0 ruff format --check
+"""
+
 [tasks."test:python"]
 description = "Run adapter, rotation, gateway smoke, and CI path-selection unit tests"
 run = [
   "python3 -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v",
-  "python3 -m unittest discover -s agents/hermes/rotation/test -p 'test_*.py' -v",
+  "python3 -m unittest discover -s infra/aws/tools/lambdas/spacelift_session_token -p 'test_*.py' -v",
   "python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v",
   "python3 -m unittest scripts.test_adapter_smoke_test scripts.test_gateway_validation scripts.test_gateway_validation_adapter scripts.test_deploy_hermes_adapter -v",
 ]

@@ -1,9 +1,29 @@
-from .test_support import *
+import json
+import os
+import unittest
+from unittest import mock
+
+from adapter_config import AdapterError
+from adapter_forwarder import AgentCoreForwarder
+from hermes_agentcore_adapter import _load_forwarder
+
+from .test_support import (
+    CLOUDFRONT_GATEWAY_URL,
+    GATEWAY_URL,
+    TARGETS,
+    TOKEN_URL,
+    FakeTransport,
+    make_forwarder,
+    rpc,
+)
+
 
 class EndpointTests(unittest.TestCase):
     def test_cloudfront_gateway_endpoint_is_accepted(self):
         transport = FakeTransport()
-        forwarder = AgentCoreForwarder(CLOUDFRONT_GATEWAY_URL, TOKEN_URL, "id", "secret", transport)
+        forwarder = AgentCoreForwarder(
+            CLOUDFRONT_GATEWAY_URL, TOKEN_URL, "id", "secret", transport
+        )
         result = forwarder.handle(rpc("ping"))
         self.assertIsNotNone(result)
         self.assertNotIn("error", result)
@@ -28,7 +48,14 @@ class EndpointTests(unittest.TestCase):
 
     def test_invalid_token_endpoint_is_rejected(self):
         with self.assertRaises(AdapterError):
-            AgentCoreForwarder(GATEWAY_URL, "https://evil.invalid/oauth2/token", "id", "secret", FakeTransport())
+            AgentCoreForwarder(
+                GATEWAY_URL,
+                "https://evil.invalid/oauth2/token",
+                "id",
+                "secret",
+                FakeTransport(),
+            )
+
 
 class EnvironmentTests(unittest.TestCase):
     def test_forwarder_reads_the_agentcore_namespaced_variables(self):
@@ -43,15 +70,19 @@ class EnvironmentTests(unittest.TestCase):
         self.assertEqual(forwarder.targets, TARGETS)
 
     def test_forwarder_fails_closed_without_credentials(self):
-        with mock.patch.dict(os.environ, {}, clear=True):
-            with self.assertRaises(AdapterError):
-                _load_forwarder()
+        with (
+            mock.patch.dict(os.environ, {}, clear=True),
+            self.assertRaises(AdapterError),
+        ):
+            _load_forwarder()
 
     def test_client_secret_and_tokens_are_not_in_json_rpc_responses(self):
         transport = FakeTransport()
         forwarder = make_forwarder(transport)
         for name in ("get_file_contents", "aws___list_regions"):
-            encoded = json.dumps(forwarder.handle(rpc("tools/call", {"name": name, "arguments": {}})))
+            encoded = json.dumps(
+                forwarder.handle(rpc("tools/call", {"name": name, "arguments": {}}))
+            )
             self.assertNotIn("synthetic-access-token", encoded)
             self.assertNotIn("synthetic-client-secret", encoded)
 

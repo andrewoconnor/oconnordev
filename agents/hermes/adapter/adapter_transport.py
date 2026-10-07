@@ -9,9 +9,15 @@ from typing import Any
 from urllib.parse import urlencode, urlsplit
 
 from adapter_config import (
-    AdapterError, CONNECT_TIMEOUT_SECONDS, MAX_RESPONSE_BYTES, READ_TIMEOUT_SECONDS,
-    REQUIRED_SCOPE, TOKEN_REFRESH_SKEW_SECONDS, _validate_https_endpoint,
+    CONNECT_TIMEOUT_SECONDS,
+    MAX_RESPONSE_BYTES,
+    READ_TIMEOUT_SECONDS,
+    REQUIRED_SCOPE,
+    TOKEN_REFRESH_SKEW_SECONDS,
+    AdapterError,
+    _validate_https_endpoint,
 )
+
 
 @dataclass
 class HttpResponse:
@@ -23,18 +29,30 @@ class HttpResponse:
 class HttpsTransport:
     """HTTPS-only transport with fixed connect/read timeouts and no redirects."""
 
-    def __init__(self, connect_timeout: int = CONNECT_TIMEOUT_SECONDS, read_timeout: int = READ_TIMEOUT_SECONDS):
+    def __init__(
+        self,
+        connect_timeout: int = CONNECT_TIMEOUT_SECONDS,
+        read_timeout: int = READ_TIMEOUT_SECONDS,
+    ):
         self.connect_timeout = connect_timeout
         self.read_timeout = read_timeout
 
-    def request(self, url: str, method: str, headers: dict[str, str], body: bytes) -> HttpResponse:
+    def request(
+        self, url: str, method: str, headers: dict[str, str], body: bytes
+    ) -> HttpResponse:
         parsed = urlsplit(url)
-        if parsed.scheme != "https" or not parsed.hostname or parsed.port not in (None, 443):
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.port not in (None, 443)
+        ):
             raise AdapterError("transport_rejected")
         path = parsed.path or "/"
         if parsed.query:
             path += "?" + parsed.query
-        connection = http.client.HTTPSConnection(parsed.hostname, timeout=self.connect_timeout)
+        connection = http.client.HTTPSConnection(
+            parsed.hostname, timeout=self.connect_timeout
+        )
         try:
             connection.connect()
             if connection.sock:
@@ -44,7 +62,11 @@ class HttpsTransport:
             response_body = response.read(MAX_RESPONSE_BYTES + 1)
             if len(response_body) > MAX_RESPONSE_BYTES:
                 raise AdapterError("remote_response_too_large")
-            return HttpResponse(response.status, {key.lower(): value for key, value in response.getheaders()}, response_body)
+            return HttpResponse(
+                response.status,
+                {key.lower(): value for key, value in response.getheaders()},
+                response_body,
+            )
         except AdapterError:
             raise
         except Exception:
@@ -54,7 +76,14 @@ class HttpsTransport:
 
 
 class TokenCache:
-    def __init__(self, token_url: str, client_id: str, client_secret: str, transport: Any, clock=time.monotonic):
+    def __init__(
+        self,
+        token_url: str,
+        client_id: str,
+        client_secret: str,
+        transport: Any,
+        clock=time.monotonic,
+    ):
         self.token_url = _validate_https_endpoint(token_url, "cognito")
         if not client_id or not client_secret:
             raise AdapterError("missing_client_credentials")
@@ -66,15 +95,27 @@ class TokenCache:
         self._expires_at = 0.0
 
     def get(self, force_refresh: bool = False) -> str:
-        if not force_refresh and self._token and self.clock() < self._expires_at - TOKEN_REFRESH_SKEW_SECONDS:
+        if (
+            not force_refresh
+            and self._token
+            and self.clock() < self._expires_at - TOKEN_REFRESH_SKEW_SECONDS
+        ):
             return self._token
         self._token = None
-        basic = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode("ascii")
-        body = urlencode({"grant_type": "client_credentials", "scope": REQUIRED_SCOPE}).encode("ascii")
+        basic = base64.b64encode(
+            f"{self.client_id}:{self.client_secret}".encode()
+        ).decode("ascii")
+        body = urlencode(
+            {"grant_type": "client_credentials", "scope": REQUIRED_SCOPE}
+        ).encode("ascii")
         response = self.transport.request(
             self.token_url,
             "POST",
-            {"Authorization": f"Basic {basic}", "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json"},
+            {
+                "Authorization": f"Basic {basic}",
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Accept": "application/json",
+            },
             body,
         )
         if response.status != 200:
@@ -85,7 +126,13 @@ class TokenCache:
             expires_in = document["expires_in"]
             token_type = document["token_type"]
             scope = document.get("scope")
-            if not isinstance(token, str) or not token or not isinstance(expires_in, int) or expires_in < 1 or expires_in > 86400:
+            if (
+                not isinstance(token, str)
+                or not token
+                or not isinstance(expires_in, int)
+                or expires_in < 1
+                or expires_in > 86400
+            ):
                 raise ValueError
             if not isinstance(token_type, str) or token_type.lower() != "bearer":
                 raise ValueError
@@ -93,7 +140,9 @@ class TokenCache:
             # when the granted scope is identical to the requested one, and
             # Cognito omits it for this client. Requiring the echo rejected
             # every token. A scope that IS present must still match exactly.
-            if "scope" in document and (not isinstance(scope, str) or scope.split() != [REQUIRED_SCOPE]):
+            if "scope" in document and (
+                not isinstance(scope, str) or scope.split() != [REQUIRED_SCOPE]
+            ):
                 raise AdapterError("oauth_scope_mismatch")
         except AdapterError:
             raise

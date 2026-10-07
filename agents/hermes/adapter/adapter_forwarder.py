@@ -5,11 +5,16 @@ import time
 from typing import Any
 
 from adapter_config import (
-    AdapterError, MAX_LINE_BYTES, TARGETS, Target, _json_rpc_error,
+    MAX_LINE_BYTES,
+    TARGETS,
+    AdapterError,
+    Target,
+    _json_rpc_error,
     _validate_https_endpoint,
 )
 from adapter_tools_list import _ToolsListMixin
 from adapter_transport import HttpsTransport, TokenCache
+
 
 class AgentCoreForwarder(_ToolsListMixin):
     def __init__(
@@ -24,12 +29,15 @@ class AgentCoreForwarder(_ToolsListMixin):
     ):
         self.gateway_url = _validate_https_endpoint(gateway_url, "gateway")
         self.transport = transport or HttpsTransport()
-        self.tokens = TokenCache(token_url, client_id, client_secret, self.transport, clock=clock)
+        self.tokens = TokenCache(
+            token_url, client_id, client_secret, self.transport, clock=clock
+        )
         self.session_id: str | None = None
         self.protocol_version: str | None = None
         self.targets = tuple(targets)
         # One Hermes-visible name, one owner. A name claimed twice would make
-        # routing ambiguous and is a manifest error, not a runtime condition to guess at.
+        # routing ambiguous. Treat this as a manifest error, not something to
+        # guess at at runtime.
         self._owners: dict[str, Target] = {}
         for target in self.targets:
             for tool in target.client_tools:
@@ -44,8 +52,12 @@ class AgentCoreForwarder(_ToolsListMixin):
                 return target
         return None
 
-    def _send(self, message: dict[str, Any], extra_headers: dict[str, str] | None = None) -> tuple[dict[str, Any] | None, dict[str, str]]:
-        body = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
+    def _send(
+        self, message: dict[str, Any], extra_headers: dict[str, str] | None = None
+    ) -> tuple[dict[str, Any] | None, dict[str, str]]:
+        body = json.dumps(message, separators=(",", ":"), ensure_ascii=False).encode(
+            "utf-8"
+        )
         if len(body) > MAX_LINE_BYTES:
             raise AdapterError("request_too_large")
         for attempt in range(2):
@@ -69,7 +81,9 @@ class AgentCoreForwarder(_ToolsListMixin):
                 if attempt == 0:
                     continue
                 raise AdapterError("gateway_authentication_failure")
-            if response.status == 202 and message.get("method", "").startswith("notifications/"):
+            if response.status == 202 and message.get("method", "").startswith(
+                "notifications/"
+            ):
                 return None, response.headers
             if response.status != 200:
                 raise AdapterError("gateway_request_failure")
@@ -102,19 +116,37 @@ class AgentCoreForwarder(_ToolsListMixin):
             return document, response.headers
         raise AdapterError("gateway_authentication_failure")
 
-    def _remember_protocol(self, request: dict[str, Any], response: dict[str, Any]) -> None:
+    def _remember_protocol(
+        self, request: dict[str, Any], response: dict[str, Any]
+    ) -> None:
         if request.get("method") == "initialize":
             result = response.get("result")
-            version = result.get("protocolVersion") if isinstance(result, dict) else None
+            version = (
+                result.get("protocolVersion") if isinstance(result, dict) else None
+            )
             if not isinstance(version, str) or not version:
                 raise AdapterError("invalid_gateway_response")
             self.protocol_version = version
 
     def handle(self, message: Any) -> dict[str, Any] | None:
-        if not isinstance(message, dict) or message.get("jsonrpc") != "2.0" or not isinstance(message.get("method"), str):
-            return _json_rpc_error(message.get("id") if isinstance(message, dict) else None, -32600, "Invalid request")
+        if (
+            not isinstance(message, dict)
+            or message.get("jsonrpc") != "2.0"
+            or not isinstance(message.get("method"), str)
+        ):
+            return _json_rpc_error(
+                message.get("id") if isinstance(message, dict) else None,
+                -32600,
+                "Invalid request",
+            )
         method = message["method"]
-        if method not in {"initialize", "notifications/initialized", "tools/list", "tools/call", "ping"}:
+        if method not in {
+            "initialize",
+            "notifications/initialized",
+            "tools/list",
+            "tools/call",
+            "ping",
+        }:
             return _json_rpc_error(message.get("id"), -32601, "Method not allowed")
         forwarded = dict(message)
         target_headers: dict[str, str] | None = None
@@ -126,7 +158,11 @@ class AgentCoreForwarder(_ToolsListMixin):
             target = self._owners.get(name)
             if target is None:
                 return _json_rpc_error(message.get("id"), -32602, "Tool not allowed")
-            logical_name = name[len(target.client_tool_prefix):] if target.client_tool_prefix else name
+            logical_name = (
+                name[len(target.client_tool_prefix) :]
+                if target.client_tool_prefix
+                else name
+            )
             forwarded["params"] = {**params, "name": target.prefix + logical_name}
             target_headers = target.headers
         try:

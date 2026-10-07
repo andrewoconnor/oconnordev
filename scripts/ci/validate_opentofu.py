@@ -37,7 +37,10 @@ def _run(command: list[str], env: dict[str, str]) -> None:
 def main() -> int:
     roots = _selected_roots()
     if not roots:
-        print("No OpenTofu roots are affected by this change set; validation job reports success.")
+        print(
+            "No OpenTofu roots are affected by this change set; "
+            "validation job reports success."
+        )
         return 0
 
     plugin_cache = Path(

@@ -1,20 +1,10 @@
 import json
-import os
-import pathlib
-import tempfile
-import unittest
-from unittest import mock
 from urllib.parse import parse_qs
 
 from hermes_agentcore_adapter import (
-    AdapterError,
-    AgentCoreForwarder,
     REQUIRED_SCOPE,
     TARGETS,
-    Target,
-    TokenCache,
-    _load_forwarder,
-    _load_target,
+    AgentCoreForwarder,
 )
 
 GATEWAY_URL = "https://gateway-id.gateway.bedrock-agentcore.us-east-1.amazonaws.com/mcp"
@@ -57,7 +47,15 @@ EXPECTED_TOOL_HEADER = ",".join(sorted(GITHUB_TOOLS))
 
 
 def _response(status, document, headers=None):
-    return type("Response", (), {"status": status, "headers": headers or {}, "body": json.dumps(document).encode()})()
+    return type(
+        "Response",
+        (),
+        {
+            "status": status,
+            "headers": headers or {},
+            "body": json.dumps(document).encode(),
+        },
+    )()
 
 
 class FakeTransport:
@@ -101,12 +99,23 @@ class FakeTransport:
         if url == TOKEN_URL:
             self.token_calls += 1
             form = parse_qs(body.decode())
-            assert form == {"grant_type": ["client_credentials"], "scope": [REQUIRED_SCOPE]}
+            assert form == {
+                "grant_type": ["client_credentials"],
+                "scope": [REQUIRED_SCOPE],
+            }
             token = f"synthetic-access-token-{self.token_calls}"
             self.tokens.append(token)
             if self.token_raw is not None:
-                return type("Response", (), {"status": 200, "headers": {}, "body": self.token_raw})()
-            response = {"access_token": token, "expires_in": 300, "token_type": "Bearer"}
+                return type(
+                    "Response",
+                    (),
+                    {"status": 200, "headers": {}, "body": self.token_raw},
+                )()
+            response = {
+                "access_token": token,
+                "expires_in": 300,
+                "token_type": "Bearer",
+            }
             if not self.omit_scope:
                 response["scope"] = self.scope
             for key in self.token_drop:
@@ -123,19 +132,27 @@ class FakeTransport:
             cursor = (message.get("params") or {}).get("cursor")
             if self.page_size:
                 start = int(cursor) if cursor else 0
-                window = names[start:start + self.page_size]
+                window = names[start : start + self.page_size]
                 following = start + self.page_size
-                paged: dict = {"tools": [{"name": name, "description": "safe"} for name in window]}
+                paged: dict = {
+                    "tools": [{"name": name, "description": "safe"} for name in window]
+                }
                 if following < len(names):
                     paged["nextCursor"] = str(following)
                 result = paged
             else:
-                result = {"tools": [{"name": name, "description": "safe"} for name in names]}
+                result = {
+                    "tools": [{"name": name, "description": "safe"} for name in names]
+                }
         elif message["method"] == "tools/call":
             result = {"content": [{"type": "text", "text": "safe"}]}
         else:
             result = {"protocolVersion": "2025-03-26", "capabilities": {}}
-        return _response(200, {"jsonrpc": "2.0", "id": message.get("id"), "result": result}, {"content-type": "application/json", "mcp-session-id": "session-1"})
+        return _response(
+            200,
+            {"jsonrpc": "2.0", "id": message.get("id"), "result": result},
+            {"content-type": "application/json", "mcp-session-id": "session-1"},
+        )
 
 
 def make_forwarder(transport=None, **kwargs):
@@ -160,4 +177,5 @@ def exposed_names(forwarder, params=None):
     result = forwarder.handle(rpc("tools/list", params))
     return {tool["name"] for tool in result["result"]["tools"]}
 
-__all__ = [name for name in globals() if not name.startswith('__')]
+
+__all__ = [name for name in globals() if not name.startswith("__")]

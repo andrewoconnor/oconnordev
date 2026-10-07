@@ -56,7 +56,9 @@ def _log(event, **fields):
 def _claim(token, name):
     try:
         segment = token.split(".")[1]
-        payload = json.loads(base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4)))
+        payload = json.loads(
+            base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
+        )
         return payload.get(name)
     except Exception:
         return None
@@ -155,7 +157,9 @@ def _verify(token):
 def _previous_exp(secrets):
     """Read the expiry currently published, so a rolled window is detectable."""
     try:
-        current = json.loads(secrets.get_secret_value(SecretId=TOKEN_SECRET_ID)["SecretString"])
+        current = json.loads(
+            secrets.get_secret_value(SecretId=TOKEN_SECRET_ID)["SecretString"]
+        )
     except Exception:
         return None
     token = current.get(TOKEN_JSON_KEY) if isinstance(current, dict) else None
