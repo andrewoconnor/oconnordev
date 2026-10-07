@@ -80,17 +80,26 @@ class SessionTokenRotationTests(unittest.TestCase):
         ):
             return self.rotation.handler({}, None)
 
-    def test_same_expiry_near_expiration_does_not_replace_current_token(self):
+    def test_same_expiry_near_expiration_does_not_replace_healthy_current_token(self):
         self.new_token = jwt_with_claims(iat=900, exp=1010)
         self.previous_token = jwt_with_claims(iat=800, exp=1010)
 
-        result = self.run_successful_rotation()
+        with (
+            patch.object(self.rotation.time, "time", return_value=1000),
+            patch.object(self.rotation, "_mint", return_value=self.new_token),
+            patch.object(self.rotation, "_verify", return_value=["query"]) as verify,
+            patch.object(self.rotation, "_log"),
+        ):
+            result = self.rotation.handler({}, None)
 
         self.assertEqual(result["exp"], 1010)
         self.assertEqual(result["remaining_seconds"], 10)
         self.assertFalse(result["expiry_changed"])
         self.assertFalse(result["token_unchanged"])
         self.assertFalse(result["token_published"])
+        self.assertEqual(verify.call_count, 2)
+        self.assertEqual(verify.call_args_list[0].args[0], self.new_token)
+        self.assertEqual(verify.call_args_list[1].args[0], self.previous_token)
         self.secrets.put_secret_value.assert_not_called()
 
     def test_near_expiry_token_is_replaced_only_by_later_observed_expiry(self):
@@ -166,10 +175,17 @@ class SessionTokenRotationTests(unittest.TestCase):
     def test_unchanged_jwt_is_verified_without_a_secret_write(self):
         self.new_token = self.previous_token
 
-        result = self.run_successful_rotation()
+        with (
+            patch.object(self.rotation.time, "time", return_value=1000),
+            patch.object(self.rotation, "_mint", return_value=self.new_token),
+            patch.object(self.rotation, "_verify", return_value=["query"]) as verify,
+            patch.object(self.rotation, "_log"),
+        ):
+            result = self.rotation.handler({}, None)
 
         self.assertTrue(result["token_unchanged"])
         self.assertFalse(result["token_published"])
+        verify.assert_called_once()
         self.secrets.put_secret_value.assert_not_called()
 
     def test_minted_token_without_expiry_is_not_published(self):
