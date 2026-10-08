@@ -63,7 +63,7 @@ resource "spacelift_stack_dependency_reference" "production_security_logs_sink" 
 resource "spacelift_stack_dependency" "github_repository_config_production" {
   count = var.enable_github_repository_config ? 1 : 0
 
-  stack_id            = spacelift_stack.accounts["production"].id
+  stack_id            = spacelift_stack.github_repository_config[0].id
   depends_on_stack_id = spacelift_stack.accounts["production"].id
 }
 
