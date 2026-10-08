@@ -25,6 +25,57 @@ url = "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_
 url_api = "https://api.github.com/repos/rhysd/actionlint/releases/assets/384924880"
 provenance = "github-attestations"
 
+[[tools."aqua:aws/aws-cli"]]
+version = "2.37.10"
+backend = "aqua:aws/aws-cli"
+specifiers = ["2.37.10"]
+
+[tools."aqua:aws/aws-cli"."platforms.linux-x64"]
+url = "https://awscli.amazonaws.com/awscli-exe-linux-x86_64-2.37.10.zip"
+
+[tools."aqua:aws/aws-cli"."platforms.macos-arm64"]
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.10.pkg"
+
+[tools."aqua:aws/aws-cli"."platforms.macos-x64"]
+url = "https://awscli.amazonaws.com/AWSCLIV2-2.37.10.pkg"
+
+[[tools."aqua:bridgecrewio/checkov"]]
+version = "3.3.20"
+backend = "aqua:bridgecrewio/checkov"
+specifiers = ["3.3.20"]
+
+[tools."aqua:bridgecrewio/checkov"."platforms.linux-x64"]
+checksum = "sha256:4e630ff1f25ebb5de9d7adbfe90a869e8356e25f80f4ab456d6fb273358b4e67"
+url = "https://github.com/bridgecrewio/checkov/releases/download/3.3.20/checkov_linux_X86_64.zip"
+url_api = "https://api.github.com/repos/bridgecrewio/checkov/releases/assets/593960840"
+
+[tools."aqua:bridgecrewio/checkov"."platforms.macos-arm64"]
+checksum = "sha256:31c907f5b6f5713804cd4f380b14bb13b6f0e7cda5f1c655fccbd78422e8ea8a"
+url = "https://github.com/bridgecrewio/checkov/releases/download/3.3.20/checkov_darwin_X86_64.zip"
+url_api = "https://api.github.com/repos/bridgecrewio/checkov/releases/assets/593961130"
+
+[tools."aqua:bridgecrewio/checkov"."platforms.macos-x64"]
+checksum = "sha256:31c907f5b6f5713804cd4f380b14bb13b6f0e7cda5f1c655fccbd78422e8ea8a"
+url = "https://github.com/bridgecrewio/checkov/releases/download/3.3.20/checkov_darwin_X86_64.zip"
+url_api = "https://api.github.com/repos/bridgecrewio/checkov/releases/assets/593961130"
+
+[[tools.deno]]
+version = "2.9.7"
+backend = "core:deno"
+specifiers = ["2.9.7"]
+
+[tools.deno."platforms.linux-x64"]
+checksum = "sha256:c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"
+url = "https://dl.deno.land/release/v2.9.7/deno-x86_64-unknown-linux-gnu.zip"
+
+[tools.deno."platforms.macos-arm64"]
+checksum = "sha256:5cd46d6268f6f78f5d88bdc7159d20bd44cdaa4b3303474839f87ec6fe7ae25c"
+url = "https://dl.deno.land/release/v2.9.7/deno-aarch64-apple-darwin.zip"
+
+[tools.deno."platforms.macos-x64"]
+checksum = "sha256:95daaff11c116a52ad54785e7914c8e9c9cdcaba793c5ed929c74ca2d8e6259a"
+url = "https://dl.deno.land/release/v2.9.7/deno-x86_64-apple-darwin.zip"
+
 [[tools.opentofu]]
 version = "1.12.6"
 backend = "aqua:opentofu/opentofu"
