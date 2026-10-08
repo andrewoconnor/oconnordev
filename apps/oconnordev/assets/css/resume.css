@@ -6,8 +6,8 @@ html {
 body {
   text-align: center;
   width: 100%;
-  font-family: "Noto Sans", "Segoe UI", Roboto, Helvetica, "Hiragino Sans GB",
-    "Microsoft Yahei", sans-serif;
+  font-family:
+    "Noto Sans", "Segoe UI", Roboto, Helvetica, "Hiragino Sans GB", "Microsoft Yahei", sans-serif;
   -webkit-font-smoothing: antialiased;
   font-size: 1rem;
   margin: 0;
@@ -37,8 +37,8 @@ a:hover {
   }
 
   .container {
-    padding-left: .4rem;
-    padding-right: .4rem;
+    padding-left: 0.4rem;
+    padding-right: 0.4rem;
   }
 }
 @media print {
@@ -69,7 +69,7 @@ header {
 
 .sub-title {
   font-size: 1.2rem;
-  margin-top: .8rem;
+  margin-top: 0.8rem;
 }
 
 .contact {
@@ -78,7 +78,7 @@ header {
 }
 
 .contact-item {
-  margin-top: .4rem;
+  margin-top: 0.4rem;
   white-space: nowrap;
 }
 .contact-item:nth-child(1) {
@@ -106,15 +106,15 @@ header {
   }
 
   .contact-item {
-    padding-top: .2rem;
-    padding-left: .4rem;
+    padding-top: 0.2rem;
+    padding-left: 0.4rem;
   }
 }
 section {
   display: flex;
   padding-top: 2.4rem;
   padding-bottom: 2.4rem;
-  padding-left: .2rem;
+  padding-left: 0.2rem;
   border-bottom: 0.1rem solid #adb5bd;
   hyphens: auto;
 }
@@ -146,7 +146,7 @@ section {
 
 .block-title {
   font-size: 1.2rem;
-  margin-bottom: .4rem;
+  margin-bottom: 0.4rem;
   font-weight: bold;
 }
 

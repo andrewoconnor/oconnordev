@@ -1,107 +1,175 @@
-<!DOCTYPE html>
-
-<html>
+<!doctype html>
+<html lang="en">
   <head>
     <title>Andrew Vincent O'Connor - Resume</title>
-    <meta charset="utf-8" />
-    <meta content="width=device-width, initial-scale=1" name="viewport" />
-    <link href="https://fonts.googleapis.com/css?family=Noto+Sans"
-      rel="stylesheet" />
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1" name="viewport">
+    <link href="https://fonts.googleapis.com/css?family=Noto+Sans" rel="stylesheet">
     <link
       href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
-      rel="stylesheet" />
-    <link href="/assets/css/resume.css" rel="stylesheet" />
+      rel="stylesheet"
+    >
+    <link href="/assets/css/resume.css" rel="stylesheet">
+    <script src="/print.js" defer></script>
   </head>
   <body>
     <div class="container">
       <header>
         <div class="name-wrapper">
-          <div class="title" id="fullname">
-            Andrew Vincent O'Connor
-          </div>
-          <div class="sub-title"
-            id="jobtitle">Senior Site Reliability Engineer<br/>AI Security, Multi-Cloud &amp; ML Infrastructure</div>
+          <div class="title" id="fullname"> Andrew Vincent O'Connor </div>
+          <div class="sub-title" id="jobtitle"
+            >Senior Site Reliability Engineer<br>AI Security, Multi-Cloud &amp; ML
+            Infrastructure</div
+          >
         </div>
         <div class="contact" id="contact">
           <div class="contact-item">
-<i aria-hidden="true" class="fa fa-envelope"></i> andrewoconnor@outlook.com
+            <i aria-hidden="true" class="fa fa-envelope"></i>
+            andrewoconnor@outlook.com
           </div>
           <div class="contact-item">
-<i aria-hidden="true" class="fa fa-phone-square"></i> 301-624-9886
+            <i aria-hidden="true" class="fa fa-phone-square"></i>
+            301-624-9886
           </div>
           <div class="contact-item">
             <a href="https://oconnor.dev">
-<i aria-hidden="true" class="fa fa-globe"></i> oconnor.dev
+              <i aria-hidden="true" class="fa fa-globe"></i>
+              oconnor.dev
             </a>
           </div>
           <div class="contact-item">
             <a href="https://github.com/andrewoconnor">
-<i aria-hidden="true" class="fa fa-github"></i> GitHub
+              <i aria-hidden="true" class="fa fa-github"></i>
+              GitHub
             </a>
           </div>
         </div>
       </header>
       <section id="summary">
-        <div class="section-title">
-          Summary
-        </div>
+        <div class="section-title"> Summary </div>
         <div class="section-content">
           <div class="block">
-            <div
-              class="block-content">Senior Site Reliability Engineer focused on AI security, regulated ML infrastructure, and multi-cloud platform engineering. 10+ years in software and infrastructure engineering, with recent work securing PHI-processing medical AI systems across AWS and GCP in HIPAA, SOC 2, HITRUST, and FDA quality-controlled environments. Hands-on experience with private model inference, AI governance and coding-agent guardrails, keyless workload identity, CI/CD supply-chain hardening, GPU training infrastructure, petabyte-scale medical image de-identification, and production observability.</div>
+            <div class="block-content"
+              >Senior Site Reliability Engineer focused on AI security, regulated ML infrastructure,
+              and multi-cloud platform engineering. 10+ years in software and infrastructure
+              engineering, with recent work securing PHI-processing medical AI systems across AWS
+              and GCP in HIPAA, SOC 2, HITRUST, and FDA quality-controlled environments. Hands-on
+              experience with private model inference, AI governance and coding-agent guardrails,
+              keyless workload identity, CI/CD supply-chain hardening, GPU training infrastructure,
+              petabyte-scale medical image de-identification, and production observability.</div
+            >
           </div>
         </div>
       </section>
       <section id="experience">
-        <div class="section-title">
-          Experience
-        </div>
+        <div class="section-title"> Experience </div>
         <div class="section-content">
           <div class="block">
-            <div class="block-title">
-              Senior Site Reliability Engineer
-            </div>
-            <div class="block-subtitle">
-              March 2024 - Present | Imagen Technologies
-            </div>
+            <div class="block-title"> Senior Site Reliability Engineer </div>
+            <div class="block-subtitle"> March 2024 - Present | Imagen Technologies </div>
             <div class="block-content">
-              <p>• Own secure deployment, reliability, performance, and cloud infrastructure for FDA-approved AI medical devices processing PHI in HIPAA, SOC 2, HITRUST, and FDA quality-controlled environments.</p>
-              <p>• Architected a petabyte-scale GCP medical image de-identification pipeline using Cloud Dataflow, batched SQL updates, right-sized workers, and Parquet manifests; reduced run costs ~75% from ~$356K to ~$90K while supporting compliant AI training data preparation.</p>
-              <p>• Productionized fine-tuned vLLM inference on AWS by packaging 100GB+ Docker images, publishing via GitHub Actions, and deploying isolated SageMaker model containers with no public internet exposure for PHI-bearing inference traffic.</p>
-              <p>• Provisioned secure 256-GPU NVIDIA H100 Slurm training infrastructure on GCP with private subnet isolation, firewall controls, encrypted shared storage, access/job logging, and Terraform-managed infrastructure for production AI research.</p>
-              <p>• Established enterprise AI governance and coding-agent safety controls across Claude, Claude Code, GitHub Copilot, and Cursor by deploying Claude Apps Gateway, enforcing engineer-level spend limits and access controls, requiring read-only credentials and PR/Atlantis workflows, and blocking secrets, PHI, destructive Terraform, and mutating AWS CLI actions.</p>
-              <p>• Introduced governed Terraform-based IaC for previously manually managed GCP environments, using EKS-hosted Atlantis and GCP Workload Identity Federation to enforce PR review, least-privilege access, and keyless cross-cloud deployments.</p>
-              <p>• Strengthened ML/cloud vulnerability and supply-chain security with AWS Inspector/ECR scanning, Snyk, Dependabot, Terraform/IaC scanning, CVE remediation, hardened AMIs/containers/EC2 instances, immutable patching pipelines, and SHA-pinned GitHub Actions.</p>
+              <p
+                >• Own secure deployment, reliability, performance, and cloud infrastructure for
+                FDA-approved AI medical devices processing PHI in HIPAA, SOC 2, HITRUST, and FDA
+                quality-controlled environments.</p
+              >
+              <p
+                >• Architected a petabyte-scale GCP medical image de-identification pipeline using
+                Cloud Dataflow, batched SQL updates, right-sized workers, and Parquet manifests;
+                reduced run costs ~75% from ~$356K to ~$90K while supporting compliant AI training
+                data preparation.</p
+              >
+              <p
+                >• Productionized fine-tuned vLLM inference on AWS by packaging 100GB+ Docker
+                images, publishing via GitHub Actions, and deploying isolated SageMaker model
+                containers with no public internet exposure for PHI-bearing inference traffic.</p
+              >
+              <p
+                >• Provisioned secure 256-GPU NVIDIA H100 Slurm training infrastructure on GCP with
+                private subnet isolation, firewall controls, encrypted shared storage, access/job
+                logging, and Terraform-managed infrastructure for production AI research.</p
+              >
+              <p
+                >• Established enterprise AI governance and coding-agent safety controls across
+                Claude, Claude Code, GitHub Copilot, and Cursor by deploying Claude Apps Gateway,
+                enforcing engineer-level spend limits and access controls, requiring read-only
+                credentials and PR/Atlantis workflows, and blocking secrets, PHI, destructive
+                Terraform, and mutating AWS CLI actions.</p
+              >
+              <p
+                >• Introduced governed Terraform-based IaC for previously manually managed GCP
+                environments, using EKS-hosted Atlantis and GCP Workload Identity Federation to
+                enforce PR review, least-privilege access, and keyless cross-cloud deployments.</p
+              >
+              <p
+                >• Strengthened ML/cloud vulnerability and supply-chain security with AWS
+                Inspector/ECR scanning, Snyk, Dependabot, Terraform/IaC scanning, CVE remediation,
+                hardened AMIs/containers/EC2 instances, immutable patching pipelines, and SHA-pinned
+                GitHub Actions.</p
+              >
             </div>
           </div>
           <div class="block">
-            <div class="block-title">
-              Site Reliability Engineer
-            </div>
-            <div class="block-subtitle">
-              August 2022 - March 2024 | Imagen Technologies
-            </div>
+            <div class="block-title"> Site Reliability Engineer </div>
+            <div class="block-subtitle"> August 2022 - March 2024 | Imagen Technologies </div>
             <div class="block-content">
-              <p>• Created reusable Terraform modules adopted across 20+ AWS accounts to standardize CloudWatch dashboards, GitHub Actions OIDC federation, AWS Lambda infrastructure, and AWS Verified Access endpoints for the broader engineering organization.</p>
-              <p>• Led OIDC-based AWS authentication rollout across ~10 GitHub Actions repos, replacing stored AWS keys with short-lived federated credentials, repo/branch-restricted IAM trust policies, least-privilege access, branch protection, CODEOWNERS, required reviews, and separated Terraform plan/apply workflows.</p>
-              <p>• Implemented zero-trust access for sensitive internal applications using AWS Verified Access and Okta, replacing VPN-based access for Tableau and Terraform drift detection tools used by approximately 20–30 users.</p>
-              <p>• Built centralized observability, alerting, uptime dashboards, and incident runbooks for ~30 production systems across 3–4 teams using CloudWatch, Okta-secured access, and PagerDuty, improving incident visibility and MTTR.</p>
-              <p>• Supported security investigations by helping the security team locate and analyze relevant CloudWatch Insights, CloudTrail, AWS Security Hub, and production telemetry logs.</p>
-              <p>• Automated AWS operational workflows with Step Functions, Lambda, and Systems Manager for EC2 patching and production operations; extended Terraform CI/CD across AWS/GCP, modernized the EKS delivery platform to reduce cost by ~83%, and built immutable image pipelines for reliable releases and patch management.</p>
+              <p
+                >• Created reusable Terraform modules adopted across 20+ AWS accounts to standardize
+                CloudWatch dashboards, GitHub Actions OIDC federation, AWS Lambda infrastructure,
+                and AWS Verified Access endpoints for the broader engineering organization.</p
+              >
+              <p
+                >• Led OIDC-based AWS authentication rollout across ~10 GitHub Actions repos,
+                replacing stored AWS keys with short-lived federated credentials,
+                repo/branch-restricted IAM trust policies, least-privilege access, branch
+                protection, CODEOWNERS, required reviews, and separated Terraform plan/apply
+                workflows.</p
+              >
+              <p
+                >• Implemented zero-trust access for sensitive internal applications using AWS
+                Verified Access and Okta, replacing VPN-based access for Tableau and Terraform drift
+                detection tools used by approximately 20–30 users.</p
+              >
+              <p
+                >• Built centralized observability, alerting, uptime dashboards, and incident
+                runbooks for ~30 production systems across 3–4 teams using CloudWatch, Okta-secured
+                access, and PagerDuty, improving incident visibility and MTTR.</p
+              >
+              <p
+                >• Supported security investigations by helping the security team locate and analyze
+                relevant CloudWatch Insights, CloudTrail, AWS Security Hub, and production telemetry
+                logs.</p
+              >
+              <p
+                >• Automated AWS operational workflows with Step Functions, Lambda, and Systems
+                Manager for EC2 patching and production operations; extended Terraform CI/CD across
+                AWS/GCP, modernized the EKS delivery platform to reduce cost by ~83%, and built
+                immutable image pipelines for reliable releases and patch management.</p
+              >
             </div>
           </div>
           <div class="block">
-            <div class="block-title">
-              Technical Consultant
-            </div>
-            <div class="block-subtitle">
-              February 2021 - August 2022 | Philips
-            </div>
+            <div class="block-title"> Technical Consultant </div>
+            <div class="block-subtitle"> February 2021 - August 2022 | Philips </div>
             <div class="block-content">
-              <p>• Installed and configured the PerformanceBridge radiology analytics platform and supporting systems across Linux and Windows Server environments for healthcare customers in multiple regions.</p>
-              <p>• Resolved complex customer concerns and technical issues through deep investigation, research, and reproduction.</p>
-              <p>• Automated recurring configuration tasks, created procedural documentation, and provided training to colleagues, improving operational consistency and onboarding.</p>
-              <p>• Supported product expansion into EMEA and APAC through client implementations and technical configuration for organizations including:</p>
+              <p
+                >• Installed and configured the PerformanceBridge radiology analytics platform and
+                supporting systems across Linux and Windows Server environments for healthcare
+                customers in multiple regions.</p
+              >
+              <p
+                >• Resolved complex customer concerns and technical issues through deep
+                investigation, research, and reproduction.</p
+              >
+              <p
+                >• Automated recurring configuration tasks, created procedural documentation, and
+                provided training to colleagues, improving operational consistency and
+                onboarding.</p
+              >
+              <p
+                >• Supported product expansion into EMEA and APAC through client implementations and
+                technical configuration for organizations including:</p
+              >
               <ul>
                 <li>medneo GmbH</li>
                 <li>King Faisal Specialist Hospital Saudi Arabia</li>
@@ -110,29 +178,39 @@
             </div>
           </div>
           <div class="block">
-            <div class="block-title">
-              Software Engineer
-            </div>
+            <div class="block-title"> Software Engineer </div>
             <div class="block-subtitle">
               March 2020 - February 2021 | Azenta / Brooks Life Sciences
             </div>
             <div class="block-content">
-              <p>• Built high-performance cloud-based applications for biobanking and laboratory automation.</p>
+              <p
+                >• Built high-performance cloud-based applications for biobanking and laboratory
+                automation.</p
+              >
               <p>• Won employee Key Strategy award for contributions to COVID-19 projects.</p>
-              <p>• Streamlined COVID-19 testing and reporting workflows, increasing efficiency and reducing errors for global biobanking processes.</p>
-              <p>• Designed a sample lineage interface for the UK NHS COVID-19 system, enabling the processing of hundreds of thousands of tests per week.</p>
-              <p>• Developed a sample normalization workflow for Curative Korva Labs, which conducted 20% of all tests in California, and integrated with state and local public health departments for reporting results.</p>
+              <p
+                >• Streamlined COVID-19 testing and reporting workflows, increasing efficiency and
+                reducing errors for global biobanking processes.</p
+              >
+              <p
+                >• Designed a sample lineage interface for the UK NHS COVID-19 system, enabling the
+                processing of hundreds of thousands of tests per week.</p
+              >
+              <p
+                >• Developed a sample normalization workflow for Curative Korva Labs, which
+                conducted 20% of all tests in California, and integrated with state and local public
+                health departments for reporting results.</p
+              >
             </div>
           </div>
           <div class="block">
-            <div class="block-title">
-              Software Engineer
-            </div>
-            <div class="block-subtitle">
-              December 2017 - February 2020 | RURO Inc
-            </div>
+            <div class="block-title"> Software Engineer </div>
+            <div class="block-subtitle"> December 2017 - February 2020 | RURO Inc </div>
             <div class="block-content">
-              <p>• Built Rails-based software for clients including Roche and the National Institutes of Health.</p>
+              <p
+                >• Built Rails-based software for clients including Roche and the National
+                Institutes of Health.</p
+              >
               <p>• Reduced sample turnaround times for multiple clients from weeks to hours.</p>
               <p>• Designed integrations with hardware devices and external systems including:</p>
               <ul>
@@ -145,27 +223,27 @@
             </div>
           </div>
           <div class="block">
-            <div class="block-title">
-              Senior Associate
-            </div>
-            <div class="block-subtitle">
-              June 2016 - December 2017 | Avalere Health
-            </div>
+            <div class="block-title"> Senior Associate </div>
+            <div class="block-subtitle"> June 2016 - December 2017 | Avalere Health </div>
             <div class="block-content">
               <p>• Designed and built analytics tools for the post-acute care industry.</p>
-              <p>• Built web scrapers to collect plan data from state health insurance exchanges.</p>
-              <p>• Rebuilt a Tableau-based product using open-source software and on-demand cloud solutions, lowering costs by 50%.</p>
+              <p
+                >• Built web scrapers to collect plan data from state health insurance exchanges.</p
+              >
+              <p
+                >• Rebuilt a Tableau-based product using open-source software and on-demand cloud
+                solutions, lowering costs by 50%.</p
+              >
             </div>
           </div>
           <div class="block">
-            <div class="block-title">
-              Junior Software Engineer
-            </div>
-            <div class="block-subtitle">
-              June 2015 - May 2016 | RURO Inc
-            </div>
+            <div class="block-title"> Junior Software Engineer </div>
+            <div class="block-subtitle"> June 2015 - May 2016 | RURO Inc </div>
             <div class="block-content">
-              <p>• Designed and developed a medical sample inventory application for an Android RFID reader.</p>
+              <p
+                >• Designed and developed a medical sample inventory application for an Android RFID
+                reader.</p
+              >
               <p>• Integrated with hardware devices including:</p>
               <ul>
                 <li>Barcode readers</li>
@@ -177,130 +255,125 @@
         </div>
       </section>
       <section id="education">
-        <div class="section-title">
-          Education
-        </div>
+        <div class="section-title"> Education </div>
         <div class="section-content">
           <div class="block">
-            <div class="block-title">
-              Towson University
-            </div>
-            <div class="block-subtitle">
-              January 2010 - December 2012 | Towson, MD
-            </div>
-            <div class="block-content">
-              Bachelor of Science in Computer Science
-            </div>
+            <div class="block-title"> Towson University </div>
+            <div class="block-subtitle"> January 2010 - December 2012 | Towson, MD </div>
+            <div class="block-content"> Bachelor of Science in Computer Science </div>
           </div>
         </div>
       </section>
       <section id="skills">
-        <div class="section-title">
-          Skills
-        </div>
+        <div class="section-title"> Skills </div>
         <div class="section-content">
           <div class="block">
             <div class="block-title">AI / ML Security &amp; Infrastructure</div>
-            <div
-              class="block-content">AWS SageMaker, vLLM, private AI inference, no-egress model containers, Claude Apps Gateway, enterprise AI governance, AI coding-agent guardrails, Amazon ECR, AWS Bedrock Data Automation, Slurm, NVIDIA H100, GPU training infrastructure, medical imaging foundation models, de-identification pipelines</div>
+            <div class="block-content"
+              >AWS SageMaker, vLLM, private AI inference, no-egress model containers, Claude Apps
+              Gateway, enterprise AI governance, AI coding-agent guardrails, Amazon ECR, AWS Bedrock
+              Data Automation, Slurm, NVIDIA H100, GPU training infrastructure, medical imaging
+              foundation models, de-identification pipelines</div
+            >
           </div>
 
           <div class="block">
             <div class="block-title">Cloud Security / Zero Trust</div>
-            <div
-              class="block-content">AWS PrivateLink, VPC endpoints, private subnets, security groups, IAM least privilege, KMS, AWS Verified Access, Okta, GCP Workload Identity Federation, cross-cloud role mappings, workload identity, access controls</div>
+            <div class="block-content"
+              >AWS PrivateLink, VPC endpoints, private subnets, security groups, IAM least
+              privilege, KMS, AWS Verified Access, Okta, GCP Workload Identity Federation,
+              cross-cloud role mappings, workload identity, access controls</div
+            >
           </div>
 
           <div class="block">
             <div class="block-title">Application / Supply Chain Security</div>
-            <div
-              class="block-content">AWS Inspector, ECR image scanning, Snyk, Trivy, Dependabot, Terraform/IaC scanning, CVE remediation, hardened Linux AMIs, hardened containers, hardened EC2 instances, immutable image pipelines, SHA-pinned GitHub Actions</div>
+            <div class="block-content"
+              >AWS Inspector, ECR image scanning, Snyk, Trivy, Dependabot, Terraform/IaC scanning,
+              CVE remediation, hardened Linux AMIs, hardened containers, hardened EC2 instances,
+              immutable image pipelines, SHA-pinned GitHub Actions</div
+            >
           </div>
 
           <div class="block">
             <div class="block-title">Infrastructure as Code / CI/CD</div>
-            <div
-              class="block-content">Terraform, Atlantis, CloudFormation, Ansible, GitHub Actions, CodeBuild, EC2 Image Builder, CircleCI, OIDC federation, GCP Workload Identity Federation, branch protection, CODEOWNERS, required reviews, governed multi-cloud infrastructure delivery</div>
+            <div class="block-content"
+              >Terraform, Atlantis, CloudFormation, Ansible, GitHub Actions, CodeBuild, EC2 Image
+              Builder, CircleCI, OIDC federation, GCP Workload Identity Federation, branch
+              protection, CODEOWNERS, required reviews, governed multi-cloud infrastructure
+              delivery</div
+            >
           </div>
 
           <div class="block">
             <div class="block-title">Observability / Incident Response</div>
-            <div
-              class="block-content">CloudWatch dashboards, CloudWatch Insights, CloudTrail, AWS Security Hub, PagerDuty, monitoring, alerting, uptime dashboards, incident response runbooks, production telemetry, reliability engineering</div>
+            <div class="block-content"
+              >CloudWatch dashboards, CloudWatch Insights, CloudTrail, AWS Security Hub, PagerDuty,
+              monitoring, alerting, uptime dashboards, incident response runbooks, production
+              telemetry, reliability engineering</div
+            >
           </div>
 
           <div class="block">
             <div class="block-title">Backend / Data</div>
-            <div
-              class="block-content">Python, Ruby, PostgreSQL, Nginx, GCP Dataflow, GCS, AWS Lambda, Step Functions, Systems Manager, Docker, Linux</div>
+            <div class="block-content"
+              >Python, Ruby, PostgreSQL, Nginx, GCP Dataflow, GCS, AWS Lambda, Step Functions,
+              Systems Manager, Docker, Linux</div
+            >
           </div>
 
           <div class="block">
             <div class="block-title">Healthcare / Compliance</div>
-            <div
-              class="block-content">HIPAA-regulated systems, SOC 2, HITRUST, FDA quality controls, PHI, medical imaging data, radiology workflows, clinical document processing, HL7, Epic, laboratory workflows</div>
+            <div class="block-content"
+              >HIPAA-regulated systems, SOC 2, HITRUST, FDA quality controls, PHI, medical imaging
+              data, radiology workflows, clinical document processing, HL7, Epic, laboratory
+              workflows</div
+            >
           </div>
         </div>
       </section>
       <section id="certifications">
-        <div class="section-title">
-          Certs
-        </div>
+        <div class="section-title"> Certs </div>
         <div class="section-content">
           <div class="block">
-            <div class="block-title">
-              AWS Certified Solutions Architect - Associate
-            </div>
+            <div class="block-title"> AWS Certified Solutions Architect - Associate </div>
             <div class="block-content">
-              <a
-                href="https://www.credly.com/badges/8348bfc9-7864-4b23-8d73-ad4183853982">credly.com</a>
+              <a href="https://www.credly.com/badges/8348bfc9-7864-4b23-8d73-ad4183853982"
+                >credly.com</a
+              >
             </div>
           </div>
         </div>
       </section>
       <section id="projects">
-        <div class="section-title">
-          Projects
-        </div>
+        <div class="section-title"> Projects </div>
         <div class="section-content">
           <div class="block">
-            <div class="block-title">
-              drumroll.world website
-            </div>
+            <div class="block-title"> drumroll.world website </div>
             <div class="block-content">
-<a href="https://drumroll.world">drumroll.world</a><br/>
+              <a href="https://drumroll.world">drumroll.world</a><br>
               Explore drumming history visually
             </div>
           </div>
         </div>
       </section>
       <section id="languages">
-        <div class="section-title">
-          Languages
-        </div>
+        <div class="section-title"> Languages </div>
         <div class="section-content section-flex">
           <div class="block block-square">
-            <div class="block-title">
-              English
-            </div>
-            <div class="block-content">
-              Native
-            </div>
+            <div class="block-title"> English </div>
+            <div class="block-content"> Native </div>
           </div>
           <div class="block block-square">
-            <div class="block-title">
-              Spanish
-            </div>
-            <div class="block-content">
-              Native
-            </div>
+            <div class="block-title"> Spanish </div>
+            <div class="block-content"> Native </div>
           </div>
         </div>
       </section>
     </div>
     <footer>
       Made with <i aria-hidden="true" class="fa fa-heart"></i> in Baltimore, MD
-      <span class="print">( <a href="javascript:window.print()">PDF</a> )</span>
+      <span class="print">( <a href="/" id="printResume">PDF</a> )</span>
     </footer>
   </body>
 </html>

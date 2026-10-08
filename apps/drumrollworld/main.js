@@ -4,60 +4,60 @@ import { KTX2Loader } from "https://esm.sh/three@0.183.2/examples/jsm/loaders/KT
 import { DRUMS } from "./data.js";
 
 // ── Named constants ───────────────────────────────────────────────────────────
-const CAMERA_ALTITUDE         = 1.8;    // point-of-view altitude for navigation
-const CAMERA_ALTITUDE_INITIAL = 2.2;    // starting altitude on first load
-const CAMERA_X_OFFSET_DESKTOP = -180;   // px to shift camera right on desktop
-const RESIZE_DEBOUNCE_MS      = 100;    // ms to wait before responding to resize
-const SWIPE_THRESHOLD_PX      = 50;     // min px swipe distance to navigate lightbox
-const SCALE_HOVER             = 1.35;   // globe marker scale on hover
-const SCALE_LERP_FACTOR       = 0.15;   // lerp speed for marker scale animation
-const SCALE_LERP_EPSILON      = 0.001;  // threshold below which lerp is skipped
-const MARKER_BORDER_W         = 4.6;    // world-unit width of marker border plane
-const MARKER_BORDER_H         = 3.6;    // world-unit height of marker border plane
-const MARKER_IMG_W            = 4;      // world-unit width of marker image plane
-const MARKER_IMG_H            = 3;      // world-unit height of marker image plane
-const MARKER_IMG_Z            = 0.15;   // z-offset of image plane above border plane
-const STARS_RADIUS            = 500;    // radius of the background star sphere
-const ANISOTROPY_CAP          = 16;     // cap on texture anisotropic filtering
-const PIXEL_RATIO_CAP         = 2;      // max device pixel ratio for rendering
-const MSAA_SAMPLES            = 4;      // multisample count for the render buffers
-const NORMAL_SCALE_MOBILE     = 0.8;    // globe normal map intensity on mobile
-const NORMAL_SCALE_DESKTOP    = 1.0;    // globe normal map intensity on desktop
-const AMBIENT_INTENSITY       = 0.8;    // fill light, physical units (three r155+)
-const KEY_LIGHT_INTENSITY     = 3.0;    // camera-mounted key light
-const KEY_LIGHT_POSITION      = [6, 4, 7]; // key light offset, in camera space
-const SPECULAR_COLOR          = 0x444444; // globe specular colour
-const SHININESS_MOBILE        = 8;      // globe specular shininess on mobile
-const SHININESS_DESKTOP       = 15;     // globe specular shininess on desktop
-const LOADING_WATCHDOG_MS     = 20000;  // ms before the loading screen gives up
-const MARKER_COLOR_ACTIVE     = 0xce2029; // border colour for the selected marker
-const MARKER_COLOR_IDLE       = 0x00ffff; // border colour for unselected markers
+const CAMERA_ALTITUDE = 1.8; // point-of-view altitude for navigation
+const CAMERA_ALTITUDE_INITIAL = 2.2; // starting altitude on first load
+const CAMERA_X_OFFSET_DESKTOP = -180; // px to shift camera right on desktop
+const RESIZE_DEBOUNCE_MS = 100; // ms to wait before responding to resize
+const SWIPE_THRESHOLD_PX = 50; // min px swipe distance to navigate lightbox
+const SCALE_HOVER = 1.35; // globe marker scale on hover
+const SCALE_LERP_FACTOR = 0.15; // lerp speed for marker scale animation
+const SCALE_LERP_EPSILON = 0.001; // threshold below which lerp is skipped
+const MARKER_BORDER_W = 4.6; // world-unit width of marker border plane
+const MARKER_BORDER_H = 3.6; // world-unit height of marker border plane
+const MARKER_IMG_W = 4; // world-unit width of marker image plane
+const MARKER_IMG_H = 3; // world-unit height of marker image plane
+const MARKER_IMG_Z = 0.15; // z-offset of image plane above border plane
+const STARS_RADIUS = 500; // radius of the background star sphere
+const ANISOTROPY_CAP = 16; // cap on texture anisotropic filtering
+const PIXEL_RATIO_CAP = 2; // max device pixel ratio for rendering
+const MSAA_SAMPLES = 4; // multisample count for the render buffers
+const NORMAL_SCALE_MOBILE = 0.8; // globe normal map intensity on mobile
+const NORMAL_SCALE_DESKTOP = 1.0; // globe normal map intensity on desktop
+const AMBIENT_INTENSITY = 0.8; // fill light, physical units (three r155+)
+const KEY_LIGHT_INTENSITY = 3.0; // camera-mounted key light
+const KEY_LIGHT_POSITION = [6, 4, 7]; // key light offset, in camera space
+const SPECULAR_COLOR = 0x444444; // globe specular colour
+const SHININESS_MOBILE = 8; // globe specular shininess on mobile
+const SHININESS_DESKTOP = 15; // globe specular shininess on desktop
+const LOADING_WATCHDOG_MS = 20000; // ms before the loading screen gives up
+const MARKER_COLOR_ACTIVE = 0xce2029; // border colour for the selected marker
+const MARKER_COLOR_IDLE = 0x00ffff; // border colour for unselected markers
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
 const panelDragHandle = document.getElementById("panelDragHandle");
-const lightbox     = document.getElementById("lightbox");
-const lightboxImg  = document.getElementById("lightboxImg");
-const lbPrev       = document.getElementById("lbPrev");
-const lbNext       = document.getElementById("lbNext");
-const lbClose      = document.getElementById("lbClose");
-const lbCounter    = document.getElementById("lbCounter");
+const lightbox = document.getElementById("lightbox");
+const lightboxImg = document.getElementById("lightboxImg");
+const lbPrev = document.getElementById("lbPrev");
+const lbNext = document.getElementById("lbNext");
+const lbClose = document.getElementById("lbClose");
+const lbCounter = document.getElementById("lbCounter");
 const globeTooltip = document.getElementById("globeTooltip");
-const searchBar    = document.getElementById("searchBar");
-const entryList    = document.getElementById("entryList");
-const infoPanel    = document.getElementById("infoPanel");
-const globeViz     = document.getElementById("globeViz");
-const prevBtn      = document.getElementById("prevBtn");
-const nextBtn      = document.getElementById("nextBtn");
-const panelBody    = document.getElementById("panelBody");
-const collapseBtn  = document.getElementById("collapseBtn");
-const activeTitle  = document.getElementById("activeTitle");
-const siteTitle    = document.getElementById("siteTitle");
-const HAS_HOVER    = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+const searchBar = document.getElementById("searchBar");
+const entryList = document.getElementById("entryList");
+const infoPanel = document.getElementById("infoPanel");
+const globeViz = document.getElementById("globeViz");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const panelBody = document.getElementById("panelBody");
+const collapseBtn = document.getElementById("collapseBtn");
+const activeTitle = document.getElementById("activeTitle");
+const siteTitle = document.getElementById("siteTitle");
+const HAS_HOVER = window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 let currentEntry = null;
 let currentImageIdx = 0;
-let allEntries = [...DRUMS].sort((a, b) => a.year - b.year);
+const allEntries = [...DRUMS].sort((a, b) => a.year - b.year);
 let filteredEntries = [...allEntries];
 let globe;
 let _globeW = window.innerWidth;
@@ -73,22 +73,25 @@ let _scaleLoopRunning = false;
 
 // ── Three.js reusables ────────────────────────────────────────────────────────
 const textureLoader = new THREE.TextureLoader();
-const _scaleVec  = new THREE.Vector3();
-const _lookVec   = new THREE.Vector3();
+const _scaleVec = new THREE.Vector3();
+const _lookVec = new THREE.Vector3();
 const borderGeom = new THREE.PlaneGeometry(MARKER_BORDER_W, MARKER_BORDER_H);
-const imgGeom    = new THREE.PlaneGeometry(MARKER_IMG_W, MARKER_IMG_H);
+const imgGeom = new THREE.PlaneGeometry(MARKER_IMG_W, MARKER_IMG_H);
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
-const formatYear        = y => y < 0 ? `${Math.abs(y)} BCE` : `${y} CE`;
-const formatDisplayDate = e => e.dateLabel || formatYear(e.year);
+const formatYear = (y) => (y < 0 ? `${Math.abs(y)} BCE` : `${y} CE`);
+const formatDisplayDate = (e) => e.dateLabel || formatYear(e.year);
 
-allEntries.forEach(e => {
+allEntries.forEach((e) => {
   e._displayDate = formatDisplayDate(e);
-  e._searchText  = `${e.title} ${e.region} ${e._displayDate} ${e.type} ${e.description}`.toLowerCase();
+  e._searchText =
+    `${e.title} ${e.region} ${e._displayDate} ${e.type} ${e.description}`.toLowerCase();
 });
 
 function isMobileLike() {
-  return window.innerWidth <= 600 || window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  return (
+    window.innerWidth <= 600 || window.matchMedia("(hover: none) and (pointer: coarse)").matches
+  );
 }
 
 function getMaxTextureSize() {
@@ -116,10 +119,10 @@ function maxAnisotropy() {
 // MAX_TEXTURE_SIZE 16384 and looked far worse than it had to when it was capped
 // at the 4k tier.
 const TIER_FIRST_PAINT = "2k";
-const TIER_IDLE        = "4k";
-const TIER_ZOOM        = "8k";
-const TIER_ULTRA       = "10k";
-const TIER_ORDER       = [TIER_FIRST_PAINT, TIER_IDLE, TIER_ZOOM, TIER_ULTRA];
+const TIER_IDLE = "4k";
+const TIER_ZOOM = "8k";
+const TIER_ULTRA = "10k";
+const TIER_ORDER = [TIER_FIRST_PAINT, TIER_IDLE, TIER_ZOOM, TIER_ULTRA];
 
 // Level 0 width of each tier, and the camera altitude below which it is worth
 // fetching. Below the last threshold the texture is magnified, so the camera is
@@ -138,7 +141,7 @@ const MIN_ALTITUDE_BY_TIER = { "2k": 1.4, "4k": 0.7, "8k": 0.45, "10k": 0.3 };
 // script's NORMAL_MAX_WIDTH.
 const NORMAL_MAX_TIER = TIER_ZOOM;
 
-const tierRank = tier => TIER_ORDER.indexOf(tier);
+const tierRank = (tier) => TIER_ORDER.indexOf(tier);
 
 function saveDataRequested() {
   const conn = navigator.connection;
@@ -182,13 +185,13 @@ function tierForAltitude(altitude) {
 }
 
 function tierAssets(tier, ext = "ktx2") {
-  const starsRes  = tierRank(tier) >= tierRank(TIER_ZOOM) ? "8k" : "4k";
+  const starsRes = tierRank(tier) >= tierRank(TIER_ZOOM) ? "8k" : "4k";
   const normalRes = tierRank(tier) > tierRank(NORMAL_MAX_TIER) ? NORMAL_MAX_TIER : tier;
   return {
-    map:    `/images/globe/earthmap${tier}.${ext}`,
+    map: `/images/globe/earthmap${tier}.${ext}`,
     normal: `/images/globe/earthnormal${normalRes}.${ext}`,
-    spec:   `/images/globe/earthspec${tier}.${ext}`,
-    stars:  `/images/globe/stars${starsRes}.${ext}`,
+    spec: `/images/globe/earthspec${tier}.${ext}`,
+    stars: `/images/globe/stars${starsRes}.${ext}`,
   };
 }
 
@@ -213,77 +216,88 @@ function setStarsSphere(tex) {
     starsMesh.material.dispose();
   }
   const geom = new THREE.SphereGeometry(STARS_RADIUS, 32, 16);
-  const mat  = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide });
-  starsMesh  = new THREE.Mesh(geom, mat);
+  const mat = new THREE.MeshBasicMaterial({ map: tex, side: THREE.BackSide });
+  starsMesh = new THREE.Mesh(geom, mat);
   globe.scene().add(starsMesh);
 }
 
 function loadKTX2Texture(url, { srgb = false } = {}) {
   return new Promise((resolve, reject) => {
-    ktx2Loader.load(url, tex => {
-      if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = maxAnisotropy();
-      resolve(tex);
-    }, undefined, reject);
+    ktx2Loader.load(
+      url,
+      (tex) => {
+        if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = maxAnisotropy();
+        resolve(tex);
+      },
+      undefined,
+      reject,
+    );
   });
 }
 
 function loadImageTexture(url, { srgb = false } = {}) {
   return new Promise((resolve, reject) => {
-    textureLoader.load(url, tex => {
-      if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
-      tex.anisotropy = maxAnisotropy();
-      resolve(tex);
-    }, undefined, reject);
+    textureLoader.load(
+      url,
+      (tex) => {
+        if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
+        tex.anisotropy = maxAnisotropy();
+        resolve(tex);
+      },
+      undefined,
+      reject,
+    );
   });
 }
 
 function loadTierTextures(tier, ext = "ktx2") {
-  const a    = tierAssets(tier, ext);
+  const a = tierAssets(tier, ext);
   const load = ext === "ktx2" ? loadKTX2Texture : loadImageTexture;
   // Tiers share a star field, so only fetch it when the URL really changes.
   const stars = a.stars === _starsUrl ? Promise.resolve(null) : load(a.stars, { srgb: true });
-  return Promise.all([
-    load(a.map,    { srgb: true }),
-    load(a.normal),
-    load(a.spec),
-    stars,
-  ]).then(([map, normal, spec, starsTex]) => {
-    if (starsTex) _starsUrl = a.stars;
-    return { map, normal, spec, stars: starsTex };
-  });
+  return Promise.all([load(a.map, { srgb: true }), load(a.normal), load(a.spec), stars]).then(
+    ([map, normal, spec, starsTex]) => {
+      if (starsTex) _starsUrl = a.stars;
+      return { map, normal, spec, stars: starsTex };
+    },
+  );
 }
 
 function applyGlobeTextures(tex, tier, mobile = isMobileLike()) {
-  const mat      = globe.globeMaterial();
+  const mat = globe.globeMaterial();
   const previous = [mat.map, mat.normalMap, mat.specularMap];
 
   mat.map = tex.map;
   // A normal map instead of a bump map: bump mapping derives the slope from
   // screen-space derivatives, which breaks up once the globe is minified.
-  mat.bumpMap   = null;
+  mat.bumpMap = null;
   mat.normalMap = tex.normal;
   mat.normalScale.setScalar(mobile ? NORMAL_SCALE_MOBILE : NORMAL_SCALE_DESKTOP);
   mat.specularMap = tex.spec;
-  mat.specular    = new THREE.Color(SPECULAR_COLOR);
-  mat.shininess   = mobile ? SHININESS_MOBILE : SHININESS_DESKTOP;
+  mat.specular = new THREE.Color(SPECULAR_COLOR);
+  mat.shininess = mobile ? SHININESS_MOBILE : SHININESS_DESKTOP;
   mat.needsUpdate = true;
 
   globe.scene().background = null;
   if (tex.stars) setStarsSphere(tex.stars);
 
-  previous.forEach(t => t && t.dispose());
+  previous.forEach((t) => {
+    if (t) t.dispose();
+  });
   _appliedTier = tier;
 }
 
 function switchTier(tier) {
   if (tier === _appliedTier || _tierLoading === tier) return Promise.resolve();
-  if (tierRank(tier) <= tierRank(_appliedTier)) return Promise.resolve();  // never downgrade
+  if (tierRank(tier) <= tierRank(_appliedTier)) return Promise.resolve(); // never downgrade
   _tierLoading = tier;
   return loadTierTextures(tier)
-    .then(tex => applyGlobeTextures(tex, tier))
-    .catch(err => console.warn(`globe: staying on the ${_appliedTier} tier`, err))
-    .finally(() => { _tierLoading = null; });
+    .then((tex) => applyGlobeTextures(tex, tier))
+    .catch((err) => console.warn(`globe: staying on the ${_appliedTier} tier`, err))
+    .finally(() => {
+      _tierLoading = null;
+    });
 }
 
 function upgradeTexturesWhenIdle() {
@@ -320,9 +334,8 @@ function applyRendererTuning() {
   // and its antialiasing are never used. three builds the composer buffers with
   // no multisampling, and the composer keeps the pixel ratio it saw when it was
   // built. Without both fixes below the scene is aliased and then rescaled.
-  const composer = typeof globe.postProcessingComposer === "function"
-    ? globe.postProcessingComposer()
-    : null;
+  const composer =
+    typeof globe.postProcessingComposer === "function" ? globe.postProcessingComposer() : null;
   if (!composer) return;
 
   for (const rt of [composer.renderTarget1, composer.renderTarget2]) {
@@ -339,7 +352,7 @@ function applyRendererTuning() {
 
 function applyCameraOffset() {
   if (!globe) return;
-  const cam       = globe.camera();
+  const cam = globe.camera();
   const panelOpen = !infoPanel.classList.contains("collapsed");
   if (panelOpen) {
     if (isMobileLike()) {
@@ -357,7 +370,7 @@ function applyCameraOffset() {
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 function openLightbox(idx) {
   const imgs = currentEntry?.images;
-  if (!imgs || !imgs.length) return;
+  if (!imgs?.length) return;
   currentImageIdx = ((idx % imgs.length) + imgs.length) % imgs.length;
   lightboxImg.src = imgs[currentImageIdx].src;
   const hasMultiple = imgs.length > 1;
@@ -367,16 +380,33 @@ function openLightbox(idx) {
   lightbox.classList.add("open");
 }
 
-function navigateLightbox(dir) { if (currentEntry?.images) openLightbox(currentImageIdx + dir); }
+function navigateLightbox(dir) {
+  if (currentEntry?.images) openLightbox(currentImageIdx + dir);
+}
 
-lbPrev.addEventListener("click",  e => { e.stopPropagation(); navigateLightbox(-1); });
-lbNext.addEventListener("click",  e => { e.stopPropagation(); navigateLightbox(1); });
-lbClose.addEventListener("click", e => { e.stopPropagation(); lightbox.classList.remove("open"); });
+lbPrev.addEventListener("click", (e) => {
+  e.stopPropagation();
+  navigateLightbox(-1);
+});
+lbNext.addEventListener("click", (e) => {
+  e.stopPropagation();
+  navigateLightbox(1);
+});
+lbClose.addEventListener("click", (e) => {
+  e.stopPropagation();
+  lightbox.classList.remove("open");
+});
 lightbox.addEventListener("click", () => lightbox.classList.remove("open"));
 
 let touchStartX = null;
-lightbox.addEventListener("touchstart", e => { touchStartX = e.touches[0].clientX; }, { passive: true });
-lightbox.addEventListener("touchend", e => {
+lightbox.addEventListener(
+  "touchstart",
+  (e) => {
+    touchStartX = e.touches[0].clientX;
+  },
+  { passive: true },
+);
+lightbox.addEventListener("touchend", (e) => {
   if (touchStartX === null) return;
   const dx = e.changedTouches[0].clientX - touchStartX;
   touchStartX = null;
@@ -384,15 +414,15 @@ lightbox.addEventListener("touchend", e => {
   else lightbox.classList.remove("open");
 });
 
-document.addEventListener("keydown", e => {
+document.addEventListener("keydown", (e) => {
   if (!lightbox.classList.contains("open")) return;
-  if (e.key === "Escape")      lightbox.classList.remove("open");
-  else if (e.key === "ArrowLeft")  navigateLightbox(-1);
+  if (e.key === "Escape") lightbox.classList.remove("open");
+  else if (e.key === "ArrowLeft") navigateLightbox(-1);
   else if (e.key === "ArrowRight") navigateLightbox(1);
 });
 
 // Open lightbox when clicking the main image in any entry body
-entryList.addEventListener("click", e => {
+entryList.addEventListener("click", (e) => {
   if (e.target.closest(".entry-main-img") && currentEntry) openLightbox(currentImageIdx);
 });
 
@@ -400,25 +430,33 @@ entryList.addEventListener("click", e => {
 function renderImageCredit(el, image) {
   const parts = [];
   if (image.credit) parts.push(image.credit);
-  if (image.license && image.licenseUrl) parts.push(`Licensed under <a href="${image.licenseUrl}" target="_blank">${image.license}</a>`);
+  if (image.license && image.licenseUrl)
+    parts.push(`Licensed under <a href="${image.licenseUrl}" target="_blank">${image.license}</a>`);
   el.innerHTML = parts.join(" ");
 }
 
 function renderSource(el, entry) {
-  if (!entry?.source) { el.textContent = ""; return; }
-  const s       = entry.source;
-  const wrap    = (val, suffix = ". ") => val ? `${val}${suffix}` : "";
+  if (!entry?.source) {
+    el.textContent = "";
+    return;
+  }
+  const s = entry.source;
+  const wrap = (val, suffix = ". ") => (val ? `${val}${suffix}` : "");
   const authors = Array.isArray(s.authors) ? s.authors.join(", ") : "";
-  let citation  = `Source: ${wrap(authors)}${wrap(s.year)}${wrap(`<em>${s.title}</em>`)}`;
-  if (s.doi)      citation += `<a href="${s.url}" target="_blank" rel="noopener">DOI: ${s.doi}</a>. `;
+  let citation = `Source: ${wrap(authors)}${wrap(s.year)}${wrap(`<em>${s.title}</em>`)}`;
+  if (s.doi) citation += `<a href="${s.url}" target="_blank" rel="noopener">DOI: ${s.doi}</a>. `;
   else if (s.url) citation += `<a href="${s.url}" target="_blank" rel="noopener">Link</a>. `;
-  el.innerHTML  = citation + (s.note || "");
+  el.innerHTML = citation + (s.note || "");
 }
 
 function renderGallery(body, entry, idx = 0) {
-  const imgs = entry?.images || [{ src: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Question_book-new.svg/240px-Question_book-new.svg.png" }];
+  const imgs = entry?.images || [
+    {
+      src: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Question_book-new.svg/240px-Question_book-new.svg.png",
+    },
+  ];
   currentImageIdx = Math.max(0, Math.min(idx, imgs.length - 1));
-  const cur   = imgs[currentImageIdx];
+  const cur = imgs[currentImageIdx];
   const imgEl = body.querySelector(".entry-main-img");
   imgEl.classList.remove("portrait");
   imgEl.src = cur.src;
@@ -432,12 +470,12 @@ function renderGallery(body, entry, idx = 0) {
   thumbs.innerHTML = "";
   if (imgs.length > 1) {
     imgs.forEach((img, i) => {
-      const t    = document.createElement("img");
-      t.src      = img.src.replace(/\.(jpe?g|png)$/i, '.thumb.jpg');
-      t.loading  = "lazy";
-      t.className = "entry-thumb" + (i === currentImageIdx ? " active" : "");
+      const t = document.createElement("img");
+      t.src = img.src.replace(/\.(jpe?g|png)$/i, ".thumb.jpg");
+      t.loading = "lazy";
+      t.className = `entry-thumb${i === currentImageIdx ? " active" : ""}`;
       t.draggable = false;
-      t.onclick  = () => renderGallery(body, entry, i);
+      t.onclick = () => renderGallery(body, entry, i);
       thumbs.appendChild(t);
     });
   }
@@ -450,7 +488,8 @@ function buildEntryBody(entry) {
   const body = document.createElement("div");
   body.className = "entry-body";
   body.innerHTML = `<div class="entry-meta"></div><img class="entry-main-img" src="" /><div class="entry-caption"></div><div class="entry-credit"></div><div class="entry-thumbs"></div><p class="entry-desc"></p><div class="entry-source"></div>`;
-  body.querySelector(".entry-meta").textContent = `${entry.region} • ${entry._displayDate} • ${entry.type}`;
+  body.querySelector(".entry-meta").textContent =
+    `${entry.region} • ${entry._displayDate} • ${entry.type}`;
   body.querySelector(".entry-desc").textContent = entry.description;
   renderGallery(body, entry, 0);
   renderSource(body.querySelector(".entry-source"), entry);
@@ -465,7 +504,9 @@ function activateEntry(entry, item) {
   if (prev) prev.classList.remove("active");
   item.classList.add("active");
   item.classList.remove("body-collapsed");
-  requestAnimationFrame(() => { panelBody.scrollTop = 0; });
+  requestAnimationFrame(() => {
+    panelBody.scrollTop = 0;
+  });
   item.appendChild(buildEntryBody(entry)); // no-op if already appended (cached)
   if (currentEntry?.__borderMat) currentEntry.__borderMat.color.set(MARKER_COLOR_IDLE);
   currentEntry = entry;
@@ -474,19 +515,22 @@ function activateEntry(entry, item) {
 }
 
 function renderEntryList(entries) {
-  allEntries.forEach(e => { e._listItem = null; });
+  allEntries.forEach((e) => {
+    e._listItem = null;
+  });
   entryList.innerHTML = "";
   if (!entries.length) {
     const msg = document.createElement("div");
-    msg.style.cssText = "padding: 8px 10px; font-size: 13px; color: #888; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid transparent;";
+    msg.style.cssText =
+      "padding: 8px 10px; font-size: 13px; color: #888; border-radius: 8px; background: rgba(255,255,255,0.04); border: 1px solid transparent;";
     msg.textContent = "No entries found.";
     entryList.appendChild(msg);
     return;
   }
   const frag = document.createDocumentFragment();
-  entries.forEach(entry => {
+  entries.forEach((entry) => {
     const item = document.createElement("div");
-    item.className = "entry-item" + (entry === currentEntry ? " active" : "") + (entry === currentEntry && entry._bodyCollapsed ? " body-collapsed" : "");
+    item.className = `entry-item${entry === currentEntry ? " active" : ""}${entry === currentEntry && entry._bodyCollapsed ? " body-collapsed" : ""}`;
     entry._listItem = item;
     const row = document.createElement("div");
     row.className = "entry-row";
@@ -498,7 +542,10 @@ function renderEntryList(entries) {
         return;
       }
       activateEntry(entry, item);
-      if (globe) { globe.controls().autoRotate = false; globe.pointOfView({ lat: entry.lat, lng: entry.lng, altitude: CAMERA_ALTITUDE }, 1000); }
+      if (globe) {
+        globe.controls().autoRotate = false;
+        globe.pointOfView({ lat: entry.lat, lng: entry.lng, altitude: CAMERA_ALTITUDE }, 1000);
+      }
     });
     item.appendChild(row);
     if (entry === currentEntry) item.appendChild(buildEntryBody(entry));
@@ -509,14 +556,15 @@ function renderEntryList(entries) {
 
 function filterEntries() {
   const q = searchBar.value.trim().toLowerCase();
-  filteredEntries = q
-    ? allEntries.filter(e => e._searchText.includes(q))
-    : [...allEntries];
+  filteredEntries = q ? allEntries.filter((e) => e._searchText.includes(q)) : [...allEntries];
   renderEntryList(filteredEntries);
 }
 
 function handleInteraction(d) {
-  if (globe) { globe.controls().autoRotate = false; globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: CAMERA_ALTITUDE }, 1000); }
+  if (globe) {
+    globe.controls().autoRotate = false;
+    globe.pointOfView({ lat: d.lat, lng: d.lng, altitude: CAMERA_ALTITUDE }, 1000);
+  }
   // Ensure entry is visible in list (clear filter if needed)
   if (!filteredEntries.includes(d)) {
     searchBar.value = "";
@@ -538,24 +586,27 @@ function hideLoadingScreen() {
 // ── Globe initialisation ──────────────────────────────────────────────────────
 async function init() {
   globe = Globe()(document.getElementById("globeViz"))
-    .width(window.innerWidth).height(window.innerHeight)
-    .showAtmosphere(true).atmosphereColor("#5dade2").atmosphereAltitude(0.18)
+    .width(window.innerWidth)
+    .height(window.innerHeight)
+    .showAtmosphere(true)
+    .atmosphereColor("#5dade2")
+    .atmosphereAltitude(0.18)
     .customLayerData(allEntries)
-    .customThreeObject(d => {
+    .customThreeObject((d) => {
       const group = new THREE.Group();
 
       const borderMat = new THREE.MeshBasicMaterial({
         color: d === currentEntry ? MARKER_COLOR_ACTIVE : MARKER_COLOR_IDLE,
-        side: THREE.DoubleSide
+        side: THREE.DoubleSide,
       });
       d.__borderMat = borderMat;
       const borderMesh = new THREE.Mesh(borderGeom, borderMat);
 
-      const thumbSrc = d.images[0].src.replace(/\.(jpe?g|png)$/i, '.thumb.jpg');
-      const imgTexture = textureLoader.load(thumbSrc, tex => {
+      const thumbSrc = d.images[0].src.replace(/\.(jpe?g|png)$/i, ".thumb.jpg");
+      const imgTexture = textureLoader.load(thumbSrc, (tex) => {
         tex.colorSpace = THREE.SRGBColorSpace;
         tex.anisotropy = maxAnisotropy();
-        const imgAspect   = tex.image.width / tex.image.height;
+        const imgAspect = tex.image.width / tex.image.height;
         const planeAspect = MARKER_IMG_W / MARKER_IMG_H;
         if (imgAspect > planeAspect) {
           tex.repeat.set(planeAspect / imgAspect, 1);
@@ -569,7 +620,7 @@ async function init() {
       const imgMat = new THREE.MeshBasicMaterial({
         map: imgTexture,
         side: THREE.DoubleSide,
-        transparent: true
+        transparent: true,
       });
 
       const imgMesh = new THREE.Mesh(imgGeom, imgMat);
@@ -577,8 +628,8 @@ async function init() {
 
       group.add(borderMesh);
       group.add(imgMesh);
-      d.__threeObj     = group;
-      d.__targetScale  = 1.0;
+      d.__threeObj = group;
+      d.__targetScale = 1.0;
       return group;
     })
     .customThreeObjectUpdate((obj, d) => {
@@ -590,9 +641,13 @@ async function init() {
     .onCustomLayerHover((d, prevD) => {
       if (!HAS_HOVER) return;
       document.body.style.cursor = d ? "pointer" : "default";
-      if (prevD) { prevD.__targetScale = 1.0; startScaleAnimation(); }
+      if (prevD) {
+        prevD.__targetScale = 1.0;
+        startScaleAnimation();
+      }
       if (d) {
-        d.__targetScale = SCALE_HOVER; startScaleAnimation();
+        d.__targetScale = SCALE_HOVER;
+        startScaleAnimation();
         globeTooltip.textContent = `${d.title} · ${d._displayDate}`;
         globeTooltip.style.display = "block";
       } else {
@@ -645,10 +700,10 @@ async function init() {
     clearTimeout(watchdog);
   }
 
-  globe.controls().autoRotate      = true;
+  globe.controls().autoRotate = true;
   globe.controls().autoRotateSpeed = 0.4;
-  globe.controls().enableDamping   = true;
-  globe.controls().dampingFactor   = 0.05;
+  globe.controls().enableDamping = true;
+  globe.controls().dampingFactor = 0.05;
   applyZoomLimit();
 
   let _resizeTimer;
@@ -664,13 +719,13 @@ async function init() {
       if (!isMobileLike()) infoPanel.style.maxHeight = "";
       applyRendererTuning();
       applyCameraOffset();
-      applyZoomLimit();   // the tier ceiling follows the viewport size
+      applyZoomLimit(); // the tier ceiling follows the viewport size
     }, RESIZE_DEBOUNCE_MS);
   });
 
   function animateScale() {
     let stillAnimating = false;
-    allEntries.forEach(d => {
+    allEntries.forEach((d) => {
       if (!d.__threeObj) return;
       const s = d.__targetScale;
       if (Math.abs(d.__threeObj.scale.x - s) > SCALE_LERP_EPSILON) {
@@ -684,12 +739,15 @@ async function init() {
   }
   function startScaleAnimation() {
     _scaleAnimating = true;
-    if (!_scaleLoopRunning) { _scaleLoopRunning = true; requestAnimationFrame(animateScale); }
+    if (!_scaleLoopRunning) {
+      _scaleLoopRunning = true;
+      requestAnimationFrame(animateScale);
+    }
   }
 
   const initial = allEntries[allEntries.length - 1];
   renderEntryList(allEntries);
-  if (initial && initial._listItem) {
+  if (initial?._listItem) {
     activateEntry(initial, initial._listItem);
     globe.pointOfView({ lat: initial.lat, lng: initial.lng, altitude: CAMERA_ALTITUDE_INITIAL }, 0);
     applyCameraOffset();
@@ -706,11 +764,18 @@ function setPanelState(collapsed) {
 
 setPanelState(window.innerWidth <= 600);
 
-collapseBtn.addEventListener("click", () => { setPanelState(!infoPanel.classList.contains("collapsed")); });
-activeTitle.addEventListener("click", () => { setPanelState(false); });
+collapseBtn.addEventListener("click", () => {
+  setPanelState(!infoPanel.classList.contains("collapsed"));
+});
+activeTitle.addEventListener("click", () => {
+  setPanelState(false);
+});
 
 siteTitle.addEventListener("click", () => {
-  if (searchBar.value) { searchBar.value = ""; filterEntries(); }
+  if (searchBar.value) {
+    searchBar.value = "";
+    filterEntries();
+  }
   panelBody.scrollTop = 0;
   setPanelState(false);
   if (globe) globe.controls().autoRotate = true;
@@ -724,20 +789,24 @@ searchBar.addEventListener("input", () => {
 prevBtn.addEventListener("click", () => {
   if (!currentEntry) return;
   const list = filteredEntries.length ? filteredEntries : allEntries;
-  const idx  = list.indexOf(currentEntry);
+  const idx = list.indexOf(currentEntry);
   handleInteraction(list[(idx - 1 + list.length) % list.length]);
 });
 
 nextBtn.addEventListener("click", () => {
   if (!currentEntry) return;
   const list = filteredEntries.length ? filteredEntries : allEntries;
-  const idx  = list.indexOf(currentEntry);
+  const idx = list.indexOf(currentEntry);
   handleInteraction(list[(idx + 1) % list.length]);
 });
 
 if (HAS_HOVER) {
-  globeViz.addEventListener("mousemove",  e => { globeTooltip.style.transform = `translate(calc(${e.clientX}px + 12px), calc(${e.clientY}px - 50%))`; });
-  globeViz.addEventListener("mouseleave", () => { globeTooltip.style.display = "none"; });
+  globeViz.addEventListener("mousemove", (e) => {
+    globeTooltip.style.transform = `translate(calc(${e.clientX}px + 12px), calc(${e.clientY}px - 50%))`;
+  });
+  globeViz.addEventListener("mouseleave", () => {
+    globeTooltip.style.display = "none";
+  });
 }
 
 // ── Panel drag-to-resize (mobile + mouse) ────────────────────────────────────
@@ -751,10 +820,10 @@ function onDragStart(clientY) {
 
 function onDragMove(clientY) {
   if (_dragStartY === null) return;
-  const dy      = _dragStartY - clientY;
-  const vh      = window.innerHeight;
+  const dy = _dragStartY - clientY;
+  const vh = window.innerHeight;
   const clamped = Math.max(vh * 0.55, Math.min(vh * 0.75, _dragStartH + dy));
-  infoPanel.style.maxHeight = clamped + "px";
+  infoPanel.style.maxHeight = `${clamped}px`;
   applyCameraOffset();
 }
 
@@ -763,12 +832,19 @@ function onDragEnd() {
   _dragStartH = null;
 }
 
-panelDragHandle.addEventListener("touchstart", e => onDragStart(e.touches[0].clientY), { passive: true });
-panelDragHandle.addEventListener("touchmove",  e => onDragMove(e.touches[0].clientY),  { passive: true });
-panelDragHandle.addEventListener("touchend",   onDragEnd);
+panelDragHandle.addEventListener("touchstart", (e) => onDragStart(e.touches[0].clientY), {
+  passive: true,
+});
+panelDragHandle.addEventListener("touchmove", (e) => onDragMove(e.touches[0].clientY), {
+  passive: true,
+});
+panelDragHandle.addEventListener("touchend", onDragEnd);
 
-panelDragHandle.addEventListener("mousedown", e => { e.preventDefault(); onDragStart(e.clientY); });
-document.addEventListener("mousemove", e => onDragMove(e.clientY));
-document.addEventListener("mouseup",   onDragEnd);
+panelDragHandle.addEventListener("mousedown", (e) => {
+  e.preventDefault();
+  onDragStart(e.clientY);
+});
+document.addEventListener("mousemove", (e) => onDragMove(e.clientY));
+document.addEventListener("mouseup", onDragEnd);
 
 init();

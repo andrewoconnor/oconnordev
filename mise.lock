@@ -59,22 +59,28 @@ checksum = "sha256:31c907f5b6f5713804cd4f380b14bb13b6f0e7cda5f1c655fccbd78422e8e
 url = "https://github.com/bridgecrewio/checkov/releases/download/3.3.20/checkov_darwin_X86_64.zip"
 url_api = "https://api.github.com/repos/bridgecrewio/checkov/releases/assets/593961130"
 
-[[tools.deno]]
-version = "2.9.7"
-backend = "core:deno"
-specifiers = ["2.9.7"]
+[[tools.biome]]
+version = "2.5.15"
+backend = "aqua:biomejs/biome"
+specifiers = ["2.5.15"]
 
-[tools.deno."platforms.linux-x64"]
-checksum = "sha256:c6527f24f4b16031d3ae4fa9f658d5f11534c8d84ce7dc8502420280919c3490"
-url = "https://dl.deno.land/release/v2.9.7/deno-x86_64-unknown-linux-gnu.zip"
+[tools.biome."platforms.linux-x64"]
+checksum = "sha256:5d867a0b2ccea1755b7e508b01d836a8c64e31a1e4d11ec24b43b6b4eec8b3b6"
+url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.5.15/biome-linux-x64"
+url_api = "https://api.github.com/repos/biomejs/biome/releases/assets/601227626"
+provenance = "github-attestations"
 
-[tools.deno."platforms.macos-arm64"]
-checksum = "sha256:5cd46d6268f6f78f5d88bdc7159d20bd44cdaa4b3303474839f87ec6fe7ae25c"
-url = "https://dl.deno.land/release/v2.9.7/deno-aarch64-apple-darwin.zip"
+[tools.biome."platforms.macos-arm64"]
+checksum = "sha256:3636796d8c78bfcfe0d45946dc93e21e12d27a49eba7401e18af1ea854d25503"
+url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.5.15/biome-darwin-arm64"
+url_api = "https://api.github.com/repos/biomejs/biome/releases/assets/601227628"
+provenance = "github-attestations"
 
-[tools.deno."platforms.macos-x64"]
-checksum = "sha256:95daaff11c116a52ad54785e7914c8e9c9cdcaba793c5ed929c74ca2d8e6259a"
-url = "https://dl.deno.land/release/v2.9.7/deno-x86_64-apple-darwin.zip"
+[tools.biome."platforms.macos-x64"]
+checksum = "sha256:86fc618563d19f373ac24eb5b8f1e41bd753a506d5df1f198c152ec365141490"
+url = "https://github.com/biomejs/biome/releases/download/%40biomejs/biome%402.5.15/biome-darwin-x64"
+url_api = "https://api.github.com/repos/biomejs/biome/releases/assets/601227623"
+provenance = "github-attestations"
 
 [[tools.opentofu]]
 version = "1.12.6"
