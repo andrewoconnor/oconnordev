@@ -231,7 +231,7 @@ def handler(event, context):
     )
 
     _log(
-        "rotated",
+        "rotation_checked",
         iat=issued_at,
         exp=expires_at,
         lifetime_seconds=(expires_at - issued_at) if _valid_expiry(issued_at) else None,
