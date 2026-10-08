@@ -12,10 +12,15 @@ on:
     paths:
       - "apps/oconnordev/**"
       - ".github/workflows/oconnordev-site.yml"
+      - "mise.toml"
+      - "mise.lock"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  MISE_LOCKED: '1'
 
 jobs:
   format:
@@ -23,11 +28,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          deno-version: v2.9.7
+          version: '2026.10.3'
+          github_token: ${{ github.token }}
       - name: Check HTML and CSS formatting
-        run: deno fmt --check apps/oconnordev/
+        run: mise run fmt:site
 
   deploy:
     name: Deploy to S3 and invalidate CloudFront
@@ -39,11 +45,12 @@ jobs:
       id-token: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - uses: denoland/setup-deno@22d081ff2d3a40755e97629de92e3bcbfa7cf2ed # v2.0.5
+      - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
-          deno-version: v2.9.7
+          version: '2026.10.3'
+          github_token: ${{ github.token }}
       - name: Check HTML and CSS formatting
-        run: deno fmt --check apps/oconnordev/
+        run: mise run fmt:site
       - name: Assume TOOLS GitHub Actions broker with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -63,8 +70,8 @@ jobs:
           role-skip-session-tagging: true
           allowed-account-ids: "767397796791"
       - name: Sync site to S3
-        run: aws s3 sync apps/oconnordev/ s3://oconnordev-web --delete
+        run: mise exec -- aws s3 sync apps/oconnordev/ s3://oconnordev-web --delete
       - name: Invalidate CloudFront
         env:
           DISTRIBUTION_ID: ${{ vars.OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID }}
-        run: aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
+        run: mise exec -- aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"

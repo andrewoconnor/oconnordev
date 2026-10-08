@@ -4,6 +4,10 @@ tflint = "0.64.0"
 actionlint = "1.7.12"
 python = "3.13.16"
 ruff = "0.16.10"
+# Match the existing site workflow and Checkov action's bundled version.
+deno = "2.9.7"
+"aqua:bridgecrewio/checkov" = "3.3.20"
+"aqua:aws/aws-cli" = "2.37.10"
 
 [settings]
 lockfile = true
@@ -31,6 +35,14 @@ set -eu
 git ls-files -z -- '*.py' | xargs -0 ruff check
 git ls-files -z -- '*.py' | xargs -0 ruff format --check
 """
+
+[tasks."fmt:site"]
+description = "Check static-site HTML and CSS formatting"
+run = "deno fmt --check apps/oconnordev/"
+
+[tasks.checkov]
+description = "Scan the repository and produce console and SARIF results"
+run = "checkov --directory . --output cli --output sarif --output-file-path console,results.sarif"
 
 [tasks."test:python"]
 description = "Run adapter, rotation, gateway smoke, and CI path-selection unit tests"
