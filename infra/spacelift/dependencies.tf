@@ -43,10 +43,27 @@ resource "spacelift_stack_dependency_reference" "tools_security_gateway_arn" {
   input_name          = "TF_VAR_security_gateway_arn"
 }
 
+resource "spacelift_stack_dependency_reference" "tools_security_logs_sink" {
+  stack_dependency_id = spacelift_stack_dependency.tools_security_gateway.id
+  output_name         = "cloudwatch_logs_sink_arn"
+  input_name          = "TF_VAR_security_logs_sink_arn"
+}
+
+resource "spacelift_stack_dependency" "production_security_logs" {
+  stack_id            = spacelift_stack.accounts["production"].id
+  depends_on_stack_id = spacelift_stack.accounts["security"].id
+}
+
+resource "spacelift_stack_dependency_reference" "production_security_logs_sink" {
+  stack_dependency_id = spacelift_stack_dependency.production_security_logs.id
+  output_name         = "cloudwatch_logs_sink_arn"
+  input_name          = "TF_VAR_security_logs_sink_arn"
+}
+
 resource "spacelift_stack_dependency" "github_repository_config_production" {
   count = var.enable_github_repository_config ? 1 : 0
 
-  stack_id            = spacelift_stack.github_repository_config[0].id
+  stack_id            = spacelift_stack.accounts["production"].id
   depends_on_stack_id = spacelift_stack.accounts["production"].id
 }
 
