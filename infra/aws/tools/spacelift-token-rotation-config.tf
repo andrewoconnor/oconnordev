@@ -1,11 +1,11 @@
 variable "hermes_spacelift_rotation_interval_minutes" {
-  description = "Poll every minute while Spacelift's renewal behavior is unobserved. The function uses each JWT's exp claim to determine whether a candidate extends the published token; it never waits inside Lambda."
+  description = "Poll for an observed JWT expiry advance every 15 minutes by default; use a shorter interval for diagnosis. The function derives lifetime from exp and never waits inside Lambda."
   type        = number
-  default     = 1
+  default     = 15
 
   validation {
-    condition     = var.hermes_spacelift_rotation_interval_minutes == 1
-    error_message = "hermes_spacelift_rotation_interval_minutes must be 1 until JWT expiry behavior is observed across a real expiry boundary."
+    condition     = var.hermes_spacelift_rotation_interval_minutes >= 1 && var.hermes_spacelift_rotation_interval_minutes <= 15 && floor(var.hermes_spacelift_rotation_interval_minutes) == var.hermes_spacelift_rotation_interval_minutes
+    error_message = "hermes_spacelift_rotation_interval_minutes must be a whole number of minutes between 1 and 15."
   }
 }
 
