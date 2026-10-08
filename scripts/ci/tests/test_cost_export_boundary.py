@@ -11,6 +11,7 @@ class CostExportBoundaryTests(unittest.TestCase):
     def setUpClass(cls):
         cls.general = (ROOT / "infra/aws/general/cost-export.tf").read_text()
         cls.security = (ROOT / "infra/aws/security/cost-analytics.tf").read_text()
+        cls.security += (ROOT / "infra/aws/security/athena.tf").read_text()
         cls.queries = (
             ROOT / "infra/aws/security/cost-analytics-queries.tf"
         ).read_text()
