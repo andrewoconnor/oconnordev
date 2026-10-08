@@ -133,6 +133,11 @@ run "sink_policy" {{
     error_message = "An absent resource-types context must not pass the policy."
   }}
   assert {{
+    condition = (jsondecode(aws_oam_sink_policy.cloudwatch_logs.policy)
+      .Statement[0].Resource == "*")
+    error_message = "The sink policy must cover both sink and link operations."
+  }}
+  assert {{
     condition = (toset(jsondecode(aws_oam_sink_policy.cloudwatch_logs.policy)
       .Statement[0].Action) == toset(["oam:CreateLink", "oam:UpdateLink"]))
     error_message = "Link management must not grant wildcard OAM permissions."

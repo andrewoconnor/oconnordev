@@ -9,10 +9,12 @@ resource "aws_oam_sink_policy" "cloudwatch_logs" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid      = "ToolsAndProductionLogsOnly"
-      Effect   = "Allow"
-      Action   = ["oam:CreateLink", "oam:UpdateLink"]
-      Resource = aws_oam_sink.cloudwatch_logs.arn
+      Sid    = "ToolsAndProductionLogsOnly"
+      Effect = "Allow"
+      Action = ["oam:CreateLink", "oam:UpdateLink"]
+      # Sink-scoped resource policy: UpdateLink authorizes a link, not a sink.
+      # AWS's documented policy uses * here; account/type restrictions remain.
+      Resource = "*"
       Principal = {
         AWS = [
           "arn:aws:iam::${local.accounts["TOOLS"]}:root",
