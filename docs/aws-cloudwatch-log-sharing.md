@@ -27,6 +27,18 @@ sharing all source groups is intentional, so redact credentials at emission.
 changing its resource address or configuration. Athena remains the billing
 query engine; CloudWatch Logs Insights queries logs directly, not via Athena.
 
+## Verified renewal observation
+
+On 2026-10-08, queries from SECURITY successfully read TOOLS's
+`/aws/lambda/hermes-spacelift-session-token-rotation` log group. The sampled
+24-hour poll query returned 1,439 successful checks, 13 expiry-advancing
+publications, and 1,426 same-expiry checks without publication. Observed lifetime
+was 10 hours; minimum remaining lifetime was about 7.62 hours. This verifies
+TOOLS log-query access, not the existence of PRODUCTION log emitters or a
+provider guarantee about renewal timing. See the
+[session-token runbook](runbooks/spacelift-session-token.md) for query evidence,
+caveats, the 15-minute default cadence, alarm windows, and post-apply checks.
+
 ## Cost
 
 CloudWatch cross-account observability for logs has **no additional charge**
