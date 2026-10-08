@@ -54,11 +54,38 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertIn("mise run fmt:site", deploy)
         self.assertIn("mise run lint:site", deploy)
 
+    def test_drumroll_build_and_tests_precede_credentials_and_sync(self):
+        workflow = read(".github/workflows/drumrollworld-site.yml")
+        check, deploy = workflow.split("  deploy:", 1)
+        for job in (check, deploy):
+            self.assertIn("mise run build:drumrollworld", job)
+            self.assertIn("mise run test:drumrollworld", job)
+        build = deploy.index("mise run build:drumrollworld")
+        tests = deploy.index("mise run test:drumrollworld")
+        credentials = deploy.index("Assume TOOLS GitHub Actions broker")
+        sync = deploy.index("aws s3 sync")
+        self.assertLess(build, credentials)
+        self.assertLess(tests, credentials)
+        self.assertLess(credentials, sync)
+        self.assertNotIn("aws s3 sync apps/drumrollworld/ s3:", deploy)
+        assets = deploy.index(
+            "aws s3 sync apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/"
+        )
+        html = deploy.index(
+            "aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/"
+        )
+        self.assertLess(assets, html)
+        asset_command = deploy[assets:].splitlines()[0]
+        self.assertNotIn("--delete", asset_command)
+        tasks = read("mise.toml")
+        self.assertIn("ci --ignore-scripts --no-audit --no-fund", tasks)
+        self.assertIn("node =", tasks)
+
     def test_drumroll_sync_preserves_out_of_repo_images(self):
         workflow = read(".github/workflows/drumrollworld-site.yml")
         self.assertIn(
-            "aws s3 sync apps/drumrollworld/ s3://drumrollworld-web/ "
-            '--delete --exclude "images/*"',
+            "aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/ "
+            '--delete --exclude "images/*" --exclude "assets/*"',
             workflow,
         )
         self.assertIn("vars.DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN", workflow)
@@ -165,8 +192,15 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(config["css"]["linter"]["enabled"])
         self.assertEqual(
             config["files"]["includes"],
-            ["apps/**/*.html", "apps/**/*.css", "apps/**/*.js"],
+            ["apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "apps/**/*.mjs"],
         )
+        self.assertTrue(config["vcs"]["enabled"])
+        self.assertTrue(config["vcs"]["useIgnoreFile"])
+        for path in (
+            "/apps/drumrollworld/node_modules/",
+            "/apps/drumrollworld/dist/",
+        ):
+            self.assertIn(path, read(".gitignore"))
         self.assertFalse(config["assist"]["enabled"])
         self.assertNotIn("deno =", read("mise.toml"))
         self.assertIn('[tasks."lint:site"]', read("mise.toml"))

@@ -1,0 +1,20 @@
+{
+  "name": "drumrollworld",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node --test build.test.js"
+  },
+  "dependencies": {
+    "globe.gl": "2.46.2",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  },
+  "overrides": {
+    "three": "0.186.1"
+  }
+}

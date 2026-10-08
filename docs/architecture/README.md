@@ -27,6 +27,9 @@ Each role trusts only the broker and targets its own bucket/distribution.
 `production` owns the OConnorDev site role; `drumrollworld` owns the DrumrollWorld
 role. Generated DrumrollWorld outputs reach the GitHub repository-configuration
 stack through its own dependency. Both apps use locked Biome lint/format checks.
+DrumrollWorld additionally builds a locked npm/esbuild release with self-hosted
+Three.js, Globe.gl and KTX2 decoder JS/WASM. Its S3/CloudFront origin serves the
+complete runtime dependency bundle; no external module CDN is needed.
 See [DrumrollWorld deployment](../runbooks/drumrollworld-deployment.md) for the
 one-time apply order, master-only deployment gates, and image preservation.
 
