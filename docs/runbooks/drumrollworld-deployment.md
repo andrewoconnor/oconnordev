@@ -70,7 +70,7 @@ ownership. The original fallback picture is now a repository-owned SVG outside
 Exact direct versions are recorded in `apps/drumrollworld/package.json`:
 Three.js `0.186.1`, Globe.gl `2.46.2`, and build-only esbuild `0.28.2`.
 `package-lock.json` fixes transitive versions and integrity hashes. Node
-`24.21.0` is pinned and checksummed in the repository mise lock.
+`26.11.1` is pinned and checksummed in the repository mise lock.
 
 ```sh
 mise run build:drumrollworld
