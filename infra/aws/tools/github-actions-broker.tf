@@ -1,6 +1,7 @@
 locals {
-  github_actions_broker_role_name = "oconnordev-github-actions-broker"
-  production_site_deploy_role_arn = "arn:aws:iam::${local.accounts["PRODUCTION"]}:role/oconnordev-site-deploy"
+  github_actions_broker_role_name    = "oconnordev-github-actions-broker"
+  production_site_deploy_role_arn    = "arn:aws:iam::${local.accounts["PRODUCTION"]}:role/oconnordev-site-deploy"
+  drumrollworld_site_deploy_role_arn = "arn:aws:iam::${local.accounts["PRODUCTION"]}:role/drumrollworld-site-deploy"
 }
 
 data "aws_iam_policy_document" "github_actions_broker_trust" {
@@ -40,10 +41,13 @@ resource "aws_iam_role" "github_actions_broker" {
 
 data "aws_iam_policy_document" "github_actions_broker_assume_production" {
   statement {
-    sid       = "AssumeOnlyProductionSiteDeployRole"
-    effect    = "Allow"
-    actions   = ["sts:AssumeRole"]
-    resources = [local.production_site_deploy_role_arn]
+    sid     = "AssumeOnlyProductionSiteDeployRoles"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+    resources = [
+      local.production_site_deploy_role_arn,
+      local.drumrollworld_site_deploy_role_arn,
+    ]
   }
 }
 

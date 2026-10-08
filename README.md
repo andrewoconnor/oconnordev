@@ -15,13 +15,14 @@ mise run validate
 mise run workflow-lint
 mise run lint:python
 mise run fmt:site
+mise run lint:site
 mise run checkov
 mise run test
 ```
 
 `mise.toml` is the source of CLI versions: OpenTofu, TFLint, actionlint,
-Python, Ruff, Deno, Checkov, and the AWS CLI. CI installs the same locked tools
-through `jdx/mise-action`; it does not separately install Deno or Checkov or
+Python, Ruff, Biome, Checkov, and the AWS CLI. CI installs the same locked tools
+through `jdx/mise-action`; it does not separately install Biome or Checkov or
 rely on the runner's AWS CLI. Checkov uses the Aqua standalone release, so its
 bundled Python dependencies are isolated from repository application libraries.
 Keep application/library dependencies in their existing dependency files, not
@@ -40,6 +41,15 @@ When adding or updating a CLI, pin its version in `mise.toml`, run `mise lock`
 to refresh `mise.lock`, and commit both files. Existing lock targets cover
 Linux x64 and macOS x64/arm64; Checkov's macOS arm64 release uses Rosetta.
 Run `mise install --locked` and the affected tasks before opening a PR.
+
+`mise run fmt:site` and `mise run lint:site` check HTML, CSS, and JavaScript
+under both `apps/oconnordev` and `apps/drumrollworld` using the shared `biome.json`.
+Biome HTML support is explicitly enabled; see the configuration and pinned
+release for its experimental support boundary.
+
+DrumrollWorld deploys from `master` after its one-time role and Actions-variable
+setup. See [the deployment runbook](docs/runbooks/drumrollworld-deployment.md),
+including the external image assets that the code sync must preserve.
 
 ## Repository layout
 

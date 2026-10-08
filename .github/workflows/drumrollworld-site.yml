@@ -1,12 +1,12 @@
-name: oconnordev site
+name: drumrollworld site
 
 on:
   push:
     branches:
       - master
     paths:
-      - "apps/oconnordev/**"
-      - ".github/workflows/oconnordev-site.yml"
+      - "apps/drumrollworld/**"
+      - ".github/workflows/drumrollworld-site.yml"
       - "biome.json"
       - "mise.toml"
       - "mise.lock"
@@ -14,8 +14,8 @@ on:
     branches:
       - master
     paths:
-      - "apps/oconnordev/**"
-      - ".github/workflows/oconnordev-site.yml"
+      - "apps/drumrollworld/**"
+      - ".github/workflows/drumrollworld-site.yml"
       - "biome.json"
       - "mise.toml"
       - "mise.lock"
@@ -27,8 +27,12 @@ permissions:
 env:
   MISE_LOCKED: '1'
 
+concurrency:
+  group: drumrollworld-production-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
-  format:
+  check:
     name: Biome lint and format
     runs-on: ubuntu-latest
     steps:
@@ -45,13 +49,15 @@ jobs:
   deploy:
     name: Deploy to S3 and invalidate CloudFront
     if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: format
+    needs: check
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: master
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: '2026.10.3'
@@ -60,27 +66,36 @@ jobs:
         run: mise run fmt:site
       - name: Lint static sites
         run: mise run lint:site
+      - name: Require deployment configuration
+        env:
+          BROKER_ROLE_ARN: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
+          DEPLOY_ROLE_ARN: ${{ vars.DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN }}
+          DISTRIBUTION_ID: ${{ vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          test -n "$BROKER_ROLE_ARN"
+          test -n "$DEPLOY_ROLE_ARN"
+          test -n "$DISTRIBUTION_ID"
       - name: Assume TOOLS GitHub Actions broker with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
           aws-region: us-east-1
-          role-session-name: oconnordev-site-broker-${{ github.run_id }}
+          role-session-name: drumrollworld-site-broker-${{ github.run_id }}
           role-duration-seconds: 900
           allowed-account-ids: "421680664125"
       - name: Assume PRODUCTION site deploy role from TOOLS broker
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.OCONNORDEV_SITE_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN }}
           aws-region: us-east-1
-          role-session-name: oconnordev-site-${{ github.run_id }}
+          role-session-name: drumrollworld-site-${{ github.run_id }}
           role-duration-seconds: 900
           role-chaining: true
           role-skip-session-tagging: true
           allowed-account-ids: "767397796791"
-      - name: Sync site to S3
-        run: mise exec -- aws s3 sync apps/oconnordev/ s3://oconnordev-web --delete
+      - name: Sync site code to S3 (preserve external images)
+        run: mise exec -- aws s3 sync apps/drumrollworld/ s3://drumrollworld-web/ --delete --exclude "images/*"
       - name: Invalidate CloudFront
         env:
-          DISTRIBUTION_ID: ${{ vars.OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID }}
+          DISTRIBUTION_ID: ${{ vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID }}
         run: mise exec -- aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"

@@ -97,3 +97,26 @@ resource "spacelift_stack_dependency_reference" "github_repository_config_tools_
   output_name         = "tools_github_actions_broker_role_arn"
   input_name          = "TF_VAR_oconnordev_tools_github_actions_broker_role_arn"
 }
+
+resource "spacelift_stack_dependency" "github_repository_config_drumrollworld" {
+  count = var.enable_github_repository_config ? 1 : 0
+
+  stack_id            = spacelift_stack.github_repository_config[0].id
+  depends_on_stack_id = spacelift_stack.accounts["drumrollworld"].id
+}
+
+resource "spacelift_stack_dependency_reference" "github_repository_config_drumrollworld_deploy_role_arn" {
+  count = var.enable_github_repository_config ? 1 : 0
+
+  stack_dependency_id = spacelift_stack_dependency.github_repository_config_drumrollworld[0].id
+  output_name         = "drumrollworld_site_deploy_role_arn"
+  input_name          = "TF_VAR_drumrollworld_site_deploy_role_arn"
+}
+
+resource "spacelift_stack_dependency_reference" "github_repository_config_drumrollworld_cloudfront_id" {
+  count = var.enable_github_repository_config ? 1 : 0
+
+  stack_dependency_id = spacelift_stack_dependency.github_repository_config_drumrollworld[0].id
+  output_name         = "drumrollworld_cloudfront_distribution_id"
+  input_name          = "TF_VAR_drumrollworld_cloudfront_distribution_id"
+}
