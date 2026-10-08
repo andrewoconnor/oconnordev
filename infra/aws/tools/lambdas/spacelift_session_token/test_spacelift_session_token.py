@@ -88,10 +88,13 @@ class SessionTokenRotationTests(unittest.TestCase):
             patch.object(self.rotation.time, "time", return_value=1000),
             patch.object(self.rotation, "_mint", return_value=self.new_token),
             patch.object(self.rotation, "_verify", return_value=["query"]) as verify,
-            patch.object(self.rotation, "_log"),
+            patch.object(self.rotation, "_log") as log,
         ):
             result = self.rotation.handler({}, None)
 
+        self.assertEqual(log.call_args.args, ("rotation_checked",))
+        self.assertFalse(log.call_args.kwargs["token_published"])
+        self.assertEqual(log.call_args.kwargs["exp"], 1010)
         self.assertEqual(result["exp"], 1010)
         self.assertEqual(result["remaining_seconds"], 10)
         self.assertFalse(result["expiry_changed"])

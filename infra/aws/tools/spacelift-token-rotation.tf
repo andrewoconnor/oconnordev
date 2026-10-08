@@ -88,7 +88,7 @@ resource "aws_lambda_permission" "spacelift_rotation" {
 
 resource "aws_cloudwatch_metric_alarm" "spacelift_session_token_stale" {
   alarm_name          = "hermes-spacelift-session-token-stale"
-  alarm_description   = "The published session token has less than the configured remaining lifetime, or no successful rotation has been recorded for two consecutive intervals. The token lifetime is taken from the JWT exp claim on every run; no fixed provider lifetime is assumed. The alarm tracks remaining lifetime rather than invocation exit status."
+  alarm_description   = "The published session token has less than the configured remaining lifetime, or no successful rotation check has been recorded for two consecutive intervals. The token lifetime is taken from the JWT exp claim on every run; no fixed provider lifetime is assumed. The alarm tracks remaining lifetime rather than invocation exit status."
   namespace           = local.spacelift_rotation_metric_namespace
   metric_name         = local.spacelift_rotation_metric_remaining
   statistic           = "Minimum"
