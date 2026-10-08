@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f1115">
+  <link rel="apple-touch-icon" href="/images/favicon.svg">
+  <title>drumroll.world</title>
+  <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
+  <link rel="stylesheet" href="/styles.css">
+  <link rel="preconnect" href="https://esm.sh" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com" crossorigin>
+  <link rel="modulepreload" href="https://esm.sh/three@0.183.2" crossorigin>
+  <link rel="modulepreload" href="https://esm.sh/globe.gl@2.45.2?external=three" crossorigin>
+  <link rel="modulepreload" href="https://esm.sh/three@0.183.2/examples/jsm/loaders/KTX2Loader.js" crossorigin>
+  <link rel="preload" as="fetch" crossorigin href="https://unpkg.com/three@0.183.2/examples/jsm/libs/basis/basis_transcoder.wasm">
+  <link rel="preload" as="fetch" crossorigin href="https://unpkg.com/three@0.183.2/examples/jsm/libs/basis/basis_transcoder.js">
+  <!-- First-paint texture tier. The device tier loads in the background. -->
+  <link rel="preload" as="fetch" crossorigin href="/images/globe/earthmap2k.ktx2">
+  <link rel="preload" as="fetch" crossorigin href="/images/globe/earthnormal2k.ktx2">
+  <link rel="preload" as="fetch" crossorigin href="/images/globe/earthspec2k.ktx2">
+  <link rel="preload" as="fetch" crossorigin href="/images/globe/stars4k.ktx2">
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://esm.sh/three@0.183.2",
+        "three/": "https://esm.sh/three@0.183.2/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="loadingScreen"><div class="loading-spinner"></div><p class="loading-label">drumroll.world</p></div>
+  <div id="globeTooltip"></div>
+  <div id="lightbox"><button id="lbClose">&#x2715;</button><button class="lb-arrow" id="lbPrev">&#10094;</button><img id="lightboxImg" /><button class="lb-arrow" id="lbNext">&#10095;</button><div id="lbCounter"></div></div>
+  <div id="app">
+    <div id="globeViz"></div>
+    <div id="infoPanel">
+      <div id="panelDragHandle"></div>
+      <button id="siteTitle" type="button" title="Reset view">drumroll.world</button>
+      <p id="siteTagline">Ancient percussion from across the world</p>
+      <div id="panelHeader">
+        <button class="nav-btn" id="prevBtn">&#8592;</button>
+        <input id="searchBar" type="search" placeholder="Search entries…" autocomplete="off" spellcheck="false" />
+        <button class="nav-btn" id="nextBtn">&#8594;</button>
+        <button id="collapseBtn" title="Toggle panel">&#x25B2;</button>
+      </div>
+      <div id="activeTitle"></div>
+      <div id="panelBody"><div id="entryList"></div></div>
+    </div>
+  </div>
+  <script type="module" src="/main.js"></script>
+</body>
+</html>
