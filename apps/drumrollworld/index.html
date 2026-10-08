@@ -8,40 +8,13 @@
     <title>drumroll.world</title>
     <link rel="icon" type="image/svg+xml" href="/images/favicon.svg">
     <link rel="stylesheet" href="/styles.css">
-    <link rel="preconnect" href="https://esm.sh" crossorigin>
-    <link rel="preconnect" href="https://unpkg.com" crossorigin>
-    <link rel="modulepreload" href="https://esm.sh/three@0.183.2" crossorigin>
-    <link rel="modulepreload" href="https://esm.sh/globe.gl@2.45.2?external=three" crossorigin>
-    <link
-      rel="modulepreload"
-      href="https://esm.sh/three@0.183.2/examples/jsm/loaders/KTX2Loader.js"
-      crossorigin
-    >
-    <link
-      rel="preload"
-      as="fetch"
-      crossorigin
-      href="https://unpkg.com/three@0.183.2/examples/jsm/libs/basis/basis_transcoder.wasm"
-    >
-    <link
-      rel="preload"
-      as="fetch"
-      crossorigin
-      href="https://unpkg.com/three@0.183.2/examples/jsm/libs/basis/basis_transcoder.js"
-    >
+    <link rel="preload" as="fetch" crossorigin href="/assets/basis-0.186.1/basis_transcoder.wasm">
+    <link rel="preload" as="fetch" crossorigin href="/assets/basis-0.186.1/basis_transcoder.js">
     <!-- First-paint texture tier. The device tier loads in the background. -->
     <link rel="preload" as="fetch" crossorigin href="/images/globe/earthmap2k.ktx2">
     <link rel="preload" as="fetch" crossorigin href="/images/globe/earthnormal2k.ktx2">
     <link rel="preload" as="fetch" crossorigin href="/images/globe/earthspec2k.ktx2">
     <link rel="preload" as="fetch" crossorigin href="/images/globe/stars4k.ktx2">
-    <script type="importmap">
-    {
-      "imports": {
-        "three": "https://esm.sh/three@0.183.2",
-        "three/": "https://esm.sh/three@0.183.2/"
-      }
-    }
-    </script>
   </head>
   <body>
     <div id="loadingScreen"

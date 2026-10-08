@@ -43,3 +43,7 @@ __pycache__/
 
 # OS
 .DS_Store
+
+# DrumrollWorld local dependency install and generated site
+/apps/drumrollworld/node_modules/
+/apps/drumrollworld/dist/

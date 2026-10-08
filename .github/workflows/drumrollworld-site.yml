@@ -33,7 +33,7 @@ concurrency:
 
 jobs:
   check:
-    name: Biome lint and format
+    name: Lint, format, build and test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
@@ -45,6 +45,10 @@ jobs:
         run: mise run fmt:site
       - name: Lint static sites
         run: mise run lint:site
+      - name: Build self-hosted site and dependencies
+        run: mise run build:drumrollworld
+      - name: Test generated site assets
+        run: mise run test:drumrollworld
 
   deploy:
     name: Deploy to S3 and invalidate CloudFront
@@ -66,6 +70,10 @@ jobs:
         run: mise run fmt:site
       - name: Lint static sites
         run: mise run lint:site
+      - name: Build self-hosted site and dependencies
+        run: mise run build:drumrollworld
+      - name: Test generated site assets
+        run: mise run test:drumrollworld
       - name: Require deployment configuration
         env:
           BROKER_ROLE_ARN: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
@@ -93,8 +101,10 @@ jobs:
           role-chaining: true
           role-skip-session-tagging: true
           allowed-account-ids: "767397796791"
-      - name: Sync site code to S3 (preserve external images)
-        run: mise exec -- aws s3 sync apps/drumrollworld/ s3://drumrollworld-web/ --delete --exclude "images/*"
+      - name: Publish versioned runtime assets before the HTML
+        run: mise exec -- aws s3 sync apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/
+      - name: Sync site code to S3 (preserve images and prior runtime assets)
+        run: mise exec -- aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/ --delete --exclude "images/*" --exclude "assets/*"
       - name: Invalidate CloudFront
         env:
           DISTRIBUTION_ID: ${{ vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID }}

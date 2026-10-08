@@ -1,6 +1,6 @@
 import * as THREE from "three";
-import Globe from "https://esm.sh/globe.gl@2.45.2?external=three";
-import { KTX2Loader } from "https://esm.sh/three@0.183.2/examples/jsm/loaders/KTX2Loader.js";
+import Globe from "globe.gl";
+import { KTX2Loader } from "three/addons/loaders/KTX2Loader.js";
 import { DRUMS } from "./data.js";
 
 // ── Named constants ───────────────────────────────────────────────────────────
@@ -452,7 +452,7 @@ function renderSource(el, entry) {
 function renderGallery(body, entry, idx = 0) {
   const imgs = entry?.images || [
     {
-      src: "https://upload.wikimedia.org/wikipedia/commons/thumb/6/65/Question_book-new.svg/240px-Question_book-new.svg.png",
+      src: "/assets/question-image.svg",
     },
   ];
   currentImageIdx = Math.max(0, Math.min(idx, imgs.length - 1));
@@ -674,7 +674,7 @@ async function init() {
   globe.scene().add(new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY));
 
   ktx2Loader = new KTX2Loader()
-    .setTranscoderPath("https://unpkg.com/three@0.183.2/examples/jsm/libs/basis/")
+    .setTranscoderPath("/assets/basis-0.186.1/")
     .detectSupport(globe.renderer());
 
   // Never leave the loading screen up because of a slow or dead texture load.

@@ -21,8 +21,8 @@ mise run test
 ```
 
 `mise.toml` is the source of CLI versions: OpenTofu, TFLint, actionlint,
-Python, Ruff, Biome, Checkov, and the AWS CLI. CI installs the same locked tools
-through `jdx/mise-action`; it does not separately install Biome or Checkov or
+Python, Ruff, Biome, Node.js, Checkov, and the AWS CLI. CI installs the same
+locked tools through `jdx/mise-action`; it does not separately install Biome or Checkov or
 rely on the runner's AWS CLI. Checkov uses the Aqua standalone release, so its
 bundled Python dependencies are isolated from repository application libraries.
 Keep application/library dependencies in their existing dependency files, not
@@ -50,6 +50,10 @@ release for its experimental support boundary.
 DrumrollWorld deploys from `master` after its one-time role and Actions-variable
 setup. See [the deployment runbook](docs/runbooks/drumrollworld-deployment.md),
 including the external image assets that the code sync must preserve.
+`mise run build:drumrollworld` installs the exact npm lock without lifecycle
+scripts and bundles updated browser dependencies plus the local KTX2 decoder
+into an ignored `dist/` release; `mise run test:drumrollworld` checks that release.
+The production workflow publishes only that directory to the existing bucket.
 
 ## Repository layout
 
