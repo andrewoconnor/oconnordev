@@ -136,7 +136,11 @@ The Hermes adapter is application code under `agents/hermes/adapter/`. It regist
 
 The [native GitHub settings-read runbook](docs/runbooks/github-settings-read.md)
 describes partial ruleset/collaborator/label coverage, permission review, secure
-token rotation, and gateway-before-adapter rollout. It is a prerequisite only;
-no complete repository adoption/import is included.
+token rotation, and gateway-before-adapter rollout. The separate
+[settings-adoption runbook](docs/runbooks/github-settings-adoption.md) describes
+preservation-only declarative imports for the verified ruleset, eight labels,
+default branch and topics, with a dedicated provider App approval and a mandatory
+imports-only live-plan gate. This is partial adoption, not full settings coverage
+or a completed state import.
 
 See [architecture](docs/architecture/README.md) for trust boundaries and dependency ordering, and [runbooks](docs/runbooks/infrastructure-bootstrap.md) for bootstrap and state-safety procedures.

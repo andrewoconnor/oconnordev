@@ -1,0 +1,844 @@
+{
+  "provider_address": "registry.opentofu.org/integrations/github",
+  "provider_version": "6.13.0",
+  "capture_command": "tofu -chdir=infra/github/oconnordev providers schema -json",
+  "source_tag": "https://github.com/integrations/terraform-provider-github/tree/v6.13.0",
+  "resource_schemas": {
+    "github_repository_ruleset": {
+      "version": 1,
+      "block": {
+        "attributes": {
+          "enforcement": {
+            "type": "string",
+            "description": "Possible values for Enforcement are `disabled`, `active`, `evaluate`. Note: `evaluate` is currently only supported for owners of type `organization`.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "etag": {
+            "type": "string",
+            "description_kind": "plain",
+            "computed": true
+          },
+          "id": {
+            "type": "string",
+            "description_kind": "plain",
+            "optional": true,
+            "computed": true
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the ruleset.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "node_id": {
+            "type": "string",
+            "description": "GraphQL global node id for use with v4 API.",
+            "description_kind": "markdown",
+            "computed": true
+          },
+          "repository": {
+            "type": "string",
+            "description": "Name of the repository to apply ruleset to.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "ruleset_id": {
+            "type": "number",
+            "description": "GitHub ID for the ruleset.",
+            "description_kind": "markdown",
+            "computed": true
+          },
+          "target": {
+            "type": "string",
+            "description": "Possible values are branch, push and tag",
+            "description_kind": "markdown",
+            "required": true
+          }
+        },
+        "block_types": {
+          "bypass_actors": {
+            "nesting_mode": "list",
+            "block": {
+              "attributes": {
+                "actor_id": {
+                  "type": "number",
+                  "description": "The ID of the actor that can bypass a ruleset. If `actor_type` is `Integration`, `actor_id` is a GitHub App ID. When `actor_type` is `User`, this should be set to the numeric GitHub user ID. Some actor types such as `OrganizationAdmin`, `EnterpriseOwner`, and `DeployKey` do not have an ID \u2014 this argument should not be set in those cases as the GitHub API will ignore it.",
+                  "description_kind": "markdown",
+                  "optional": true
+                },
+                "actor_type": {
+                  "type": "string",
+                  "description": "The type of actor that can bypass a ruleset. Can be one of: `RepositoryRole`, `Team`, `Integration`, `OrganizationAdmin`, `DeployKey`, `EnterpriseOwner`, or `User`. See https://docs.github.com/en/rest/repos/rules for more information.",
+                  "description_kind": "markdown",
+                  "required": true
+                },
+                "bypass_mode": {
+                  "type": "string",
+                  "description": "When the specified actor can bypass the ruleset. pull_request means that an actor can only bypass rules on pull requests. Can be one of: `always`, `pull_request`, `exempt`.",
+                  "description_kind": "markdown",
+                  "required": true
+                }
+              },
+              "description": "The actors that can bypass the rules in this ruleset.",
+              "description_kind": "markdown"
+            }
+          },
+          "conditions": {
+            "nesting_mode": "list",
+            "block": {
+              "block_types": {
+                "ref_name": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "exclude": {
+                        "type": [
+                          "list",
+                          "string"
+                        ],
+                        "description": "Array of ref names or patterns to exclude. The condition will not pass if any of these patterns match.",
+                        "description_kind": "markdown",
+                        "required": true
+                      },
+                      "include": {
+                        "type": [
+                          "list",
+                          "string"
+                        ],
+                        "description": "Array of ref names or patterns to include. One of these patterns must match for the condition to pass. Also accepts `~DEFAULT_BRANCH` to include the default branch or `~ALL` to include all branches.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description_kind": "plain"
+                  },
+                  "min_items": 1,
+                  "max_items": 1
+                }
+              },
+              "description": "Parameters for a repository ruleset ref name condition.",
+              "description_kind": "markdown"
+            },
+            "max_items": 1
+          },
+          "rules": {
+            "nesting_mode": "list",
+            "block": {
+              "attributes": {
+                "creation": {
+                  "type": "bool",
+                  "description": "Only allow users with bypass permission to create matching refs.",
+                  "description_kind": "markdown",
+                  "optional": true
+                },
+                "deletion": {
+                  "type": "bool",
+                  "description": "Only allow users with bypass permissions to delete matching refs.",
+                  "description_kind": "markdown",
+                  "optional": true
+                },
+                "non_fast_forward": {
+                  "type": "bool",
+                  "description": "Prevent users with push access from force pushing to branches.",
+                  "description_kind": "markdown",
+                  "optional": true
+                },
+                "required_linear_history": {
+                  "type": "bool",
+                  "description": "Prevent merge commits from being pushed to matching branches.",
+                  "description_kind": "markdown",
+                  "optional": true
+                },
+                "required_signatures": {
+                  "type": "bool",
+                  "description": "Commits pushed to matching branches must have verified signatures.",
+                  "description_kind": "markdown",
+                  "optional": true
+                },
+                "update": {
+                  "type": "bool",
+                  "description": "Only allow users with bypass permission to update matching refs.",
+                  "description_kind": "markdown",
+                  "optional": true
+                },
+                "update_allows_fetch_and_merge": {
+                  "type": "bool",
+                  "description": "Branch can pull changes from its upstream repository. This is only applicable to forked repositories. Requires `update` to be set to `true`.",
+                  "description_kind": "markdown",
+                  "optional": true
+                }
+              },
+              "block_types": {
+                "branch_name_pattern": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "name": {
+                        "type": "string",
+                        "description": "How this rule will appear to users.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "negate": {
+                        "type": "bool",
+                        "description": "If true, the rule will fail if the pattern matches.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "operator": {
+                        "type": "string",
+                        "description": "The operator to use for matching. Can be one of: `starts_with`, `ends_with`, `contains`, `regex`.",
+                        "description_kind": "markdown",
+                        "required": true
+                      },
+                      "pattern": {
+                        "type": "string",
+                        "description": "The pattern to match with.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Parameters to be used for the branch_name_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. Conflicts with `tag_name_pattern` as it only applies to rulesets with target `branch`.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "commit_author_email_pattern": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "name": {
+                        "type": "string",
+                        "description": "How this rule will appear to users.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "negate": {
+                        "type": "bool",
+                        "description": "If true, the rule will fail if the pattern matches.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "operator": {
+                        "type": "string",
+                        "description": "The operator to use for matching. Can be one of: `starts_with`, `ends_with`, `contains`, `regex`.",
+                        "description_kind": "markdown",
+                        "required": true
+                      },
+                      "pattern": {
+                        "type": "string",
+                        "description": "The pattern to match with.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Parameters to be used for the commit_author_email_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "commit_message_pattern": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "name": {
+                        "type": "string",
+                        "description": "How this rule will appear to users.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "negate": {
+                        "type": "bool",
+                        "description": "If true, the rule will fail if the pattern matches.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "operator": {
+                        "type": "string",
+                        "description": "The operator to use for matching. Can be one of: `starts_with`, `ends_with`, `contains`, `regex`.",
+                        "description_kind": "markdown",
+                        "required": true
+                      },
+                      "pattern": {
+                        "type": "string",
+                        "description": "The pattern to match with.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Parameters to be used for the commit_message_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "committer_email_pattern": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "name": {
+                        "type": "string",
+                        "description": "How this rule will appear to users.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "negate": {
+                        "type": "bool",
+                        "description": "If true, the rule will fail if the pattern matches.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "operator": {
+                        "type": "string",
+                        "description": "The operator to use for matching. Can be one of: `starts_with`, `ends_with`, `contains`, `regex`.",
+                        "description_kind": "markdown",
+                        "required": true
+                      },
+                      "pattern": {
+                        "type": "string",
+                        "description": "The pattern to match with.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Parameters to be used for the committer_email_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "copilot_code_review": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "review_draft_pull_requests": {
+                        "type": "bool",
+                        "description": "Copilot automatically reviews draft pull requests before they are marked as ready for review. Defaults to `false`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "review_on_push": {
+                        "type": "bool",
+                        "description": "Copilot automatically reviews each new push to the pull request. Defaults to `false`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      }
+                    },
+                    "description": "Automatically request Copilot code review for new pull requests if the author has access to Copilot code review and their premium requests quota has not reached the limit.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "file_extension_restriction": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "restricted_file_extensions": {
+                        "type": [
+                          "set",
+                          "string"
+                        ],
+                        "description": "A list of file extensions.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Prevent pushes based on file extensions.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "file_path_restriction": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "restricted_file_paths": {
+                        "type": [
+                          "list",
+                          "string"
+                        ],
+                        "description": "The file paths that are restricted from being pushed to the commit graph.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Prevent commits that include changes in specified file paths from being pushed to the commit graph.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "max_file_path_length": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "max_file_path_length": {
+                        "type": "number",
+                        "description": "The maximum allowed length of a file path.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Prevent pushes based on file path length.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "max_file_size": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "max_file_size": {
+                        "type": "number",
+                        "description": "The maximum allowed size of a file in megabytes (MB). Valid range is 1-100 MB.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Prevent pushes based on file size.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "merge_queue": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "check_response_timeout_minutes": {
+                        "type": "number",
+                        "description": "Maximum time for a required status check to report a conclusion. After this much time has elapsed, checks that have not reported a conclusion will be assumed to have failed. Defaults to `60`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "grouping_strategy": {
+                        "type": "string",
+                        "description": "When set to ALLGREEN, the merge commit created by merge queue for each PR in the group must pass all required checks to merge. When set to HEADGREEN, only the commit at the head of the merge group, i.e. the commit containing changes from all of the PRs in the group, must pass its required checks to merge. Can be one of: ALLGREEN, HEADGREEN. Defaults to `ALLGREEN`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "max_entries_to_build": {
+                        "type": "number",
+                        "description": "Limit the number of queued pull requests requesting checks and workflow runs at the same time. Defaults to `5`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "max_entries_to_merge": {
+                        "type": "number",
+                        "description": "The maximum number of PRs that will be merged together in a group. Defaults to `5`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "merge_method": {
+                        "type": "string",
+                        "description": "Method to use when merging changes from queued pull requests. Can be one of: MERGE, SQUASH, REBASE. Defaults to `MERGE`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "min_entries_to_merge": {
+                        "type": "number",
+                        "description": "The minimum number of PRs that will be merged together in a group. Defaults to `1`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "min_entries_to_merge_wait_minutes": {
+                        "type": "number",
+                        "description": "The time merge queue should wait after the first PR is added to the queue for the minimum group size to be met. After this time has elapsed, the minimum group size will be ignored and a smaller group will be merged. Defaults to `5`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      }
+                    },
+                    "description": "Merges must be performed via a merge queue.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "pull_request": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "allowed_merge_methods": {
+                        "type": [
+                          "list",
+                          "string"
+                        ],
+                        "description": "Array of allowed merge methods. Allowed values include `merge`, `squash`, and `rebase`. At least one option must be enabled.",
+                        "description_kind": "markdown",
+                        "optional": true,
+                        "computed": true
+                      },
+                      "dismiss_stale_reviews_on_push": {
+                        "type": "bool",
+                        "description": "New, reviewable commits pushed will dismiss previous pull request review approvals. Defaults to `false`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "require_code_owner_review": {
+                        "type": "bool",
+                        "description": "Require an approving review in pull requests that modify files that have a designated code owner. Defaults to `false`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "require_last_push_approval": {
+                        "type": "bool",
+                        "description": "Whether the most recent reviewable push must be approved by someone other than the person who pushed it. Defaults to `false`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "required_approving_review_count": {
+                        "type": "number",
+                        "description": "The number of approving reviews that are required before a pull request can be merged. Defaults to `0`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "required_review_thread_resolution": {
+                        "type": "bool",
+                        "description": "All conversations on code must be resolved before a pull request can be merged. Defaults to `false`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      }
+                    },
+                    "block_types": {
+                      "required_reviewers": {
+                        "nesting_mode": "list",
+                        "block": {
+                          "attributes": {
+                            "file_patterns": {
+                              "type": [
+                                "list",
+                                "string"
+                              ],
+                              "description": "File patterns (fnmatch syntax) that this reviewer must approve.",
+                              "description_kind": "markdown",
+                              "required": true
+                            },
+                            "minimum_approvals": {
+                              "type": "number",
+                              "description": "Minimum number of approvals required from this reviewer. Set to 0 to make approval optional.",
+                              "description_kind": "markdown",
+                              "required": true
+                            }
+                          },
+                          "block_types": {
+                            "reviewer": {
+                              "nesting_mode": "list",
+                              "block": {
+                                "attributes": {
+                                  "id": {
+                                    "type": "number",
+                                    "description": "The ID of the reviewer that must review.",
+                                    "description_kind": "markdown",
+                                    "required": true
+                                  },
+                                  "type": {
+                                    "type": "string",
+                                    "description": "The type of reviewer. Currently only `Team` is supported.",
+                                    "description_kind": "markdown",
+                                    "required": true
+                                  }
+                                },
+                                "description": "The reviewer that must review matching files.",
+                                "description_kind": "markdown"
+                              },
+                              "min_items": 1,
+                              "max_items": 1
+                            }
+                          },
+                          "description": "Require specific reviewers to approve pull requests targeting matching branches. Note: This feature is in beta and subject to change.",
+                          "description_kind": "markdown"
+                        }
+                      }
+                    },
+                    "description": "Require all commits be made to a non-target branch and submitted via a pull request before they can be merged.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "required_code_scanning": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "block_types": {
+                      "required_code_scanning_tool": {
+                        "nesting_mode": "set",
+                        "block": {
+                          "attributes": {
+                            "alerts_threshold": {
+                              "type": "string",
+                              "description": "The severity level at which code scanning results that raise alerts block a reference update. Can be one of: `none`, `errors`, `errors_and_warnings`, `all`.",
+                              "description_kind": "markdown",
+                              "required": true
+                            },
+                            "security_alerts_threshold": {
+                              "type": "string",
+                              "description": "The severity level at which code scanning results that raise security alerts block a reference update. Can be one of: `none`, `critical`, `high_or_higher`, `medium_or_higher`, `all`.",
+                              "description_kind": "markdown",
+                              "required": true
+                            },
+                            "tool": {
+                              "type": "string",
+                              "description": "The name of a code scanning tool",
+                              "description_kind": "markdown",
+                              "required": true
+                            }
+                          },
+                          "description": "Tools that must provide code scanning results for this rule to pass.",
+                          "description_kind": "markdown"
+                        },
+                        "min_items": 1
+                      }
+                    },
+                    "description": "Choose which tools must provide code scanning results before the reference is updated. When configured, code scanning must be enabled and have results for both the commit and the reference being updated.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "required_deployments": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "required_deployment_environments": {
+                        "type": [
+                          "list",
+                          "string"
+                        ],
+                        "description": "The environments that must be successfully deployed to before branches can be merged.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Choose which environments must be successfully deployed to before branches can be merged into a branch that matches this rule.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "required_status_checks": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "do_not_enforce_on_create": {
+                        "type": "bool",
+                        "description": "Allow repositories and branches to be created if a check would otherwise prohibit it.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "strict_required_status_checks_policy": {
+                        "type": "bool",
+                        "description": "Whether pull requests targeting a matching branch must be tested with the latest code. This setting will not take effect unless at least one status check is enabled. Defaults to `false`.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      }
+                    },
+                    "block_types": {
+                      "required_check": {
+                        "nesting_mode": "set",
+                        "block": {
+                          "attributes": {
+                            "context": {
+                              "type": "string",
+                              "description": "The status check context name that must be present on the commit.",
+                              "description_kind": "markdown",
+                              "required": true
+                            },
+                            "integration_id": {
+                              "type": "number",
+                              "description": "The optional integration ID that this status check must originate from.",
+                              "description_kind": "markdown",
+                              "optional": true
+                            }
+                          },
+                          "description": "Status checks that are required. Several can be defined.",
+                          "description_kind": "markdown"
+                        },
+                        "min_items": 1
+                      }
+                    },
+                    "description": "Choose which status checks must pass before branches can be merged into a branch that matches this rule. When enabled, commits must first be pushed to another branch, then merged or pushed directly to a branch that matches this rule after status checks have passed.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                },
+                "tag_name_pattern": {
+                  "nesting_mode": "list",
+                  "block": {
+                    "attributes": {
+                      "name": {
+                        "type": "string",
+                        "description": "How this rule will appear to users.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "negate": {
+                        "type": "bool",
+                        "description": "If true, the rule will fail if the pattern matches.",
+                        "description_kind": "markdown",
+                        "optional": true
+                      },
+                      "operator": {
+                        "type": "string",
+                        "description": "The operator to use for matching. Can be one of: `starts_with`, `ends_with`, `contains`, `regex`.",
+                        "description_kind": "markdown",
+                        "required": true
+                      },
+                      "pattern": {
+                        "type": "string",
+                        "description": "The pattern to match with.",
+                        "description_kind": "markdown",
+                        "required": true
+                      }
+                    },
+                    "description": "Parameters to be used for the tag_name_pattern rule. This rule only applies to repositories within an enterprise, it cannot be applied to repositories owned by individuals or regular organizations. Conflicts with `branch_name_pattern` as it only applies to rulesets with target `tag`.",
+                    "description_kind": "markdown"
+                  },
+                  "max_items": 1
+                }
+              },
+              "description": "Rules within the ruleset.",
+              "description_kind": "markdown"
+            },
+            "min_items": 1,
+            "max_items": 1
+          }
+        },
+        "description_kind": "plain"
+      }
+    },
+    "github_issue_label": {
+      "version": 0,
+      "block": {
+        "attributes": {
+          "color": {
+            "type": "string",
+            "description": "A 6 character hex code, without the leading '#', identifying the color of the label.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "description": {
+            "type": "string",
+            "description": "A short description of the label.",
+            "description_kind": "markdown",
+            "optional": true
+          },
+          "etag": {
+            "type": "string",
+            "description_kind": "plain",
+            "optional": true,
+            "computed": true
+          },
+          "id": {
+            "type": "string",
+            "description_kind": "plain",
+            "optional": true,
+            "computed": true
+          },
+          "name": {
+            "type": "string",
+            "description": "The name of the label.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "repository": {
+            "type": "string",
+            "description": "The GitHub repository.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL to the issue label.",
+            "description_kind": "markdown",
+            "computed": true
+          }
+        },
+        "description_kind": "plain"
+      }
+    },
+    "github_branch_default": {
+      "version": 1,
+      "block": {
+        "attributes": {
+          "branch": {
+            "type": "string",
+            "description": "The name of the branch to set as the default (e.g. 'main').",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "etag": {
+            "type": "string",
+            "description": "The ETag header for the repository API response.",
+            "description_kind": "markdown",
+            "optional": true,
+            "computed": true
+          },
+          "id": {
+            "type": "string",
+            "description_kind": "plain",
+            "optional": true,
+            "computed": true
+          },
+          "rename": {
+            "type": "bool",
+            "description": "If `true` rename the existing branch when the `branch` input is changed. Defaults to 'false'.",
+            "description_kind": "markdown",
+            "optional": true
+          },
+          "repository": {
+            "type": "string",
+            "description": "The name of the GitHub repository.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "repository_id": {
+            "type": "number",
+            "description": "The ID of the GitHub repository.",
+            "description_kind": "markdown",
+            "computed": true
+          },
+          "wait_for_rename": {
+            "type": "bool",
+            "description": "If `true`, poll until GitHub propagates the renamed default branch before proceeding. Only has effect when `rename` is also `true`. Defaults to 'false'.",
+            "description_kind": "markdown",
+            "optional": true
+          }
+        },
+        "description": "Configures the default branch for a GitHub repository.",
+        "description_kind": "markdown"
+      }
+    },
+    "github_repository_topics": {
+      "version": 0,
+      "block": {
+        "attributes": {
+          "id": {
+            "type": "string",
+            "description_kind": "plain",
+            "optional": true,
+            "computed": true
+          },
+          "repository": {
+            "type": "string",
+            "description": "The name of the repository. The name is not case sensitive.",
+            "description_kind": "markdown",
+            "required": true
+          },
+          "topics": {
+            "type": [
+              "set",
+              "string"
+            ],
+            "description": "An array of topics to add to the repository. Pass one or more topics to replace the set of existing topics. Send an empty array ([]) to clear all topics from the repository. Note: Topic names cannot contain uppercase letters.",
+            "description_kind": "markdown",
+            "required": true
+          }
+        },
+        "description_kind": "plain"
+      }
+    }
+  },
+  "unchanged_input_files_sha256": {
+    "infra/github/oconnordev/main.tf": "24b30b3b615d7a06d7e3397f5d07e25444dfda2746c280f9a493baca54c4ca49",
+    "infra/github/oconnordev/drumrollworld.tf": "b6e44911c57e74cc3d65d40c0c21cd2456cc910cb48614f4efc495689c32eedc",
+    "infra/github/oconnordev/variables.tf": "0ab3300ad20d6ece3997117946693326901553bd32be17d94b2dd04583e41d0f",
+    "infra/github/oconnordev/providers.tf": "c68fad0bd76fc38f22476d1df982b1b845bf621ae26cb0d534a5c0ca813687dd",
+    "infra/github/oconnordev/versions.tf": "e502a6359cf7a194b314347ee78fa7d028d08820f15c180dc627d672471b06b4",
+    "infra/github/oconnordev/.terraform.lock.hcl": "581b81533a70c1e23da602eabaa13d3b3a8c6a332e89b1c1dc9ab39b4282960b",
+    "infra/spacelift/dependencies.tf": "2729e8b1811f0d36a613d0e81e15b1a9ee03595c2489b0119ca56b08967e4aa4",
+    "infra/spacelift/github-repository-config.tf": "05420bb7b05a2b22adc87039a81ef20b63f074b7e0b17479be48962abcb79f60"
+  }
+}

@@ -2,12 +2,18 @@
 
 Create a separate GitHub App for OpenTofu repository-settings management (suggested name: `oconnordev-repo-settings`). Do not use, broaden, or reuse the Hermes GitHub App or Spacelift's managed VCS integration credentials.
 
-Configure the App with only:
+The original Actions-variable bootstrap uses `Variables`: read and write and
+`Metadata`: read-only. Preservation-only settings adoption additionally requires
+user-approved `Administration`: read and write (ruleset, default branch, topics)
+and `Issues`: read and write (labels). These are required permissions, not a
+verified statement about the App's current live grants. Only the user may change
+this dedicated App's permissions and approve its installation update; this change
+does not broaden any App automatically.
 
-- Repository permission `Variables`: read and write
-- `Metadata`: read-only
-
-Install it only on `andrewoconnor/oconnordev`, selecting only that repository. It must not be installed on any other repository. The App creation/installation is a GitHub UI bootstrap; OpenTofu manages only the repository Actions variables and the Spacelift stack/context wiring.
+Install it only on `andrewoconnor/oconnordev`, selecting only that repository.
+It must not be installed on any other repository. App creation/installation and
+permission changes are GitHub UI bootstrap steps. Do not add Contents, Secrets,
+Workflows, or permissions for the unsupported settings families below.
 
 After creating and installing the dedicated App, add these values to the dedicated Spacelift context `oconnordev-github-provider-auth`:
 
@@ -42,14 +48,23 @@ reference. The two DrumrollWorld variables are created only when both producer
 inputs are non-empty.
 
 The five variables are already managed in the existing Spacelift state; do not
-reimport them. This documentation update does not adopt or import any additional
-repository settings. The child stack does not manage general repository settings,
-merge flags, rulesets, collaborators, labels, environments, hooks, Pages, Actions
-policy, Actions secrets, workflows, or AWS resources. Do not add settings HCL
-without a verified inventory, exact provider resource/import contract, and a
-separate reviewed adoption plan.
+reimport them. Their addresses, counts, input variables, and producer wiring are
+unchanged. `settings-adoption.tf` declares **11 new imports**, not a completed
+state import: one existing `master` ruleset, eight individually managed labels,
+the existing default branch, and the empty topics set. Each new resource has
+`prevent_destroy = true`. The locked `integrations/github` **6.13.0** supports
+`allowed_merge_methods = ["squash"]`; no provider or lockfile upgrade is needed.
+
+See the [settings-adoption runbook](../../../docs/runbooks/github-settings-adoption.md)
+for exact import addresses/IDs, [observed evidence](../../../docs/assets/github-settings-observed.json),
+permission bootstrap, unsupported families, and the mandatory live **imports-only,
+zero-create/update/delete** plan gate. Offline schema/mock tests do not prove that
+live gate. No `github_repository`, collaborator grants, environment configuration,
+merge flags, hooks, Pages, Actions policy/secrets, workflows, or AWS resources are
+adopted here. The owner is inherent, not an importable collaborator grant.
 
 The [native MCP settings-read prerequisite](../../../docs/runbooks/github-settings-read.md)
-provides deliberately incomplete read coverage after user merge/apply. Its
-machine-user PAT is separate from this dedicated Variables-only provider App;
-do not reuse or broaden this App for MCP inventory.
+provides deliberately incomplete authenticated read coverage. Its machine-user
+PAT remains separate from this dedicated provider App and must never be borrowed
+for provider authentication. Repository description/homepage null values and
+unknown omitted administration fields are left externally owned.

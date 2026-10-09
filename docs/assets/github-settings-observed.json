@@ -1,0 +1,319 @@
+{
+  "schema_version": 1,
+  "repository": "andrewoconnor/oconnordev",
+  "observed_at": "2026-10-09T21:35:17.342283+00:00",
+  "sources": {
+    "authenticated": "Existing GitHub MCP target via AgentCore; live repository-scoped reads",
+    "public": "Unauthenticated GitHub REST API; omitted fields are unknown",
+    "state": "Spacelift managed-entity inventory; no state or credential values fetched"
+  },
+  "repository_metadata": {
+    "id": 183514975,
+    "name": "oconnordev",
+    "full_name": "andrewoconnor/oconnordev",
+    "description": null,
+    "homepage": null,
+    "visibility": "public",
+    "default_branch": "master",
+    "has_issues": true,
+    "has_projects": true,
+    "has_wiki": true,
+    "has_discussions": false,
+    "is_template": false,
+    "archived": false,
+    "disabled": false,
+    "allow_forking": true,
+    "web_commit_signoff_required": false
+  },
+  "topics": [],
+  "rulesets": [
+    {
+      "id": 24274432,
+      "name": "master",
+      "target": "branch",
+      "source_type": "Repository",
+      "source": "andrewoconnor/oconnordev",
+      "enforcement": "active",
+      "bypass_actors": [],
+      "current_user_can_bypass": "never",
+      "node_id": "RRS_lACqUmVwb3NpdG9yec4K8DdfzgFyZgA",
+      "_links": {
+        "self": {
+          "href": "https://api.github.com/repos/andrewoconnor/oconnordev/rulesets/24274432"
+        },
+        "html": {
+          "href": "https://github.com/andrewoconnor/oconnordev/rules/24274432"
+        }
+      },
+      "conditions": {
+        "ref_name": {
+          "include": [
+            "~DEFAULT_BRANCH"
+          ],
+          "exclude": []
+        }
+      },
+      "rules": [
+        {
+          "type": "deletion"
+        },
+        {
+          "type": "pull_request",
+          "parameters": {
+            "allowed_merge_methods": [
+              "squash"
+            ],
+            "dismiss_stale_reviews_on_push": false,
+            "require_code_owner_review": false,
+            "require_last_push_approval": false,
+            "required_approving_review_count": 0,
+            "required_review_thread_resolution": false
+          }
+        },
+        {
+          "type": "non_fast_forward"
+        }
+      ],
+      "updated_at": "2026-09-30T17:42:06.714-04:00",
+      "created_at": "2026-09-30T17:42:06.675-04:00"
+    }
+  ],
+  "labels": [
+    {
+      "color": "d73a4a",
+      "description": "Something isn't working",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTc0",
+      "name": "bug"
+    },
+    {
+      "color": "cfd3d7",
+      "description": "This issue or pull request already exists",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTc1",
+      "name": "duplicate"
+    },
+    {
+      "color": "a2eeef",
+      "description": "New feature or request",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTc2",
+      "name": "enhancement"
+    },
+    {
+      "color": "7057ff",
+      "description": "Good for newcomers",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTc4",
+      "name": "good first issue"
+    },
+    {
+      "color": "008672",
+      "description": "Extra attention is needed",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTc3",
+      "name": "help wanted"
+    },
+    {
+      "color": "e4e669",
+      "description": "This doesn't seem right",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTc5",
+      "name": "invalid"
+    },
+    {
+      "color": "d876e3",
+      "description": "Further information is requested",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTgw",
+      "name": "question"
+    },
+    {
+      "color": "ffffff",
+      "description": "This will not be worked on",
+      "id": "MDU6TGFiZWwxMzM2MDg0NTgx",
+      "name": "wontfix"
+    }
+  ],
+  "collaborators": [
+    {
+      "login": "andrewoconnor",
+      "id": 1796000,
+      "role_name": "admin"
+    }
+  ],
+  "environments": [
+    {
+      "id": 13753429227,
+      "node_id": "EN_kwDOCvA3X88AAAADM8Ss6w",
+      "name": "spacelift/drumrollworld",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/drumrollworld",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Fdrumrollworld",
+      "created_at": "2026-04-03T17:55:07Z",
+      "updated_at": "2026-04-03T17:55:07Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 2969902894,
+      "node_id": "EN_kwDOCvA3X86xBR8u",
+      "name": "spacelift/oconnordev",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/oconnordev",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Foconnordev",
+      "created_at": "2024-05-19T15:26:15Z",
+      "updated_at": "2024-05-19T15:26:15Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 2970867481,
+      "node_id": "EN_kwDOCvA3X86xE9cZ",
+      "name": "spacelift/oconnordev-general",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/oconnordev-general",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Foconnordev-general",
+      "created_at": "2024-05-19T21:33:34Z",
+      "updated_at": "2024-05-19T21:33:34Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 23397964482,
+      "node_id": "EN_kwDOCvA3X88AAAAFcqCawg",
+      "name": "spacelift/oconnordev-github-repository-config",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/oconnordev-github-repository-config",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Foconnordev-github-repository-config",
+      "created_at": "2026-10-04T01:15:46Z",
+      "updated_at": "2026-10-04T01:15:46Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 23055278540,
+      "node_id": "EN_kwDOCvA3X88AAAAFXjOhzA",
+      "name": "spacelift/oconnordev-hermes",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/oconnordev-hermes",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Foconnordev-hermes",
+      "created_at": "2026-09-29T20:31:33Z",
+      "updated_at": "2026-09-29T20:31:33Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 2986679716,
+      "node_id": "EN_kwDOCvA3X86yBR2k",
+      "name": "spacelift/oconnordev-production",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/oconnordev-production",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Foconnordev-production",
+      "created_at": "2024-05-21T17:08:40Z",
+      "updated_at": "2024-05-21T17:08:40Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 23256853983,
+      "node_id": "EN_kwDOCvA3X88AAAAFajdt3w",
+      "name": "spacelift/oconnordev-security",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/oconnordev-security",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Foconnordev-security",
+      "created_at": "2026-10-01T23:37:25Z",
+      "updated_at": "2026-10-01T23:37:25Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    },
+    {
+      "id": 23517682710,
+      "node_id": "EN_kwDOCvA3X88AAAAFecNcFg",
+      "name": "spacelift/oconnordev-tools",
+      "url": "https://api.github.com/repos/andrewoconnor/oconnordev/environments/spacelift/oconnordev-tools",
+      "html_url": "https://github.com/andrewoconnor/oconnordev/deployments/activity_log?environments_filter=spacelift%2Foconnordev-tools",
+      "created_at": "2026-10-05T18:48:36Z",
+      "updated_at": "2026-10-05T18:48:36Z",
+      "can_admins_bypass": true,
+      "protection_rules": [],
+      "deployment_branch_policy": null
+    }
+  ],
+  "already_managed_addresses": [
+    "github_actions_variable.site_deploy_role_arn",
+    "github_actions_variable.cloudfront_distribution_id",
+    "github_actions_variable.tools_github_actions_broker_role_arn",
+    "github_actions_variable.drumrollworld_site_deploy_role_arn[0]",
+    "github_actions_variable.drumrollworld_cloudfront_distribution_id[0]"
+  ],
+  "coverage": {
+    "rulesets": {
+      "complete": true,
+      "count": 1,
+      "includes_parents": false,
+      "terminal_page_empty": true,
+      "bypass_actors_explicit": true
+    },
+    "labels": {
+      "complete": true,
+      "count": 8,
+      "reported_total": 8,
+      "upstream_list_cap": 100
+    },
+    "collaborators": {
+      "complete_for_list_view": true,
+      "affiliation": "all",
+      "count": 1,
+      "next_page": 0,
+      "owner_is_inherent_not_an_importable_grant": true
+    },
+    "environments": {
+      "public_list_count_verified": true,
+      "count": 8,
+      "custom_protection_rules_not_authenticated": true
+    },
+    "unavailable": [
+      {
+        "endpoint": "/branches/master/protection",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/actions/permissions",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/actions/permissions/workflow",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/actions/variables",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/hooks",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/collaborators",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/pages",
+        "status": 404,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/automated-security-fixes",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      },
+      {
+        "endpoint": "/vulnerability-alerts",
+        "status": 401,
+        "interpretation": "Unknown, not absent"
+      }
+    ],
+    "omitted_repository_admin_settings": "Unknown; do not supply defaults or adopt a bare repository resource",
+    "secret_values": "Not read or recoverable; externally owned"
+  }
+}
