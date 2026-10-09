@@ -54,7 +54,10 @@ run = [
 
 [tasks."test:drumrollworld"]
 description = "Check the generated self-hosted DrumrollWorld release"
-run = "npm --prefix apps/drumrollworld run test"
+run = [
+  "npm --prefix apps/drumrollworld run test",
+  "node --test scripts/drumrollworld/test/*.test.mjs",
+]
 
 [tasks.checkov]
 description = "Scan the repository and produce console and SARIF results"

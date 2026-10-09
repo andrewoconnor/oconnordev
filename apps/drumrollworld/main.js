@@ -65,7 +65,7 @@ let _globeH = window.innerHeight;
 let starsMesh = null;
 let ktx2Loader = null;
 let _appliedTier = null;
-let _tierLoading = null;
+const _tierLoads = new Map();
 let _starsUrl = null;
 let _appliedPixelRatio = null;
 let _scaleAnimating = false;
@@ -209,6 +209,7 @@ function applyZoomLimit() {
 }
 
 function setStarsSphere(tex) {
+  if (starsMesh?.material.map === tex) return;
   if (starsMesh) {
     globe.scene().remove(starsMesh);
     starsMesh.geometry.dispose();
@@ -254,17 +255,52 @@ function loadImageTexture(url, { srgb = false } = {}) {
 function loadTierTextures(tier, ext = "ktx2") {
   const a = tierAssets(tier, ext);
   const load = ext === "ktx2" ? loadKTX2Texture : loadImageTexture;
-  // Tiers share a star field, so only fetch it when the URL really changes.
-  const stars = a.stars === _starsUrl ? Promise.resolve(null) : load(a.stars, { srgb: true });
-  return Promise.all([load(a.map, { srgb: true }), load(a.normal), load(a.spec), stars]).then(
-    ([map, normal, spec, starsTex]) => {
-      if (starsTex) _starsUrl = a.stars;
-      return { map, normal, spec, stars: starsTex };
-    },
-  );
+  const loaded = new Set();
+  let failed = false;
+  const trackedLoad = (url, options) =>
+    load(url, options).then((tex) => {
+      if (failed) disposeUnusedTextures([tex]);
+      else loaded.add(tex);
+      return tex;
+    });
+  // Cache only the star field actually installed in the scene, not completed loads.
+  const stars =
+    a.stars === _starsUrl ? Promise.resolve(null) : trackedLoad(a.stars, { srgb: true });
+  return Promise.all([
+    trackedLoad(a.map, { srgb: true }),
+    trackedLoad(a.normal),
+    trackedLoad(a.spec),
+    stars,
+  ])
+    .then(([map, normal, spec, starsTex]) => ({
+      map,
+      normal,
+      spec,
+      stars: starsTex,
+      starsUrl: a.stars,
+    }))
+    .catch((err) => {
+      failed = true;
+      disposeUnusedTextures(loaded);
+      loaded.clear();
+      throw err;
+    });
+}
+
+function disposeUnusedTextures(textures) {
+  const mat = globe?.globeMaterial();
+  const active = new Set([mat?.map, mat?.normalMap, mat?.specularMap, starsMesh?.material.map]);
+  for (const texture of new Set(textures)) {
+    if (texture && !active.has(texture)) texture.dispose();
+  }
 }
 
 function applyGlobeTextures(tex, tier, mobile = isMobileLike()) {
+  // Recheck after the asynchronous loads: a newer tier may already be active.
+  if (!globe || tierRank(tier) <= tierRank(_appliedTier)) {
+    disposeUnusedTextures([tex.map, tex.normal, tex.spec, tex.stars]);
+    return;
+  }
   const mat = globe.globeMaterial();
   const previous = [mat.map, mat.normalMap, mat.specularMap];
 
@@ -280,24 +316,26 @@ function applyGlobeTextures(tex, tier, mobile = isMobileLike()) {
   mat.needsUpdate = true;
 
   globe.scene().background = null;
-  if (tex.stars) setStarsSphere(tex.stars);
+  if (tex.stars) {
+    setStarsSphere(tex.stars);
+    _starsUrl = tex.starsUrl;
+  }
 
-  previous.forEach((t) => {
-    if (t) t.dispose();
-  });
+  disposeUnusedTextures(previous);
   _appliedTier = tier;
 }
 
 function switchTier(tier) {
-  if (tier === _appliedTier || _tierLoading === tier) return Promise.resolve();
-  if (tierRank(tier) <= tierRank(_appliedTier)) return Promise.resolve(); // never downgrade
-  _tierLoading = tier;
-  return loadTierTextures(tier)
+  if (_tierLoads.has(tier)) return _tierLoads.get(tier);
+  if (!globe || tierRank(tier) <= tierRank(_appliedTier)) return Promise.resolve();
+  const pending = loadTierTextures(tier)
     .then((tex) => applyGlobeTextures(tex, tier))
     .catch((err) => console.warn(`globe: staying on the ${_appliedTier} tier`, err))
     .finally(() => {
-      _tierLoading = null;
+      if (_tierLoads.get(tier) === pending) _tierLoads.delete(tier);
     });
+  _tierLoads.set(tier, pending);
+  return pending;
 }
 
 function upgradeTexturesWhenIdle() {
@@ -578,14 +616,17 @@ function handleInteraction(d) {
 // ── Loading screen ────────────────────────────────────────────────────────────
 function hideLoadingScreen() {
   const el = document.getElementById("loadingScreen");
-  if (!el) return;
+  if (!el || el.classList.contains("fade-out")) return;
   el.classList.add("fade-out");
   el.addEventListener("transitionend", () => el.remove(), { once: true });
+  // Reduced motion or interrupted CSS transitions may never emit transitionend.
+  setTimeout(() => el.remove(), 1000);
 }
 
 // ── Globe initialisation ──────────────────────────────────────────────────────
 async function init() {
-  globe = Globe()(document.getElementById("globeViz"))
+  globe = Globe()(document.getElementById("globeViz"));
+  globe
     .width(window.innerWidth)
     .height(window.innerHeight)
     .showAtmosphere(true)
@@ -745,14 +786,12 @@ async function init() {
     }
   }
 
-  const initial = allEntries[allEntries.length - 1];
-  renderEntryList(allEntries);
-  if (initial?._listItem) {
-    activateEntry(initial, initial._listItem);
-    globe.pointOfView({ lat: initial.lat, lng: initial.lng, altitude: CAMERA_ALTITUDE_INITIAL }, 0);
+  if (currentEntry) {
+    globe.pointOfView(
+      { lat: currentEntry.lat, lng: currentEntry.lng, altitude: CAMERA_ALTITUDE_INITIAL },
+      0,
+    );
     applyCameraOffset();
-  } else if (!allEntries.length) {
-    requestAnimationFrame(hideLoadingScreen);
   }
 }
 
@@ -847,4 +886,24 @@ panelDragHandle.addEventListener("mousedown", (e) => {
 document.addEventListener("mousemove", (e) => onDragMove(e.clientY));
 document.addEventListener("mouseup", onDragEnd);
 
-init();
+// The artifact browser does not depend on WebGL or network texture requests.
+renderEntryList(allEntries);
+const initial = allEntries[allEntries.length - 1];
+if (initial?._listItem) activateEntry(initial, initial._listItem);
+
+init().catch((err) => {
+  console.error("globe: 3D unavailable", err);
+  const failedGlobe = globe;
+  globe = null; // List and panel handlers must not call a partially initialized globe.
+  try {
+    failedGlobe?._destructor?.();
+  } catch (cleanupErr) {
+    console.warn("globe: cleanup failed", cleanupErr);
+  }
+  const notice = document.createElement("p");
+  notice.id = "globeUnavailable";
+  notice.setAttribute("role", "status");
+  notice.textContent = "3D unavailable. Browse artifacts using search and navigation.";
+  globeViz.appendChild(notice);
+  hideLoadingScreen();
+});

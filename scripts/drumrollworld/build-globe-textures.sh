@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
-# Build the globe texture set from the masters in textures/src/.
+# Build from apps/drumrollworld/textures/src into apps/drumrollworld/images/globe.
+# Override DRUMROLLWORLD_TEXTURE_SOURCE_DIR and DRUMROLLWORLD_IMAGES_DIR for recovery.
+# Masters are read-only; no master files are shipped by this script.
+# To prove provenance, capture/verify actual files with manifest.mjs.
+# mtime skipping is a convenience, NOT proof of reproducibility; use FORCE=1
+# after changing options or tools, and capture a new manifest.
 #
 # Why this script exists
 # ---------------------------------------------------------------------------
@@ -21,18 +26,18 @@
 # Plus plain JPEG copies of the 2k tier, used only if KTX2 fails to load.
 #
 # Usage:
-#   scripts/build-globe-textures.sh              # build anything out of date
-#   FORCE=1 scripts/build-globe-textures.sh      # rebuild everything
-#   TIERS="2048 4096" scripts/build-globe-textures.sh
+#   scripts/drumrollworld/build-globe-textures.sh              # build anything out of date
+#   FORCE=1 scripts/drumrollworld/build-globe-textures.sh      # rebuild everything
+#   TIERS="2048 4096" scripts/drumrollworld/build-globe-textures.sh
 #
 # Requires: ImageMagick 7 (magick), KTX-Software 4.x (ktx), node.
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SRC="$ROOT/textures/src"
-OUT="$ROOT/images/globe"
-LIB="$ROOT/scripts/lib"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+SRC="${DRUMROLLWORLD_TEXTURE_SOURCE_DIR:-$ROOT/apps/drumrollworld/textures/src}"
+OUT="${DRUMROLLWORLD_IMAGES_DIR:-$ROOT/apps/drumrollworld/images}/globe"
+LIB="$ROOT/scripts/drumrollworld/lib"
 
 TIERS="${TIERS:-2048 4096 8192 10800}"
 STARS_TIERS="${STARS_TIERS:-4096 8192}"
@@ -60,12 +65,50 @@ for tool in magick ktx node; do
   command -v "$tool" >/dev/null 2>&1 || { echo "error: '$tool' not found in PATH" >&2; exit 1; }
 done
 
+FALLBACK_WIDTH="${FALLBACK_WIDTH:-2048}"
+STARS_FALLBACK_WIDTH="${STARS_FALLBACK_WIDTH:-4096}"
+# Validate every setting and master before making any output/temp artifact.
+export TIERS STARS_TIERS NORMAL_MAX_WIDTH NORMAL_STRENGTH NORMAL_PREBLUR SHARPEN SHARPEN_STARS JPEG_QUALITY UASTC_QUALITY ZSTD_LEVEL FALLBACK_WIDTH STARS_FALLBACK_WIDTH
+node --input-type=module - "$SRC" "$OUT" "$LIB/height-to-normal.mjs" <<'NODE'
+import fs from 'node:fs';
+import path from 'node:path';
+const [src,out,helper]=process.argv.slice(2);
+const fail=m=>{console.error('error: '+m);process.exit(1);};
+for(const f of [helper,...['earthmap','earthheight','earthspec','stars'].map(n=>path.join(src,n+'.jpg'))]) {
+ try {if(!fs.statSync(f).isFile() || !fs.statSync(f).size) fail('missing/empty source or helper: '+f);fs.accessSync(f,fs.constants.R_OK);}catch{fail('missing/unreadable source or helper: '+f);}
+}
+// Resolve existing ancestors too: an output may not exist yet, but its parent
+// can be a symlink back into the read-only masters.
+function canonical(p){
+ p=path.resolve(p);
+ try{fs.lstatSync(p);}catch(error){if(error.code!=='ENOENT')throw error;return path.join(canonical(path.dirname(p)),path.basename(p));}
+ return fs.realpathSync(p);
+}
+let srcReal,outReal;
+try{srcReal=canonical(src);outReal=canonical(out);}catch(error){fail('invalid source/output path: '+error.message);}
+if(outReal===srcReal || srcReal.startsWith(outReal+path.sep) || outReal.startsWith(srcReal+path.sep)) fail('source and output directories must not overlap');
+const integer=(key,min,max)=>{const s=process.env[key];if(!/^(0|[1-9]\d*)$/.test(s)||!Number.isSafeInteger(+s)||+s<min||+s>max) fail('invalid '+key);};
+for(const key of ['TIERS','STARS_TIERS']){
+ const list=process.env[key]?.trim().split(/\s+/);if(!list?.length)fail('invalid '+key);
+ const names=new Set();for(const s of list){if(!/^(0|[1-9]\d*)$/.test(s)||+s<2||+s>32768||+s%2)fail('invalid '+key);const name=+s>=1024?Math.floor(+s/1024)+'k':+s+'px';if(names.has(name))fail('duplicate output tier in '+key);names.add(name);}
+}
+for(const key of ['NORMAL_MAX_WIDTH','FALLBACK_WIDTH','STARS_FALLBACK_WIDTH'])integer(key,2,32768);
+integer('JPEG_QUALITY',1,100);integer('UASTC_QUALITY',0,4);integer('ZSTD_LEVEL',1,22);
+if(!/^\d+(\.\d+)?$/.test(process.env.NORMAL_STRENGTH)||!Number.isFinite(+process.env.NORMAL_STRENGTH)||+process.env.NORMAL_STRENGTH>10000)fail('invalid NORMAL_STRENGTH');
+for(const key of ['SHARPEN','SHARPEN_STARS'])if(!/^\d+(\.\d+)?x\d+(\.\d+)?\+\d+(\.\d+)?\+\d+(\.\d+)?$/.test(process.env[key]))fail('invalid '+key);
+if(!/^\d+(\.\d+)?x\d+(\.\d+)?$/.test(process.env.NORMAL_PREBLUR))fail('invalid NORMAL_PREBLUR');
+for(const key of ['SHARPEN','SHARPEN_STARS','NORMAL_PREBLUR'])if(process.env[key].split(/[x+]/).some(s=>!Number.isFinite(+s)||+s>10000))fail('invalid '+key);
+NODE
+# Decode headers before creating directories; corrupt masters are not inputs.
+for master in earthmap earthheight earthspec stars; do
+  magick identify "$SRC/$master.jpg" >/dev/null || { echo "error: invalid image: $SRC/$master.jpg" >&2; exit 1; }
+done
 mkdir -p "$OUT"
-TMP="$(mktemp -d)"
+TMP="$(mktemp -d "$OUT/.build.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
 
 tier_name() {  # 2048 -> 2k
-  echo "$(( $1 / 1024 ))k"
+  if (( $1 >= 1024 )); then echo "$(( $1 / 1024 ))k"; else echo "${1}px"; fi
 }
 
 mip_count() {  # 2048 -> 12 levels, down to 1x1
@@ -82,7 +125,7 @@ is_stale() {  # is_stale <output> <master>
   [[ -n "${FORCE:-}" ]] && return 0
   [[ ! -f "$1" ]] && return 0
   [[ "$2" -nt "$1" ]] && return 0
-  [[ "${BASH_SOURCE[0]}" -nt "$1" ]] && return 0
+  [[ "${BASH_SOURCE[0]}" -nt "$1" || "$LIB/height-to-normal.mjs" -nt "$1" ]] && return 0
   return 1
 }
 
@@ -126,7 +169,8 @@ build_normal_level() {  # <height-master> <w> <h> <flip|noflip> <out.png>
 
 # Build a full mip chain and encode it into one KTX2 file.
 encode_chain() {  # <kind: colour|normal|spec|stars> <master> <base_w> <out.ktx2>
-  local kind=$1 master=$2 base_w=$3 out=$4
+  local kind=$1 master=$2 base_w=$3 target=$4
+  local out="$TMP/encoded.ktx2"
   local base_h=$(( base_w / 2 ))
   local levels; levels="$(mip_count "$base_w")"
   local files=() w=$base_w h=$base_h i=0
@@ -162,6 +206,8 @@ encode_chain() {  # <kind: colour|normal|spec|stars> <master> <base_w> <out.ktx2
         "${files[@]}" "$out" ;;
   esac
 
+  mv -f "$out" "$target"
+  out="$target"
   rm -f "${files[@]}"
   printf '  %-28s %s\n' "$(basename "$out")" "$(human_size "$out")"
 }
@@ -170,35 +216,39 @@ echo "building globe textures from $SRC"
 
 for w in $TIERS; do
   t="$(tier_name "$w")"
-  is_stale "$OUT/earthmap$t.ktx2"    "$SRC/earthmap.jpg"   && encode_chain colour "$SRC/earthmap.jpg"    "$w" "$OUT/earthmap$t.ktx2"
+  if is_stale "$OUT/earthmap$t.ktx2"    "$SRC/earthmap.jpg"  ; then encode_chain colour "$SRC/earthmap.jpg"    "$w" "$OUT/earthmap$t.ktx2"; fi
   if (( w <= NORMAL_MAX_WIDTH )); then
-    is_stale "$OUT/earthnormal$t.ktx2" "$SRC/earthheight.jpg" && encode_chain normal "$SRC/earthheight.jpg" "$w" "$OUT/earthnormal$t.ktx2"
+  if is_stale "$OUT/earthnormal$t.ktx2" "$SRC/earthheight.jpg"; then encode_chain normal "$SRC/earthheight.jpg" "$w" "$OUT/earthnormal$t.ktx2"; fi
   fi
-  is_stale "$OUT/earthspec$t.ktx2"   "$SRC/earthspec.jpg"  && encode_chain spec   "$SRC/earthspec.jpg"   "$w" "$OUT/earthspec$t.ktx2"
+  if is_stale "$OUT/earthspec$t.ktx2"   "$SRC/earthspec.jpg" ; then encode_chain spec   "$SRC/earthspec.jpg"   "$w" "$OUT/earthspec$t.ktx2"; fi
 done
 
 for w in $STARS_TIERS; do
   t="$(tier_name "$w")"
-  is_stale "$OUT/stars$t.ktx2" "$SRC/stars.jpg" && encode_chain stars "$SRC/stars.jpg" "$w" "$OUT/stars$t.ktx2"
+  if is_stale "$OUT/stars$t.ktx2" "$SRC/stars.jpg"; then encode_chain stars "$SRC/stars.jpg" "$w" "$OUT/stars$t.ktx2"; fi
 done
 
 # Plain-JPEG fallback tier. Used only when KTX2 transcoding is unavailable.
 echo "building JPEG fallback tier (2k)"
 if is_stale "$OUT/earthmap2k.jpg" "$SRC/earthmap.jpg"; then
-  build_srgb_level "$SRC/earthmap.jpg" 2048 1024 "$SHARPEN" noflip "$TMP/fb_map.png"
-  magick "$TMP/fb_map.png" -quality "$JPEG_QUALITY" -interlace Plane -strip "$OUT/earthmap2k.jpg"
+  build_srgb_level "$SRC/earthmap.jpg" "$FALLBACK_WIDTH" "$((FALLBACK_WIDTH / 2))" "$SHARPEN" noflip "$TMP/fb_map.png"
+  magick "$TMP/fb_map.png" -quality "$JPEG_QUALITY" -interlace Plane -strip "$TMP/earthmap2k.jpg"
+  mv -f "$TMP/earthmap2k.jpg" "$OUT/earthmap2k.jpg"
 fi
 if is_stale "$OUT/earthnormal2k.jpg" "$SRC/earthheight.jpg"; then
-  build_normal_level "$SRC/earthheight.jpg" 2048 1024 noflip "$TMP/fb_normal.png"
-  magick "$TMP/fb_normal.png" -quality 96 -interlace Plane -strip "$OUT/earthnormal2k.jpg"
+  build_normal_level "$SRC/earthheight.jpg" "$FALLBACK_WIDTH" "$((FALLBACK_WIDTH / 2))" noflip "$TMP/fb_normal.png"
+  magick "$TMP/fb_normal.png" -quality 96 -interlace Plane -strip "$TMP/earthnormal2k.jpg"
+  mv -f "$TMP/earthnormal2k.jpg" "$OUT/earthnormal2k.jpg"
 fi
 if is_stale "$OUT/earthspec2k.jpg" "$SRC/earthspec.jpg"; then
-  build_srgb_level "$SRC/earthspec.jpg" 2048 1024 "$SHARPEN" noflip "$TMP/fb_spec.png"
-  magick "$TMP/fb_spec.png" -quality "$JPEG_QUALITY" -interlace Plane -strip "$OUT/earthspec2k.jpg"
+  build_srgb_level "$SRC/earthspec.jpg" "$FALLBACK_WIDTH" "$((FALLBACK_WIDTH / 2))" "$SHARPEN" noflip "$TMP/fb_spec.png"
+  magick "$TMP/fb_spec.png" -quality "$JPEG_QUALITY" -interlace Plane -strip "$TMP/earthspec2k.jpg"
+  mv -f "$TMP/earthspec2k.jpg" "$OUT/earthspec2k.jpg"
 fi
 if is_stale "$OUT/stars4k.jpg" "$SRC/stars.jpg"; then
-  build_srgb_level "$SRC/stars.jpg" 4096 2048 "$SHARPEN_STARS" noflip "$TMP/fb_stars.png"
-  magick "$TMP/fb_stars.png" -quality "$JPEG_QUALITY" -interlace Plane -strip "$OUT/stars4k.jpg"
+  build_srgb_level "$SRC/stars.jpg" "$STARS_FALLBACK_WIDTH" "$((STARS_FALLBACK_WIDTH / 2))" "$SHARPEN_STARS" noflip "$TMP/fb_stars.png"
+  magick "$TMP/fb_stars.png" -quality "$JPEG_QUALITY" -interlace Plane -strip "$TMP/stars4k.jpg"
+  mv -f "$TMP/stars4k.jpg" "$OUT/stars4k.jpg"
 fi
 
 echo "done."
