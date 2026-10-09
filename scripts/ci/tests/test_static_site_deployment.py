@@ -100,6 +100,45 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertIn('test -n "$BROKER_ROLE_ARN"', workflow)
         self.assertIn('--distribution-id "$DISTRIBUTION_ID" --paths "/*"', workflow)
 
+    def test_oconnordev_serializes_and_checks_current_master_before_auth(self):
+        workflow = read(".github/workflows/oconnordev-site.yml")
+        header, jobs = workflow.split("jobs:", 1)
+        self.assertIn(
+            "concurrency:\n"
+            "  group: oconnordev-production-${{ github.ref }}\n"
+            "  cancel-in-progress: false\n",
+            header,
+        )
+        self.assertNotIn("drumrollworld-production-", header)
+        check, deploy = jobs.split("  deploy:", 1)
+        self.assertNotIn("id-token: write", check)
+        self.assertNotIn("ref: master", check)
+        self.assertNotIn("pull_request_target:", workflow)
+        self.assertIn(
+            "github.ref == 'refs/heads/master' && "
+            "(github.event_name == 'push' || "
+            "github.event_name == 'workflow_dispatch')",
+            deploy,
+        )
+        self.assertIn("needs: format", deploy)
+        self.assertIn("id-token: write", deploy)
+        self.assertRegex(
+            deploy,
+            r"uses: actions/checkout@[0-9a-f]{40}[^\n]*\n"
+            r"        with:\n          ref: master\n",
+        )
+        checkout = deploy.index("ref: master")
+        formatting = deploy.index("run: mise run fmt:site")
+        lint = deploy.index("run: mise run lint:site")
+        broker = deploy.index("name: Assume TOOLS GitHub Actions broker")
+        production = deploy.index("name: Assume PRODUCTION site deploy role")
+        sync = deploy.index("aws s3 sync apps/oconnordev/ s3://oconnordev-web --delete")
+        self.assertLess(checkout, formatting)
+        self.assertLess(formatting, lint)
+        self.assertLess(lint, broker)
+        self.assertLess(broker, production)
+        self.assertLess(production, sync)
+
     def test_existing_site_uses_biome_and_config_changes_trigger_push(self):
         workflow = read(".github/workflows/oconnordev-site.yml")
         self.assertNotIn("deno", workflow.lower())

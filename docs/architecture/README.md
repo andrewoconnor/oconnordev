@@ -27,6 +27,14 @@ Each role trusts only the broker and targets its own bucket/distribution.
 `production` owns the OConnorDev site role; `drumrollworld` owns the DrumrollWorld
 role. Generated DrumrollWorld outputs reach the GitHub repository-configuration
 stack through its own dependency. Both apps use locked Biome lint/format checks.
+Each site has a separate per-ref concurrency group with active-run cancellation
+disabled. Protected-branch deployments check out current `master` and rerun
+format/lint before obtaining AWS credentials, so queued runs or old manual
+reruns do not restore their triggering commit. GitHub concurrency is not a FIFO
+queue and may replace pending runs; the target is current `master`, not deployment
+of every intermediate commit. A merge during an active deployment is picked up
+by the next qualifying queued run. S3 sync and CloudFront invalidation remain
+non-atomic; this change does not introduce a release-switch mechanism.
 DrumrollWorld additionally builds a locked npm/esbuild release with self-hosted
 Three.js, Globe.gl and KTX2 decoder JS/WASM. Its S3/CloudFront origin serves the
 complete runtime dependency bundle; no external module CDN is needed.
