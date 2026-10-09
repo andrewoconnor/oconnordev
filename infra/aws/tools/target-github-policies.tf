@@ -24,6 +24,15 @@ resource "aws_bedrockagentcore_policy" "github_read" {
     }
   }
 
+  lifecycle {
+    precondition {
+      condition = each.key != "repository_ruleset_read" ? true : (
+        var.github_ruleset_cedar_schema.gateway_arn == aws_bedrockagentcore_gateway.hermes.gateway_arn
+      )
+      error_message = "Ruleset Cedar enum types are bound to a different gateway. Supply independently observed github_ruleset_cedar_schema inputs for this gateway."
+    }
+  }
+
   depends_on = [aws_bedrockagentcore_gateway_target.github]
 }
 

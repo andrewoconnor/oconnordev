@@ -1,0 +1,14 @@
+{
+  "provenance": {
+    "source": "AWS apply error",
+    "run_id": "01M4H6XG6W5CRMKAFTG7DEC7A0",
+    "gateway_arn": "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-rfltsq6ysk",
+    "scope": "Exact observed entity type names only; reconstructed minimal Cedar schema, not an exported live full schema.",
+    "enum_uid_source": "https://github.com/cedar-policy/cedar-for-agents/blob/cb1238ed8431531437a5601f19b80f340f36cd8d/rust/cedar-policy-mcp-schema-generator/src/generator/request.rs#L462-L471"
+  },
+  "deployment_input": {
+    "gateway_arn": "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-rfltsq6ysk",
+    "level_entity_type": "AgentCore::ID_8d56337199_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_level",
+    "method_entity_type": "AgentCore::ID_e312b33e9c_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_method"
+  }
+}
