@@ -10,6 +10,32 @@ from .test_support import (
 
 
 class RoutingTests(unittest.TestCase):
+    def test_native_settings_reads_use_exact_github_actions_and_manifest_header(self):
+        for name in (
+            "repository_ruleset_read",
+            "list_repository_collaborators",
+            "list_label",
+            "get_label",
+        ):
+            with self.subTest(tool=name):
+                transport = FakeTransport()
+                arguments = {"owner": "andrewoconnor", "repo": "oconnordev"}
+                if name == "repository_ruleset_read":
+                    arguments.update(
+                        level="repository", method="list", includes_parents=False
+                    )
+                result = make_forwarder(transport).handle(
+                    rpc("tools/call", {"name": name, "arguments": arguments})
+                )
+                self.assertIn("result", result)
+                self.assertEqual(
+                    transport.gateway_calls[0][3]["params"],
+                    {"name": "github___" + name, "arguments": arguments},
+                )
+                self.assertEqual(
+                    transport.gateway_calls[0][2]["X-MCP-Tools"], EXPECTED_TOOL_HEADER
+                )
+
     def test_github_call_is_forwarded_with_its_prefix_and_toolset_header(self):
         transport = FakeTransport()
         result = make_forwarder(transport).handle(

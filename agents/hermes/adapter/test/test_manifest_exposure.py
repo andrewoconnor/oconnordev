@@ -32,7 +32,7 @@ class TargetManifestTests(unittest.TestCase):
         self.assertEqual(GITHUB_TARGET.tools, GITHUB_TOOLS)
         self.assertEqual(AWS_TARGET.tools, AWS_TOOLS)
         self.assertEqual(SPACELIFT_TARGET.tools, SPACELIFT_TOOLS)
-        self.assertEqual(len(GITHUB_TARGET.tools), 9)
+        self.assertEqual(len(GITHUB_TARGET.tools), 13)
         self.assertEqual(len(AWS_TARGET.tools), 7)
         self.assertEqual(len(SPACELIFT_TARGET.tools), 3)
 
@@ -122,7 +122,7 @@ class TargetManifestTests(unittest.TestCase):
 class ExposureTests(unittest.TestCase):
     def test_tools_list_exposes_every_targets_manifest_tools(self):
         self.assertEqual(exposed_names(make_forwarder()), EXPECTED_TOOLS)
-        self.assertEqual(len(EXPECTED_TOOLS), 19)
+        self.assertEqual(len(EXPECTED_TOOLS), 23)
 
     def test_extra_tools_are_not_exposed(self):
         transport = FakeTransport()

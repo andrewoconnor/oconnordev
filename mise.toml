@@ -66,6 +66,7 @@ run = "checkov --directory . --output cli --output sarif --output-file-path cons
 [tasks."test:python"]
 description = "Run adapter, rotation, gateway smoke, and CI path-selection unit tests"
 run = [
+  "python3 -m pip install --disable-pip-version-check --only-binary=:all: --no-deps -r scripts/ci/requirements-test.txt",
   "python3 -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v",
   "python3 -m unittest discover -s infra/aws/tools/lambdas/spacelift_session_token -p 'test_*.py' -v",
   "python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v",

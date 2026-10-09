@@ -146,6 +146,43 @@ run "disabled_when_the_security_gateway_is_unresolved" {
   }
 }
 
+run "github_settings_reads_are_repository_scoped" {
+  command = plan
+
+  assert {
+    condition = alltrue([
+      for tool in ["repository_ruleset_read", "list_repository_collaborators", "list_label", "get_label"] :
+      contains(local.github_native_tools, tool) && contains(local.github_read_tools, tool) &&
+      contains(keys(aws_bedrockagentcore_policy.github_read), tool) && !contains(local.github_branch_tools, tool)
+    ])
+    error_message = "Every native settings read must have a read permit and no branch-write permit."
+  }
+
+  assert {
+    condition     = local.github_native_tools == local.github_policy_tools && length(local.github_read_tools) == 9
+    error_message = "The manifest and Cedar policy tools must match exactly with nine reads."
+  }
+
+  assert {
+    condition     = aws_bedrockagentcore_api_key_credential_provider.github.api_key_secret_source == "EXTERNAL"
+    error_message = "The existing EXTERNAL credential chain must remain unchanged."
+  }
+}
+
+run "github_empty_allowlist_denies_all_reads" {
+  command = plan
+
+  variables {
+    hermes_github_allowed_repositories = []
+    hermes_github_default_branches     = {}
+  }
+
+  assert {
+    condition     = length(aws_bedrockagentcore_policy.github_read) == 0 && length(aws_bedrockagentcore_policy.github_branch_write) == 0 && length(aws_bedrockagentcore_policy.github_create_draft_pr) == 0
+    error_message = "An empty repository allowlist must create no GitHub permits."
+  }
+}
+
 run "enabled_when_the_security_gateway_is_resolved" {
   command = plan
 

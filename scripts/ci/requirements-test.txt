@@ -1,0 +1,2 @@
+# Offline Cedar authorization engine for rendered gateway boundary tests.
+cedarpy==4.12.1

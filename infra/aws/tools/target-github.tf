@@ -69,8 +69,14 @@ locals {
   github_target_name   = "github"
   github_tool_manifest = jsondecode(file("${local.adapter_root}/github-mcp-tools.json"))
   github_native_tools  = toset(local.github_tool_manifest.tools)
-  github_read_tools    = toset(["get_file_contents", "list_branches", "get_commit", "pull_request_read", "get_job_logs"])
-  github_branch_tools  = toset(["create_branch", "push_files", "delete_file"])
+  github_read_tools = toset([
+    "get_file_contents", "list_branches", "get_commit", "pull_request_read", "get_job_logs",
+    "repository_ruleset_read", "list_repository_collaborators", "list_label", "get_label",
+  ])
+  github_read_tool_clauses = {
+    repository_ruleset_read = " &&\n          context.input has level && context.input.level == \"repository\" &&\n          context.input has method && [\"list\", \"get\"].contains(context.input.method) &&\n          context.input has includes_parents && context.input.includes_parents == false"
+  }
+  github_branch_tools = toset(["create_branch", "push_files", "delete_file"])
   github_branch_tool_clauses = {
     push_files  = "context.input has files && !context.input.files.isEmpty() &&"
     delete_file = "context.input has path && context.input.path != \"\" &&"

@@ -11,6 +11,10 @@
     "delete_file",
     "create_pull_request",
     "pull_request_read",
-    "get_job_logs"
+    "get_job_logs",
+    "repository_ruleset_read",
+    "list_repository_collaborators",
+    "list_label",
+    "get_label"
   ]
 }
