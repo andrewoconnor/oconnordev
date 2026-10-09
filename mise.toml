@@ -69,7 +69,7 @@ run = [
   "python3 -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v",
   "python3 -m unittest discover -s infra/aws/tools/lambdas/spacelift_session_token -p 'test_*.py' -v",
   "python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v",
-  "python3 -m unittest scripts.test_adapter_smoke_test scripts.test_gateway_validation scripts.test_gateway_validation_adapter scripts.test_deploy_hermes_adapter -v",
+  "python3 -m unittest discover -s scripts/adapter/test -t . -v",
 ]
 
 [tasks."test:opentofu-boundary"]
