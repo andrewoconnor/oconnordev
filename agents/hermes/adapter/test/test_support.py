@@ -21,6 +21,10 @@ GITHUB_TOOLS = {
     "create_pull_request",
     "pull_request_read",
     "get_job_logs",
+    "repository_ruleset_read",
+    "list_repository_collaborators",
+    "list_label",
+    "get_label",
 }
 # The client keeps the canonical AWS names even though these tools now arrive
 # through two gateways. The extra hop lives in the manifest's declared wire

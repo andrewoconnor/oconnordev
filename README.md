@@ -33,6 +33,9 @@ is the externally managed runtime for the opt-in live adapter smoke test.
 `results.sarif` for CI upload. It scans the whole repository, like the previous
 Checkov action. `mise run test:python` runs only the offline Python tests;
 `mise run test` also initializes providers and runs OpenTofu boundary tests.
+The Python test task installs the pinned test-only Cedar engine wheel from
+`scripts/ci/requirements-test.txt`; initial dependency setup may need network,
+while authorization tests themselves are offline.
 `mise run validate` chooses affected roots in CI and all roots locally.
 Deployment commands require the existing AWS role chain and are not part of
 local validation; installing the AWS CLI grants no credentials.
@@ -130,5 +133,10 @@ The script exits 2 until MCP reload is confirmed with `--reloaded` after
 `/reload-mcp`, or performed through `HERMES_ADAPTER_RELOAD_CMD`.
 
 The Hermes adapter is application code under `agents/hermes/adapter/`. It registers once against the shared gateway and checks the union of target manifests; adding a gateway target does not grant it to an existing target's Cedar policy.
+
+The [native GitHub settings-read runbook](docs/runbooks/github-settings-read.md)
+describes partial ruleset/collaborator/label coverage, permission review, secure
+token rotation, and gateway-before-adapter rollout. It is a prerequisite only;
+no complete repository adoption/import is included.
 
 See [architecture](docs/architecture/README.md) for trust boundaries and dependency ordering, and [runbooks](docs/runbooks/infrastructure-bootstrap.md) for bootstrap and state-safety procedures.

@@ -18,7 +18,7 @@ resource "aws_bedrockagentcore_policy" "github_read" {
           context.input has owner &&
           context.input.owner == "andrewoconnor" &&
           context.input has repo &&
-          ${local.github_cedar_repo_set}.contains(context.input.repo)
+          ${local.github_cedar_repo_set}.contains(context.input.repo)${lookup(local.github_read_tool_clauses, each.key, "")}
         };
       CEDAR
     }

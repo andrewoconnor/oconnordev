@@ -21,6 +21,10 @@ TARGET_TOOLS = {
         "create_pull_request",
         "pull_request_read",
         "get_job_logs",
+        "repository_ruleset_read",
+        "list_repository_collaborators",
+        "list_label",
+        "get_label",
     },
     "aws": {
         "aws___get_regional_availability",
