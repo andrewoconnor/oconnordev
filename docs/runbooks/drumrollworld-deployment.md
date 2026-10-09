@@ -97,6 +97,84 @@ After the original deployment bootstrap, this code-only update needs no new
 Terraform resources, IAM permissions or infrastructure apply: merge it to
 `master` and the existing workflow builds, syncs and invalidates CloudFront.
 
+## Compression and real 404 rollout
+
+This change enables `compress = true` on the existing distribution. It retains
+legacy `forwarded_values`, no query strings/cookies/headers, and the existing
+0/3600/86400-second minimum/default/maximum TTLs. This supports CloudFront gzip
+for eligible responses; Brotli is **not promised** with legacy forwarding. There
+is no cache-policy migration or new infrastructure service.
+
+Both origin 403 and 404 map to `/404.html` with viewer status **404**, never 200
+or the application shell. Private S3 without `s3:ListBucket` for CloudFront
+commonly returns 403 for absent keys. The explicit 404 mapping also handles an
+origin that returns 404. The configured error minimum TTL is 10 seconds (S3 has
+a one-second floor even if configured to zero); origin cache headers can extend
+error caching. This is deliberately short, not a zero-cache guarantee.
+
+**Tradeoff:** the 403 mapping also masks genuine origin permission denials as
+404. If known-good objects start returning 404, investigate the bucket policy,
+OAC and object existence rather than assuming every response means a missing
+key. It does not grant any new access: private S3, public-access blocks,
+distribution-scoped OAC read permission, TLS enforcement, security headers and
+US/CA/GB/DE geographic restrictions remain unchanged. Do not add ListBucket,
+public reads or relax restrictions to obtain a prettier error page.
+
+Roll out in this order (the user owns publication and infrastructure apply):
+
+1. Merge the reviewed site change and complete the existing **drumrollworld
+   site** workflow on current `master` **before applying CloudFront changes**.
+   `build.js` copies the standalone, JS-free page byte-for-byte into
+   `dist/404.html`; the existing root sync automatically publishes it with HTML
+   content type. Asset-first upload, `images/*`/`assets/*` preservation,
+   pre-authentication validation and credential boundaries do not change.
+   Verify `https://drumroll.world/404.html` returns 200 and `text/html` with the
+   expected page. This direct object request is 200; missing URLs must be 404.
+2. Review the actual `drumrollworld` Spacelift stack plan, then manually apply
+   the compression and both error mappings. A speculative plan or these offline
+   mock-provider tests prove intended configuration, **not** deployed behavior.
+3. After distribution deployment completes, manually dispatch the existing site
+   workflow on `master` again. Its `/*` invalidation clears previously cached
+   uncompressed bundles and error responses as well as the HTML; wait for that
+   invalidation to complete. This is not an atomic rollout.
+4. From an allowed country, use the current hashed JS path from the published
+   homepage, not a guessed historical filename:
+
+   ```sh
+   curl -sS -D - -o /dev/null -H 'Accept-Encoding: gzip' 'https://drumroll.world/assets/main-CURRENT.js'
+   curl -sS -D - -o /dev/null 'https://drumroll.world/a-new-deliberately-missing-path'
+   ```
+
+   Expect the eligible JS response to be 200 with `Content-Encoding: gzip`.
+   Expect the new missing URL to be **404** with `Content-Type: text/html`;
+   inspect its body for the standalone error page, not S3 XML or the globe app.
+   Also verify homepage, security headers and existing images/decoder assets.
+   Geographic denials are not missing-object tests. If compression is absent,
+   check deployment/invalidation completion and response eligibility before
+   changing TTLs or policies.
+
+Pre-change public HTTP evidence supplied during this review: `/robots.txt`
+returned 403 with `application/xml`; an actual GET of
+`/assets/main-OVHBM2AQ.js` requesting gzip returned 200, 2,062,917 bytes and no
+`Content-Encoding`. Local gzip of that bundle was 591,033 bytes (71.35% smaller).
+That is a **local estimate**, not a measured CloudFront saving or a guarantee
+of 70% reduction for this or every object. Public HTTP does not establish live
+CloudFront configuration. Post-apply header/body checks are still required.
+
+Offline workload verification (reuse the persistent provider cache):
+
+```sh
+export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-$HOME/.opentofu.d/plugin-cache}"
+mkdir -p "$TF_PLUGIN_CACHE_DIR"
+mise exec -- tofu -chdir=infra/aws/drumrollworld init -backend=false -input=false -no-color -lockfile=readonly
+mise exec -- tofu -chdir=infra/aws/drumrollworld test -no-color
+```
+
+For rollback, revert the reviewed CloudFront settings and manually apply the
+`drumrollworld` stack, then use the same workflow invalidation. Retain the
+harmless `/404.html` object until the old mappings have stopped serving; do not
+remove it first and strand an active custom-error mapping.
+
 ## First rollout: merge is not sufficient
 
 Infrastructure stacks retain their existing manual-apply policy. After merging:

@@ -33,6 +33,7 @@ const html = (await readFile(join(root, "index.html"), "utf8")).replace(
 );
 validateRuntime(result.metafile, await readFile(join(root, entry), "utf8"), html);
 await writeFile(join(dist, "index.html"), html);
+await copyFile(join(root, "404.html"), join(dist, "404.html"));
 await copyFile(join(root, "styles.css"), join(dist, "styles.css"));
 await copyFile(join(root, "question-image.svg"), join(dist, "assets/question-image.svg"));
 const basis = "assets/basis-0.186.1";

@@ -83,6 +83,16 @@ tofu -chdir=infra/aws/tools init -backend=false -input=false -no-color -lockfile
 tofu -chdir=infra/aws/tools test -no-color
 """
 
+[tasks."test:opentofu-delivery"]
+description = "Run offline production DrumrollWorld delivery tests"
+run = """
+set -eu
+export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-$HOME/.opentofu.d/plugin-cache}"
+mkdir -p "$TF_PLUGIN_CACHE_DIR"
+tofu -chdir=infra/aws/drumrollworld init -backend=false -input=false -no-color -lockfile=readonly
+tofu -chdir=infra/aws/drumrollworld test -no-color
+"""
+
 [tasks.test]
-description = "Run Python unit tests and OpenTofu boundary tests"
-depends = ["test:python", "test:opentofu-boundary"]
+description = "Run Python unit tests and OpenTofu boundary and delivery tests"
+depends = ["test:python", "test:opentofu-boundary", "test:opentofu-delivery"]
