@@ -126,13 +126,54 @@ adapter. Revoke any separately approved excess token permissions in the secure
 UI and re-probe remaining reads. No automatic deployment or credential change
 is part of this prerequisite.
 
+## Observed ruleset enum schema repair
+
+The ruleset permit compares enum **EntityUIDs**, not JSON strings. AWS's apply
+error from run `01M4H6XG6W5CRMKAFTG7DEC7A0` supplied the exact full `AgentCore::`
+entity types for gateway
+`arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-rfltsq6ysk`.
+Those names and their provenance are recorded in
+[`github-ruleset-observed-schema.json`](../../scripts/ci/tests/fixtures/github-ruleset-observed-schema.json).
+The `github_ruleset_cedar_schema` object explicitly supplies `gateway_arn`,
+`level_entity_type`, and `method_entity_type`; its defaults are the observed
+values, not names derived by an assumed hash algorithm. Enum UID representation
+is independently supported by
+[`cedar-for-agents@cb1238ed8431531437a5601f19b80f340f36cd8d`](https://github.com/cedar-policy/cedar-for-agents/blob/cb1238ed8431531437a5601f19b80f340f36cd8d/rust/cedar-policy-mcp-schema-generator/src/generator/request.rs#L462-L471).
+This does **not** establish an AWS type-name generation contract.
+
+A lifecycle precondition on the ruleset read policy instance rejects a different
+gateway ARN before deployment. Other read/write policy instances are not gated
+by this binding, and an empty repository allowlist creates no instance to check.
+Type inputs accept only a single `AgentCore`-qualified Cedar identifier with the
+respective `_Input_level`/`_Input_method` suffix; quotes, whitespace, nested
+namespaces and policy syntax are rejected. This is syntax validation, not proof
+that a supplied type exists in AWS's schema. For a replaced gateway or changed
+catalog schema, independently observe and review the new type names, then
+supply the complete object bound to that gateway. Do not compute replacement
+names or silently discard the restrictions. There is no autonomous schema
+regeneration in this change.
+
+Owner/repository checks, every optional-field `has` guard, repository-only
+level, list/get methods and explicit boolean `includes_parents=false` are
+unchanged. The tests reconstruct a **minimal** Cedar schema around the observed
+types; no live full schema was exported. The old string comparisons reproduce
+four validation errors, while the rendered EntityUID policy validates offline.
+Neither this regression nor a mocked plan proves live AgentCore acceptance.
+After user-reviewed apply, read back policy status and perform approved allow
+and deny probes before claiming live success. No credential change is needed
+for this type repair; do not loosen policy validation or permissions to bypass
+an error.
+
 ## Offline verification
 
 `mise run test:python` installs the pinned test-only `cedarpy` wheel from
 `scripts/ci/requirements-test.txt` (initial setup may need network), then renders
 actual checked-in Terraform locals and the read-policy heredoc in an isolated
-provider-free OpenTofu fixture and evaluates standard Cedar authorization.
-The tests exercise all four exact action names, owner/repository isolation,
+provider-free OpenTofu fixture and evaluates Cedar authorization (schema-aware
+for rulesets, standard string contexts for other reads). The tests validate the
+rendered ruleset policy against the observed-type minimal schema, reproduce the
+old four schema findings, and exercise malformed inputs, injection rejection,
+gateway binding, all four exact action names, owner/repository isolation,
 ruleset restrictions, default deny and secret/Lambda guardrails. No live AWS,
 GitHub, backend, or secret reads occur. Adapter tests prove exact listing,
 routing and manifest headers; mocked OpenTofu tests prove permit/catalog

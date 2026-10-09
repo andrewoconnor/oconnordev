@@ -65,6 +65,34 @@ variable "hermes_github_machine_user_pat_json_key" {
   }
 }
 
+# Explicit observed deployment input, not an AgentCore type-name algorithm.
+variable "github_ruleset_cedar_schema" {
+  description = "Observed ruleset enum types bound to the gateway whose schema supplied them."
+  type = object({
+    gateway_arn        = string
+    level_entity_type  = string
+    method_entity_type = string
+  })
+  default = {
+    gateway_arn        = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-rfltsq6ysk"
+    level_entity_type  = "AgentCore::ID_8d56337199_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_level"
+    method_entity_type = "AgentCore::ID_e312b33e9c_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_method"
+  }
+
+  validation {
+    condition     = can(regex("^arn:aws:bedrock-agentcore:[a-z0-9-]+:[0-9]{12}:gateway/[A-Za-z0-9_-]+$", var.github_ruleset_cedar_schema.gateway_arn))
+    error_message = "Ruleset schema gateway_arn must be an AgentCore gateway ARN."
+  }
+
+  validation {
+    condition = (
+      can(regex("^AgentCore::[A-Za-z_][A-Za-z0-9_]*_Input_level$", var.github_ruleset_cedar_schema.level_entity_type)) &&
+      can(regex("^AgentCore::[A-Za-z_][A-Za-z0-9_]*_Input_method$", var.github_ruleset_cedar_schema.method_entity_type))
+    )
+    error_message = "Ruleset enum types must be AgentCore-qualified Cedar identifiers ending in _Input_level and _Input_method respectively."
+  }
+}
+
 locals {
   github_target_name   = "github"
   github_tool_manifest = jsondecode(file("${local.adapter_root}/github-mcp-tools.json"))
@@ -74,7 +102,7 @@ locals {
     "repository_ruleset_read", "list_repository_collaborators", "list_label", "get_label",
   ])
   github_read_tool_clauses = {
-    repository_ruleset_read = " &&\n          context.input has level && context.input.level == \"repository\" &&\n          context.input has method && [\"list\", \"get\"].contains(context.input.method) &&\n          context.input has includes_parents && context.input.includes_parents == false"
+    repository_ruleset_read = " &&\n          context.input has level && context.input.level == ${var.github_ruleset_cedar_schema.level_entity_type}::\"repository\" &&\n          context.input has method && [${var.github_ruleset_cedar_schema.method_entity_type}::\"list\", ${var.github_ruleset_cedar_schema.method_entity_type}::\"get\"].contains(context.input.method) &&\n          context.input has includes_parents && context.input.includes_parents == false"
   }
   github_branch_tools = toset(["create_branch", "push_files", "delete_file"])
   github_branch_tool_clauses = {

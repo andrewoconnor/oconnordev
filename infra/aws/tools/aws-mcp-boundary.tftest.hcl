@@ -109,6 +109,12 @@ mock_provider "archive" {}
 
 variables {
   spacelift_run_id = "terraform-test"
+  # Offline gateway fixture: explicit binding, not a claim of a live mock schema.
+  github_ruleset_cedar_schema = {
+    gateway_arn        = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-mock"
+    level_entity_type  = "AgentCore::ID_8d56337199_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_level"
+    method_entity_type = "AgentCore::ID_e312b33e9c_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_method"
+  }
 }
 
 
@@ -164,6 +170,15 @@ run "github_settings_reads_are_repository_scoped" {
   }
 
   assert {
+    condition = (
+      strcontains(local.github_read_tool_clauses.repository_ruleset_read, "${var.github_ruleset_cedar_schema.level_entity_type}::\"repository\"") &&
+      strcontains(local.github_read_tool_clauses.repository_ruleset_read, "${var.github_ruleset_cedar_schema.method_entity_type}::\"list\"") &&
+      strcontains(local.github_read_tool_clauses.repository_ruleset_read, "${var.github_ruleset_cedar_schema.method_entity_type}::\"get\"")
+    )
+    error_message = "Ruleset policy must render the explicit observed EntityUID type IDs, not strings or generated types."
+  }
+
+  assert {
     condition     = aws_bedrockagentcore_api_key_credential_provider.github.api_key_secret_source == "EXTERNAL"
     error_message = "The existing EXTERNAL credential chain must remain unchanged."
   }
@@ -181,6 +196,29 @@ run "github_empty_allowlist_denies_all_reads" {
     condition     = length(aws_bedrockagentcore_policy.github_read) == 0 && length(aws_bedrockagentcore_policy.github_branch_write) == 0 && length(aws_bedrockagentcore_policy.github_create_draft_pr) == 0
     error_message = "An empty repository allowlist must create no GitHub permits."
   }
+}
+
+run "ruleset_observed_schema_binding_rejects_another_gateway" {
+  command = plan
+
+  # Known plan-time gateway value so this exercises the resource precondition.
+  override_resource {
+    target = aws_bedrockagentcore_gateway.hermes
+    values = {
+      gateway_arn = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/another"
+      gateway_id  = "another"
+    }
+  }
+
+  variables {
+    github_ruleset_cedar_schema = {
+      gateway_arn        = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-rfltsq6ysk"
+      level_entity_type  = "AgentCore::ID_8d56337199_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_level"
+      method_entity_type = "AgentCore::ID_e312b33e9c_arnawsbedrockagentcoreuseast1421680664125gatewayhermesrfltsq6ysk___github___repository_ruleset_read_Input_method"
+    }
+  }
+
+  expect_failures = [aws_bedrockagentcore_policy.github_read["repository_ruleset_read"]]
 }
 
 run "enabled_when_the_security_gateway_is_resolved" {
