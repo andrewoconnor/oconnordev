@@ -75,12 +75,59 @@ The production workflow publishes only that directory to the existing bucket.
 │   │   └── security/        Central audit and security gateway
 │   ├── gcp/
 │   └── spacelift/           Spacelift management stack
+├── scripts/
+│   ├── adapter/             Adapter deploy/smoke commands and offline tests
+│   ├── ci/                  CI path selection, validation, and policy tests
+│   └── drumrollworld/       Image/texture asset pipelines and offline tests
 └── README.md
 ```
 
 Every directory under `infra/aws/` and `infra/gcp/` is an independent OpenTofu root module and maps to a Spacelift stack. `infra/spacelift/main.tf` owns the mapping and its explicit stack dependencies. OpenTofu configuration in each AWS root is organized around versions, providers, locals, feature resources, and outputs. No new modules are introduced. Every root commits a `.terraform.lock.hcl` with providers resolved from `registry.opentofu.org`; CI checks that lockfiles keep using the OpenTofu registry namespace.
 
 AWS account identifiers and the Organizations ID are centralized in `infra/aws/accounts.json`. A stack uses `data.aws_caller_identity.current.account_id` for its own account; the JSON map is for cross-account references. Spacelift dependencies remain only where one stack consumes a generated output, such as the AgentCore gateway URL/ARN.
+
+Operational commands live under `scripts/`, separate from application libraries:
+
+- `scripts/adapter/`: deploy and smoke-test the Hermes adapter. The pure gateway
+  validation library and its tests live alongside the adapter under
+  `agents/hermes/adapter/` and `agents/hermes/adapter/test/`; operational tests
+  live under `scripts/adapter/test/`.
+- `scripts/ci/`: choose affected OpenTofu roots and run validation; use
+  `mise run validate` and `mise run test:python` for validation and offline tests.
+- `scripts/drumrollworld/`: build thumbnails and globe textures, validate published
+  assets, and test asset pipelines. See the DrumrollWorld deployment runbook;
+  `mise run test:drumrollworld` runs site and asset-pipeline tests.
+
+Adapter commands (from the repository root):
+
+```sh
+python3 scripts/adapter/adapter_smoke_test.py --help
+python3 -m scripts.adapter.adapter_smoke_test --help
+bash scripts/adapter/deploy_hermes_adapter.sh --help
+```
+
+The smoke command also works by absolute path from another working directory;
+no dependency installation is needed for help or offline tests. Without `--live`,
+smoke checks make no network requests and exit **2** (skipped, not passed).
+To explicitly run live discovery, allowlisted read-only calls, and non-mutating
+GitHub policy-denial probes against a configured server:
+
+```sh
+python3 -m scripts.adapter.adapter_smoke_test --live --checkout /path/to/checkout \
+  --server agentcore --github-owner ALLOWED_OWNER --github-repo ALLOWED_REPO
+```
+
+The selected checkout supplies the adapter/manifests and gateway-check library.
+Credentials come from the selected Hermes MCP server configuration; the GitHub
+owner/repository can also come from `HERMES_SMOKE_GITHUB_OWNER` and
+`HERMES_SMOKE_GITHUB_REPO`. Credentials are not printed.
+
+`bash scripts/adapter/deploy_hermes_adapter.sh --checkout /path/to/checkout`
+requires a clean deployed checkout, fetches and fast-forwards it, and runs adapter
+unit tests. **It changes the deployed checkout**; it is not a local validation
+command. Live checks remain disabled unless `--live-smoke` is explicitly supplied.
+The script exits 2 until MCP reload is confirmed with `--reloaded` after
+`/reload-mcp`, or performed through `HERMES_ADAPTER_RELOAD_CMD`.
 
 The Hermes adapter is application code under `agents/hermes/adapter/`. It registers once against the shared gateway and checks the union of target manifests; adding a gateway target does not grant it to an existing target's Cedar policy.
 

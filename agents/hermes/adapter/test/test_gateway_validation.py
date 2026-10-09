@@ -1,6 +1,6 @@
 import unittest
 
-from scripts.gateway_validation import (
+from gateway_validation import (
     EXPECTED_LIVE_ENV,
     INVALID_OWNER_PROBE,
     INVALID_REPOSITORY_PROBE,

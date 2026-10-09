@@ -21,7 +21,7 @@
 # Exit codes: 0 deployed and reloaded, 1 a step failed, 2 deployed, reload pending.
 #
 # Usage (the file is committed 0644, so invoke it through bash):
-#   bash scripts/deploy_hermes_adapter.sh [--checkout DIR] [--rev REF]
+#   bash scripts/adapter/deploy_hermes_adapter.sh [--checkout DIR] [--rev REF]
 #                                        [--server NAME] [--reloaded] [--skip-tests]
 #                                        [--live-smoke]
 

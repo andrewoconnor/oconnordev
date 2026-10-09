@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-SCRIPT = Path(__file__).with_name("deploy_hermes_adapter.sh")
+SCRIPT = Path(__file__).resolve().parents[1] / "deploy_hermes_adapter.sh"
 
 
 class DeploymentSummaryTests(unittest.TestCase):

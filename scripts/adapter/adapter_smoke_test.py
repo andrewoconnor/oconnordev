@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import argparse
 import importlib
+import importlib.util
 import os
 import re
 import shutil
@@ -27,22 +28,31 @@ import sys
 from pathlib import Path
 from typing import NoReturn
 
-if __package__:
-    from .gateway_validation import (
-        EXPECTED_LIVE_ENV,
-        SmokeCheckError,
-        missing_live_configuration,
-        run_gateway_checks,
-        sanitize_diagnostic,
+
+def load_gateway_validation(checkout: Path):
+    """Load the checkout's pure library, not a cached or installed namesake.
+
+    Loading by file keeps direct-path and module entrypoints independent of
+    the working directory and avoids adding application dependencies to Python.
+    """
+    library = (
+        checkout.resolve() / "agents" / "hermes" / "adapter" / "gateway_validation.py"
     )
-else:
-    from gateway_validation import (
-        EXPECTED_LIVE_ENV,
-        SmokeCheckError,
-        missing_live_configuration,
-        run_gateway_checks,
-        sanitize_diagnostic,
+    spec = importlib.util.spec_from_file_location(
+        "_adapter_gateway_validation", library
     )
+    if spec is None or spec.loader is None:
+        raise ImportError(f"could not load gateway validation from {library}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_validation = load_gateway_validation(Path(__file__).resolve().parents[2])
+EXPECTED_LIVE_ENV = _validation.EXPECTED_LIVE_ENV
+SmokeCheckError = _validation.SmokeCheckError
+missing_live_configuration = _validation.missing_live_configuration
+sanitize_diagnostic = _validation.sanitize_diagnostic
 
 DEFAULT_SERVER = "agentcore"
 DEFAULT_CHECKOUT = os.environ.get(
@@ -236,6 +246,15 @@ def main() -> int:
         print(f"no adapter at {adapter_dir}; pass --checkout", file=sys.stderr)
         return 2
 
+    try:
+        validation = load_gateway_validation(Path(args.checkout))
+    except (OSError, ImportError):
+        print(
+            f"no gateway validation library at {adapter_dir}; pass --checkout",
+            file=sys.stderr,
+        )
+        return 2
+
     expected, per_target = load_expected_tools(adapter_dir)
     discovered, _ = discover(hermes_bin, args.server, sensitive_values=sensitive_values)
     missing_tools = sorted(expected - discovered)
@@ -255,7 +274,7 @@ def main() -> int:
             client_id=gateway_env["HERMES_AGENTCORE_COGNITO_CLIENT_ID"],
             client_secret=gateway_env["HERMES_AGENTCORE_COGNITO_CLIENT_SECRET"],
         )
-        results = run_gateway_checks(
+        results = validation.run_gateway_checks(
             forwarder,
             per_target,
             github_owner,

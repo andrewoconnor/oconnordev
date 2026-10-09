@@ -4,7 +4,7 @@ import sys
 import unittest
 from pathlib import Path
 
-from scripts.gateway_validation import (
+from gateway_validation import (
     INVALID_OWNER_PROBE,
     INVALID_REPOSITORY_PROBE,
     SmokeCheckError,
@@ -96,9 +96,7 @@ class MockGatewayTransport:
 class RealAdapterGatewayTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        adapter_root = (
-            Path(__file__).resolve().parents[1] / "agents" / "hermes" / "adapter"
-        )
+        adapter_root = Path(__file__).resolve().parents[1]
         sys.path.insert(0, str(adapter_root))
         cls.adapter = importlib.import_module("hermes_agentcore_adapter")
 
