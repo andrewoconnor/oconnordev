@@ -17,6 +17,26 @@ test("build emits a local hashed ESM entry and unchanged stylesheet", () => {
   assert.deepEqual(read("dist/styles.css"), read("styles.css"));
 });
 
+test("build publishes a small accessible standalone 404 page unchanged", () => {
+  assert.ok(existsSync(new URL("dist/404.html", import.meta.url)), "404.html must be published");
+  const bytes = read("dist/404.html");
+  assert.deepEqual(bytes, read("404.html"));
+  assert.ok(bytes.length < 4096, "the error page must stay below 4 KiB");
+  const html = bytes.toString();
+  assert.match(html, /<!doctype html>/i);
+  assert.match(html, /<html lang="en">/);
+  assert.match(html, /<meta name="viewport"/);
+  assert.match(html, /<title>404[^<]*<\/title>/);
+  assert.match(html, /<main>/);
+  assert.match(html, /<h1>404[^<]*<\/h1>/);
+  assert.match(html, /<a href="\/">[^<]+<\/a>/);
+  assert.doesNotMatch(
+    html,
+    /<script\b|<link\b|<img\b|<iframe\b|<meta[^>]*refresh|\s(?:src|on\w+)\s*=|javascript:|https?:\/\/|url\s*\(/i,
+  );
+  assert.doesNotMatch(html, /main-[A-Z0-9]+\.js|globe-container|importmap/);
+});
+
 test("local fallback is emitted without creating an images tree", () => {
   assert.match(read("main.js").toString(), /src: "\/assets\/question-image.svg"/);
   assert.deepEqual(read("dist/assets/question-image.svg"), read("question-image.svg"));

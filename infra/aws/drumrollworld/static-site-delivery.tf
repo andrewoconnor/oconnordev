@@ -34,6 +34,7 @@ resource "aws_cloudfront_distribution" "drumrollworld" {
   default_cache_behavior {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
+    compress                   = true
     target_origin_id           = local.s3_origin_id
     response_headers_policy_id = aws_cloudfront_response_headers_policy.drumrollworld.id
 
@@ -49,6 +50,23 @@ resource "aws_cloudfront_distribution" "drumrollworld" {
     min_ttl                = 0
     default_ttl            = 3600
     max_ttl                = 86400
+  }
+
+  # Publish /404.html before applying. Private S3 without ListBucket returns
+  # 403 for missing keys; this also masks genuine origin permission denials.
+  # Keep a real 404 (not an SPA fallback) for both S3 missing-object responses.
+  custom_error_response {
+    error_code            = 403
+    response_code         = 404
+    response_page_path    = "/404.html"
+    error_caching_min_ttl = 10
+  }
+
+  custom_error_response {
+    error_code            = 404
+    response_code         = 404
+    response_page_path    = "/404.html"
+    error_caching_min_ttl = 10
   }
 
   price_class = "PriceClass_100"
