@@ -6,6 +6,8 @@ on:
       - master
     paths:
       - "apps/drumrollworld/**"
+      - "scripts/drumrollworld/**"
+      - "docs/assets/drumrollworld-published-assets.json"
       - ".github/workflows/drumrollworld-site.yml"
       - "biome.json"
       - "mise.toml"
@@ -15,6 +17,8 @@ on:
       - master
     paths:
       - "apps/drumrollworld/**"
+      - "scripts/drumrollworld/**"
+      - "docs/assets/drumrollworld-published-assets.json"
       - ".github/workflows/drumrollworld-site.yml"
       - "biome.json"
       - "mise.toml"
