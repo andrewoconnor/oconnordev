@@ -132,12 +132,43 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         lint = deploy.index("run: mise run lint:site")
         broker = deploy.index("name: Assume TOOLS GitHub Actions broker")
         production = deploy.index("name: Assume PRODUCTION site deploy role")
-        sync = deploy.index("aws s3 sync apps/oconnordev/ s3://oconnordev-web --delete")
+        sync = deploy.index(
+            "aws s3 sync apps/oconnordev/dist/ s3://oconnordev-web --delete"
+        )
         self.assertLess(checkout, formatting)
         self.assertLess(formatting, lint)
         self.assertLess(lint, broker)
         self.assertLess(broker, production)
         self.assertLess(production, sync)
+
+    def test_oconnordev_release_is_built_and_verified_before_aws_auth(self):
+        workflow = read(".github/workflows/oconnordev-site.yml")
+        check, deploy = workflow.split("  deploy:", 1)
+        for job in (check, deploy):
+            self.assertIn("mise run build:oconnordev", job)
+            self.assertIn("mise run test:oconnordev", job)
+        credentials = deploy.index("Assume TOOLS GitHub Actions broker")
+        self.assertLess(deploy.index("mise run build:oconnordev"), credentials)
+        self.assertLess(deploy.index("mise run test:oconnordev"), credentials)
+        self.assertNotIn("aws s3 sync apps/oconnordev/ s3:", deploy)
+        self.assertEqual(
+            workflow.count('"scripts/ci/tests/test_static_site_deployment.py"'), 2
+        )
+        tasks = read("mise.toml").split('[tasks."build:oconnordev"]', 1)[1]
+        self.assertIn(
+            "npm --prefix apps/oconnordev ci --ignore-scripts --no-audit --no-fund",
+            tasks,
+        )
+        self.assertIn("playwright install --with-deps chromium", tasks)
+        self.assertLess(
+            tasks.index("ci --ignore-scripts"), tasks.index("playwright install")
+        )
+        self.assertLess(
+            tasks.index("playwright install"),
+            tasks.index("npm --prefix apps/oconnordev run build"),
+        )
+        for path in ("/apps/oconnordev/node_modules/", "/apps/oconnordev/dist/"):
+            self.assertIn(path, read(".gitignore"))
 
     def test_existing_site_uses_biome_and_config_changes_trigger_push(self):
         workflow = read(".github/workflows/oconnordev-site.yml")

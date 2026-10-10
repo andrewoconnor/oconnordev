@@ -47,3 +47,7 @@ __pycache__/
 # DrumrollWorld local dependency install and generated site
 /apps/drumrollworld/node_modules/
 /apps/drumrollworld/dist/
+
+# Resume local dependencies and generated release
+/apps/oconnordev/node_modules/
+/apps/oconnordev/dist/

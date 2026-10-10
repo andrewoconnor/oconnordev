@@ -1,0 +1,14 @@
+{
+  "name": "oconnordev-resume",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node --test --test-concurrency=1 *.test.js",
+    "test:frontend": "node --test frontend.test.js"
+  },
+  "devDependencies": {
+    "pdfjs-dist": "6.4.299",
+    "playwright": "1.64.0"
+  }
+}

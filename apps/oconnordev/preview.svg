@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#ffffff"/>
+  <rect x="64" y="72" width="8" height="486" fill="#495057"/>
+  <g fill="#495057" font-family="system-ui, -apple-system, Segoe UI, sans-serif">
+    <text x="112" y="158" font-size="28" letter-spacing="2">OCONNOR.DEV / RESUME</text>
+    <text x="108" y="282" font-size="60" font-weight="600">Andrew Vincent O'Connor</text>
+    <text x="112" y="365" font-size="36">Senior Site Reliability Engineer</text>
+    <text x="112" y="429" font-size="28">AI Security, Multi-Cloud &amp; ML Infrastructure</text>
+    <text x="112" y="540" font-size="28">oconnor.dev</text>
+  </g>
+</svg>
