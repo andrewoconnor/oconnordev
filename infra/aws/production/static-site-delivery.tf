@@ -79,7 +79,21 @@ resource "aws_cloudfront_response_headers_policy" "oconnordev" {
   name    = "oconnordev-security-headers"
   comment = "Security response headers for the oconnordev static site."
 
+  custom_headers_config {
+    items {
+      header   = "Permissions-Policy"
+      override = true
+      value    = "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()"
+    }
+  }
+
   security_headers_config {
+    # Byte-exact hash of the existing inline JSON-LD; no executable inline scripts.
+    content_security_policy {
+      content_security_policy = "default-src 'none'; script-src 'sha256-4JHmSUmc1wePxlVTxsVTwn6GgpQ+Oa79jBlKuyYIE5c='; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+      override                = true
+    }
+
     strict_transport_security {
       access_control_max_age_sec = 31536000
       include_subdomains         = true

@@ -715,7 +715,7 @@ async function init() {
   globe.scene().add(new THREE.AmbientLight(0xffffff, AMBIENT_INTENSITY));
 
   ktx2Loader = new KTX2Loader()
-    .setTranscoderPath("/assets/basis-0.186.1/")
+    .setTranscoderPath("/assets/basis-1.50.0-no-eval/")
     .detectSupport(globe.renderer());
 
   // Never leave the loading screen up because of a slow or dead texture load.
