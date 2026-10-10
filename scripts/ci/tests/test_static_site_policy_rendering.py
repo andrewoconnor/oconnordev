@@ -136,6 +136,16 @@ locals {
                 "SyncSiteObjects",
                 "InvalidateSiteDistribution",
                 "PreserveExternalImages",
+                "ReadGlobeKtxForMetadataRepair",
+            },
+        )
+        self.assertEqual(
+            statements["ReadGlobeKtxForMetadataRepair"],
+            {
+                "Sid": "ReadGlobeKtxForMetadataRepair",
+                "Effect": "Allow",
+                "Action": "s3:GetObject",
+                "Resource": "arn:aws:s3:::drumrollworld-web/images/globe/*.ktx2",
             },
         )
         self.assertEqual(

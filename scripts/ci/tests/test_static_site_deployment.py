@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -99,6 +103,99 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertIn('test -n "$DISTRIBUTION_ID"', workflow)
         self.assertIn('test -n "$BROKER_ROLE_ARN"', workflow)
         self.assertIn('--distribution-id "$DISTRIBUTION_ID" --paths "/*"', workflow)
+
+    def test_drumroll_publication_revalidates_mutable_files_and_keeps_build_meta_local(
+        self,
+    ):
+        workflow = read(".github/workflows/drumrollworld-site.yml")
+        self.assertIn('--cache-control "public,max-age=0,must-revalidate"', workflow)
+        self.assertIn('--exclude "build-meta.json"', workflow)
+        self.assertIn("aws s3 rm s3://drumrollworld-web/build-meta.json", workflow)
+        self.assertIn('--content-type "image/ktx2"', workflow)
+        self.assertLess(
+            workflow.index("aws s3 cp s3://drumrollworld-web/images/globe/"),
+            workflow.index("aws s3 sync apps/drumrollworld/dist/assets/"),
+            "fail on missing repair read permission before publishing application code",
+        )
+        self.assertIn("s3://drumrollworld-web/images/globe/", workflow)
+        self.assertIn("--metadata-directive REPLACE", workflow)
+        self.assertIn("public,max-age=31536000,immutable", workflow)
+        self.assertIn("main-[A-Z0-9]{8}\\.js$", workflow)
+        self.assertNotIn(
+            '--cache-control "public,max-age=31536000,immutable"\n      - name: Sync',
+            workflow,
+        )
+
+    def test_publication_shell_assigns_immutable_only_to_hashed_entry(self):
+        # Execute the real workflow's Bash, recording CLI argv instead of AWS
+        # calls. This checks quoting, glob expansion and ordered filters offline.
+        workflow = read(".github/workflows/drumrollworld-site.yml")
+        publish = workflow.split("      - name: Repair existing globe KTX2", 1)[
+            1
+        ].split("      - name: Invalidate CloudFront", 1)[0]
+        commands = "\n".join(
+            line[10:] for line in publish.splitlines() if line.startswith("          ")
+        )
+        with tempfile.TemporaryDirectory(prefix="drumroll-publication-") as tmp:
+            directory = Path(tmp)
+            assets = directory / "apps/drumrollworld/dist/assets"
+            assets.mkdir(parents=True)
+            for name in (
+                "main-A2B3C4D5.js",
+                "main-unhashed.js",
+                "main-A2B3C4D5.js.LEGAL.txt",
+                "question-image.svg",
+            ):
+                (assets / name).write_text("fixture")
+            recorder = directory / "mise"
+            recorder.write_text(
+                f"#!{sys.executable}\n"
+                "import json, os, sys\n"
+                "assert sys.argv[1:3] == ['exec', '--']\n"
+                "with open(os.environ['ARGV_LOG'], 'a') as out:\n"
+                "    out.write(json.dumps(sys.argv[3:]) + '\\n')\n"
+            )
+            recorder.chmod(0o700)
+            log = directory / "argv.jsonl"
+            subprocess.run(
+                ["bash", "-euo", "pipefail", "-c", commands],
+                cwd=directory,
+                env=dict(
+                    os.environ,
+                    PATH=f"{directory}:{os.environ['PATH']}",
+                    ARGV_LOG=str(log),
+                ),
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            calls = [json.loads(line) for line in log.read_text().splitlines()]
+        immutable = [
+            call for call in calls if "public,max-age=31536000,immutable" in call
+        ]
+        self.assertEqual(len(immutable), 1)
+        self.assertEqual(
+            immutable[0][4], "s3://drumrollworld-web/assets/main-A2B3C4D5.js"
+        )
+        for call in calls:
+            if "--cache-control" in call and call not in immutable:
+                self.assertEqual(
+                    call[call.index("--cache-control") + 1],
+                    "public,max-age=0,must-revalidate",
+                )
+            if "apps/drumrollworld/dist/" in call:
+                self.assertIn("build-meta.json", call)
+                self.assertIn("images/*", call)
+                self.assertIn("assets/*", call)
+        repair = calls[0]
+        self.assertEqual(repair[3:5], ["s3://drumrollworld-web/images/globe/"] * 2)
+        self.assertEqual(repair[repair.index("--content-type") + 1], "image/ktx2")
+        self.assertEqual(repair[repair.index("--exclude") + 1], "*")
+        self.assertEqual(repair[repair.index("--include") + 1], "*.ktx2")
+        self.assertEqual(
+            [call for call in calls if call[2] == "rm"],
+            [["aws", "s3", "rm", "s3://drumrollworld-web/build-meta.json"]],
+        )
 
     def test_oconnordev_serializes_and_checks_current_master_before_auth(self):
         workflow = read(".github/workflows/oconnordev-site.yml")

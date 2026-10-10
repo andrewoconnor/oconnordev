@@ -77,7 +77,15 @@ class Element {
   }
 }
 
-function harness({ throwing = false, widthThrow = false, setupThrow = false } = {}) {
+function harness({
+  throwing = false,
+  widthThrow = false,
+  setupThrow = false,
+  width = 1200,
+  height = 900,
+  maxSize = 16384,
+  connection = undefined,
+} = {}) {
   const elements = new Map();
   const get = (id) => {
     if (!elements.has(id)) elements.set(id, new Element());
@@ -106,7 +114,7 @@ function harness({ throwing = false, widthThrow = false, setupThrow = false } = 
     }
   }
   const material = { color: { set() {} }, normalScale: { setScalar() {} } };
-  const controls = { addEventListener() {} };
+  const controls = new Element();
   const scene = { add() {}, remove() {} };
   const camera = {
     add() {},
@@ -119,10 +127,11 @@ function harness({ throwing = false, widthThrow = false, setupThrow = false } = 
       if (setupThrow) throw new Error("renderer setup failed");
     },
     capabilities: { getMaxAnisotropy: () => 1 },
-    getContext: () => ({ MAX_TEXTURE_SIZE: 1, getParameter: () => 16384 }),
+    getContext: () => ({ MAX_TEXTURE_SIZE: 1, getParameter: () => maxSize }),
   };
   let ctorListCount;
   let destructorCalls = 0;
+  let altitude = 2.2;
   const globe = new Proxy(
     {},
     {
@@ -143,7 +152,12 @@ function harness({ throwing = false, widthThrow = false, setupThrow = false } = 
         if (name === "globeMaterial") return () => material;
         if (name === "getGlobeRadius") return () => 100;
         if (name === "postProcessingComposer") return () => null;
-        if (name === "pointOfView") return (value) => (value ? globe : { altitude: 2.2 });
+        if (name === "pointOfView")
+          return (value) => {
+            if (!value) return { altitude };
+            altitude = value.altitude ?? altitude;
+            return globe;
+          };
         return () => globe;
       },
     },
@@ -202,12 +216,12 @@ function harness({ throwing = false, widthThrow = false, setupThrow = false } = 
     })),
     document,
     window: {
-      innerWidth: 1200,
-      innerHeight: 900,
+      innerWidth: width,
+      innerHeight: height,
       matchMedia: () => ({ matches: false }),
       addEventListener() {},
     },
-    navigator: {},
+    navigator: { connection },
     console: { warn: (...args) => errors.push(args), error: (...args) => errors.push(args) },
     setTimeout: (fn, ms) => {
       const timer = { fn, ms };
@@ -234,7 +248,7 @@ function harness({ throwing = false, widthThrow = false, setupThrow = false } = 
   };
 }
 const flush = async () => {
-  for (let i = 0; i < 12; i++) await Promise.resolve();
+  for (let i = 0; i < 30; i++) await Promise.resolve();
 };
 
 test("WebGL constructor failure retains selected searchable list and gallery", async () => {
@@ -291,12 +305,135 @@ function complete(requests) {
     return tex;
   });
 }
+test("background upgrades reach the device ceiling without zoom, one tier at a time", async () => {
+  const h = harness();
+  assert.equal(h.requests.length, 4);
+  assert.equal(h.timers.filter((t) => t.ms === 500).length, 0);
+  complete(h.requests);
+  await flush();
+  for (const tier of ["4k", "8k", "10k"]) {
+    const start = h.requests.length;
+    const timer = h.timers.filter((t) => t.ms === 500 && !t.ran).at(-1);
+    assert.ok(timer, `idle work scheduled for ${tier}`);
+    timer.ran = true;
+    timer.fn();
+    await flush();
+    const requests = h.requests.slice(start);
+    assert.ok(
+      requests.some((r) => r.url.includes(`earthmap${tier}`)),
+      `${tier} fetched without zoom`,
+    );
+    assert.ok(requests.length <= 4);
+    assert.equal(h.requests.length, start + requests.length, "no overlapping tier");
+    complete(requests);
+    await flush();
+    assert.equal(h.run("_appliedTier"), tier);
+  }
+});
+
 async function painted() {
   const h = harness();
   complete(h.requests);
   await flush();
   return h;
 }
+
+test("background work respects phone, GPU and data-saving ceilings", async () => {
+  for (const [options, ceiling] of [
+    [{ width: 390, height: 844 }, "8k"],
+    [{ maxSize: 4096 }, "4k"],
+    [{ connection: { saveData: true } }, "2k"],
+    [{ connection: { effectiveType: "slow-2g" } }, "2k"],
+  ]) {
+    const h = harness(options);
+    complete(h.requests);
+    await flush();
+    let seen = h.requests.length;
+    for (let i = 0; i < 4; i++) {
+      const timer = h.timers.find((t) => t.ms === 500 && !t.ran);
+      if (!timer) break;
+      timer.ran = true;
+      timer.fn();
+      complete(h.requests.slice(seen));
+      seen = h.requests.length;
+      await flush();
+    }
+    assert.equal(h.run("_appliedTier"), ceiling);
+    assert.equal(h.run("_upgradeBusy"), false);
+  }
+});
+
+test("JPEG fallback never schedules compressed background upgrades", async () => {
+  const h = harness();
+  h.requests[0].reject(new Error("unavailable"));
+  await flush();
+  complete(h.requests.slice(4));
+  await flush();
+  assert.equal(h.timers.filter((t) => t.ms === 500).length, 0);
+  assert.equal(h.run("_appliedTier"), "2k");
+  assert.equal(h.run("_upgradeBusy"), false);
+});
+
+test("failed background tier drains late requests before advancing and never loops", async () => {
+  const h = await painted();
+  h.timers.find((t) => t.ms === 500).fn();
+  const requests = h.requests.slice(4);
+  requests[0].reject(new Error("missing 4k"));
+  await flush();
+  assert.equal(h.run("_upgradeBusy"), true, "failed tier still owns outstanding requests");
+  const late = complete(requests.slice(1));
+  await flush();
+  assert.equal(h.run("_upgradeBusy"), false);
+  for (const tex of late) assert.equal(tex.disposals, 1);
+  assert.equal(h.material.map.disposals, 0);
+});
+
+test("a phone resize discards an in-flight desktop-only tier", async () => {
+  const h = await painted();
+  h.run('globe.pointOfView({altitude: 0.4}); globe.controls().dispatch("change")');
+  for (const frame of h.frames.splice(0)) frame();
+  const requests = h.requests.slice(4);
+  h.run("window.innerWidth = 390; window.innerHeight = 844");
+  const discarded = complete(requests);
+  await flush();
+  assert.equal(h.run("_appliedTier"), "2k");
+  for (const tex of discarded) assert.equal(tex.disposals, 1);
+  assert.equal(h.material.map.disposals, 0);
+});
+
+test("automatic zoom changes do not retry failed tiers indefinitely", async () => {
+  const h = await painted();
+  h.run('globe.pointOfView({altitude: 0.4}); globe.controls().dispatch("change")');
+  for (const frame of h.frames.splice(0)) frame();
+  const requests = h.requests.slice(4);
+  for (const request of requests) request.reject(new Error("missing tier"));
+  await flush();
+  h.run('globe.controls().dispatch("change")');
+  for (const frame of h.frames.splice(0)) frame();
+  await flush();
+  assert.equal(h.requests.filter((r) => r.url.includes("earthmap10k")).length, 1);
+});
+
+test("zoom waits for in-flight background work then skips intermediate tiers", async () => {
+  const h = await painted();
+  h.timers.find((t) => t.ms === 500).fn();
+  const background = h.requests.slice(4);
+  h.run('globe.pointOfView({altitude: 0.4}); globe.controls().dispatch("change")');
+  for (const frame of h.frames.splice(0)) frame();
+  await flush();
+  assert.equal(
+    h.requests.length,
+    4 + background.length,
+    "zoom must not overlap background textures",
+  );
+  complete(background);
+  await flush();
+  assert.ok(
+    h.requests.slice(4 + background.length).some((r) => r.url.includes("earthmap10k")),
+    "zoom starts immediately after current tier",
+  );
+  assert.ok(!h.requests.some((r) => r.url.includes("earthmap8k")));
+});
 
 test("late 4k completion cannot replace 8k or poison the applied stars cache", async () => {
   const h = await painted();

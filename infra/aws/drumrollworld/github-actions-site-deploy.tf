@@ -36,6 +36,15 @@ data "aws_iam_policy_document" "github_actions_site_deploy" {
     resources = ["${aws_s3_bucket.web.arn}/*"]
   }
 
+  # A server-side self-copy needs source read access. Restrict it to the
+  # existing KTX2 prefix repaired by the site workflow; no other image reads.
+  statement {
+    sid       = "ReadGlobeKtxForMetadataRepair"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.web.arn}/images/globe/*.ktx2"]
+  }
+
   statement {
     sid       = "InvalidateSiteDistribution"
     effect    = "Allow"
