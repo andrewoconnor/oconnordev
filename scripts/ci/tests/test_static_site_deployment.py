@@ -184,8 +184,10 @@ class StaticSiteDeploymentTests(unittest.TestCase):
             tasks.index("playwright install"),
             tasks.index("npm --prefix apps/oconnordev run build"),
         )
-        for path in ("/apps/oconnordev/node_modules/", "/apps/oconnordev/dist/"):
-            self.assertIn(path, read(".gitignore"))
+        ignore_rules = read(".gitignore").splitlines()
+        for path in ("/apps/oconnordev/node_modules", "/apps/oconnordev/dist/"):
+            self.assertEqual(ignore_rules.count(path), 1)
+        self.assertNotIn("/apps/oconnordev/node_modules/", ignore_rules)
 
     def test_existing_site_uses_biome_and_config_changes_trigger_push(self):
         workflow = read(".github/workflows/oconnordev-site.yml")
