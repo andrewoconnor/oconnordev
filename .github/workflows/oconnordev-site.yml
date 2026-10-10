@@ -98,8 +98,10 @@ jobs:
           role-chaining: true
           role-skip-session-tagging: true
           allowed-account-ids: "767397796791"
-      - name: Sync site to S3
-        run: mise exec -- aws s3 sync apps/oconnordev/dist/ s3://oconnordev-web --delete
+      - name: Publish versioned CSS before the HTML (retain previous releases)
+        run: mise exec -- aws s3 sync apps/oconnordev/dist/assets/css/ s3://oconnordev-web/assets/css/
+      - name: Sync site to S3 (preserve prior hashed CSS for cached HTML)
+        run: mise exec -- aws s3 sync apps/oconnordev/dist/ s3://oconnordev-web --delete --exclude "assets/css/*"
       - name: Invalidate CloudFront
         env:
           DISTRIBUTION_ID: ${{ vars.OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID }}

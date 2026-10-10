@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdir, readFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { openSite } from "./browser.js";
 
@@ -7,9 +8,17 @@ const root = import.meta.dirname;
 const dist = join(root, "dist");
 await rm(dist, { recursive: true, force: true });
 await mkdir(join(dist, "assets/css"), { recursive: true });
-for (const file of ["index.html", "assets/css/resume.css", "favicon.ico"]) {
-  await copyFile(join(root, file), join(dist, file));
-}
+const css = await readFile(join(root, "assets/css/resume.css"));
+const hash = createHash("sha256").update(css).digest("hex");
+const stylesheet = `/assets/css/resume-${hash}.css`;
+await writeFile(join(dist, stylesheet.slice(1)), css);
+const html = await readFile(join(root, "index.html"), "utf8");
+assert.equal(html.split('href="/assets/css/resume.css"').length, 2);
+await writeFile(
+  join(dist, "index.html"),
+  html.replace('href="/assets/css/resume.css"', `href="${stylesheet}"`),
+);
+await copyFile(join(root, "favicon.ico"), join(dist, "favicon.ico"));
 
 const site = await openSite(dist);
 try {

@@ -132,9 +132,26 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         lint = deploy.index("run: mise run lint:site")
         broker = deploy.index("name: Assume TOOLS GitHub Actions broker")
         production = deploy.index("name: Assume PRODUCTION site deploy role")
-        sync = deploy.index(
-            "aws s3 sync apps/oconnordev/dist/ s3://oconnordev-web --delete"
+        self.assertIn(
+            "aws s3 sync apps/oconnordev/dist/assets/css/ s3://oconnordev-web/assets/css/",
+            deploy,
         )
+        css = deploy.index(
+            "aws s3 sync apps/oconnordev/dist/assets/css/ s3://oconnordev-web/assets/css/"
+        )
+        sync = deploy.index(
+            "aws s3 sync apps/oconnordev/dist/ s3://oconnordev-web --delete "
+            '--exclude "assets/css/*"'
+        )
+        self.assertNotIn("--delete", deploy[css:].splitlines()[0])
+        self.assertLess(production, css)
+        self.assertLess(css, sync)
+        self.assertIn("vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN", deploy)
+        self.assertIn("vars.OCONNORDEV_SITE_DEPLOY_ROLE_ARN", deploy)
+        self.assertIn('allowed-account-ids: "421680664125"', deploy)
+        self.assertIn('allowed-account-ids: "767397796791"', deploy)
+        self.assertIn("role-chaining: true", deploy)
+        self.assertIn("role-skip-session-tagging: true", deploy)
         self.assertLess(checkout, formatting)
         self.assertLess(formatting, lint)
         self.assertLess(lint, broker)

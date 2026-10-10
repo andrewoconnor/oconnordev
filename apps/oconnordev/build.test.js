@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
 import { readFile, readdir } from "node:fs/promises";
 import { relative } from "node:path";
@@ -83,8 +84,19 @@ test("release publishes only deployable assets with a real 1200x630 preview and 
     .filter((entry) => entry.isFile())
     .map((entry) => relative(dist.pathname, `${entry.parentPath}/${entry.name}`))
     .sort();
+  const html = await readFile(new URL("./dist/index.html", import.meta.url), "utf8");
+  const href = html.match(/<link href="([^"]+)" rel="stylesheet">/)?.[1];
+  assert.match(href || "", /^\/assets\/css\/resume-[0-9a-f]{64}\.css$/);
+  const css = await readFile(new URL(`./dist${href}`, import.meta.url));
+  const hash = createHash("sha256").update(css).digest("hex");
+  assert.equal(
+    href,
+    `/assets/css/resume-${hash}.css`,
+    "URL must address the actual deployed bytes",
+  );
+  assert.deepEqual(css, await readFile(new URL("./assets/css/resume.css", import.meta.url)));
   assert.deepEqual(files, [
-    "assets/css/resume.css",
+    href.slice(1),
     "assets/resume-preview.png",
     "favicon.ico",
     "index.html",
