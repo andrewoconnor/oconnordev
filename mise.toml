@@ -45,6 +45,18 @@ run = "biome format apps/oconnordev/ apps/drumrollworld/"
 description = "Lint both static sites' HTML, CSS, and JavaScript"
 run = "biome lint --error-on-warnings apps/oconnordev/ apps/drumrollworld/"
 
+[tasks."build:oconnordev"]
+description = "Build a minimal resume release with a continuous PDF and local preview"
+run = [
+  "npm --prefix apps/oconnordev ci --ignore-scripts --no-audit --no-fund",
+  'if [ "${CI:-}" = "true" ]; then npm --prefix apps/oconnordev exec --no -- playwright install --with-deps chromium --only-shell; fi',
+  "npm --prefix apps/oconnordev run build",
+]
+
+[tasks."test:oconnordev"]
+description = "Verify resume semantics, metadata, accessibility and actual PDF contents"
+run = "npm --prefix apps/oconnordev test"
+
 [tasks."build:drumrollworld"]
 description = "Install locked packages without lifecycle scripts and build self-hosted assets"
 run = [
