@@ -24,7 +24,7 @@ npm --prefix apps/oconnordev exec --no -- playwright install chromium --only-she
 CI installs Playwright's matching Chromium headless shell and OS dependencies before
 rendering, and uses it instead of any system Chromium.
 The generated release in `apps/oconnordev/dist/` contains only `index.html`,
-`assets/css/resume.css`, `favicon.ico`, `assets/resume-preview.png`, and
+`assets/css/resume-<sha256>.css`, `favicon.ico`, `assets/resume-preview.png`, and
 `resume.pdf`. Never sync the source directory or `node_modules`.
 
 Tests open a local HTTP server, block foreign browser requests, check semantic
@@ -48,6 +48,29 @@ and `/assets/resume-preview.png` at `https://oconnor.dev/`; verify the PDF opens
 as one page and the preview returns `image/png`. Social services may retain
 cached previews. For rollback, revert the approved change on master and use the
 same gated release workflow; do not upload development sources manually.
+
+## Mobile icons and stylesheet cache consistency
+
+Serving the pre-icon CSS from baseline `6aaf603` with the newer inline SVG HTML
+reproduces oversized icons in Chromium: at a 390px viewport they measure about
+375.61×375.61px instead of 12×12px. Fresh CSS does not reproduce the failure.
+This demonstrates a stale-stylesheet failure mode matching the reported screenshot;
+it does not confirm the user's device cache state or a Safari engine defect.
+Safari/iPhone rendering has not been tested here.
+
+All six decorative SVGs carry `width="1em"` and `height="1em"` presentation
+attributes as a fallback alongside CSS sizing. Browser tests intercept the CSS
+response and remove just the icon rule to reproduce the stale sizing dependency,
+then assert actual icon and contact-text geometry at 375/390px, desktop and print.
+The build hashes the exact CSS bytes using Node's SHA-256 and rewrites only the
+built HTML's stylesheet URL; source HTML keeps `/assets/css/resume.css` readable.
+The release test validates the href against the actual asset hash and allowlist.
+
+Deployment uploads CSS first, without deletion, then syncs the built release with
+`--delete --exclude "assets/css/*"`. This preserves previous hashed CSS (and the
+legacy CSS URL) for cached HTML and avoids publishing HTML before its CSS exists.
+Do not delete earlier CSS assets as part of an ordinary release or rollback.
+No source files are uploaded. AWS roles and PDF rendering remain unchanged.
 
 ## Continuous PDF limitations
 
