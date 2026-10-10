@@ -2,7 +2,13 @@
   "$schema": "https://biomejs.dev/schemas/2.5.15/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
-    "includes": ["apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "apps/**/*.mjs"]
+    "includes": [
+      "apps/**/*.html",
+      "apps/**/*.css",
+      "apps/**/*.js",
+      "apps/**/*.mjs",
+      "!apps/drumrollworld/third-party/basis-1.50.0-no-eval/basis_transcoder.js"
+    ]
   },
   "formatter": {
     "enabled": true,

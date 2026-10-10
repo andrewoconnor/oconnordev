@@ -1,8 +1,10 @@
 import { mkdir, readFile, readdir, rm, copyFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import { build } from "esbuild";
 import { validateRuntime } from "./runtime-validation.js";
+import { decodeBasisWasm } from "./basis-assets.js";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const dist = join(root, "dist");
@@ -36,13 +38,21 @@ await writeFile(join(dist, "index.html"), html);
 await copyFile(join(root, "404.html"), join(dist, "404.html"));
 await copyFile(join(root, "styles.css"), join(dist, "styles.css"));
 await copyFile(join(root, "question-image.svg"), join(dist, "assets/question-image.svg"));
-const basis = "assets/basis-0.186.1";
+const basis = "assets/basis-1.50.0-no-eval";
 await mkdir(join(dist, basis), { recursive: true });
-for (const file of ["basis_transcoder.js", "basis_transcoder.wasm"]) {
-  await copyFile(
-    join(root, "node_modules/three/examples/jsm/libs/basis", file),
-    join(dist, basis, file),
-  );
+const basisSource = join(root, "third-party/basis-1.50.0-no-eval");
+const basisHashes = (await readFile(join(basisSource, "SHA256SUMS"), "utf8"))
+  .trim()
+  .split("\n")
+  .map((line) => line.split(/\s+/));
+for (const [expected, file] of basisHashes) {
+  const bytes =
+    file === "basis_transcoder.wasm"
+      ? decodeBasisWasm(await readFile(join(basisSource, `${file}.base64`), "utf8"))
+      : await readFile(join(basisSource, file));
+  const actual = createHash("sha256").update(bytes).digest("hex");
+  if (actual !== expected) throw new Error(`Vendored Basis hash mismatch: ${file}`);
+  await writeFile(join(dist, basis, file), bytes);
 }
 // Include complete license/notice files for every package in the bundling graph,
 // including transitive and tree-shaken modules. Inline legal comments also ship
@@ -69,6 +79,10 @@ for (const path of [...packagePaths].sort()) {
   notices += "\n";
 }
 notices += await readFile(join(root, "third-party/EMBEDDED-LICENSES.txt"), "utf8");
+for (const license of ["LICENSE", "EMSCRIPTEN-LICENSE.txt"]) {
+  notices += `\n===== Owned Basis v1.50.0 no-eval: ${license} =====\n`;
+  notices += await readFile(join(basisSource, license), "utf8");
+}
 notices +=
   "\nOriginal question-image.svg fallback: created for DrumrollWorld; no third-party artwork.\n";
 await writeFile(join(dist, "THIRD-PARTY-NOTICES.txt"), notices);

@@ -4,6 +4,26 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
+import { decodeBasisWasm } from "./basis-assets.js";
+
+test("owned WASM transport rejects noncanonical Base64", () => {
+  assert.deepEqual(decodeBasisWasm("AA==\n"), Buffer.from([0]));
+  assert.deepEqual(decodeBasisWasm("AA=="), Buffer.from([0]));
+  for (const invalid of [
+    "",
+    "\n",
+    "AA=",
+    "AB==",
+    "AA==\n\n",
+    "AA==\r\n",
+    " AA==",
+    "AA==!",
+    "AA-_",
+    "A===",
+  ]) {
+    assert.throws(() => decodeBasisWasm(invalid), /canonical Base64/);
+  }
+});
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const read = (path) => readFileSync(new URL(path, import.meta.url));
@@ -96,7 +116,7 @@ test("build validator rejects remote or bare executable dependency imports", asy
   assert.throws(() => validateRuntime(duplicate, source, html), /single shared Three/);
 });
 
-test("pinned Three basis assets match upstream bytes and local preloads", () => {
+test("pinned Three and owned no-eval Basis assets match provenance hashes and local preloads", () => {
   const pkg = JSON.parse(read("package.json"));
   const lock = JSON.parse(read("package-lock.json"));
   assert.equal(pkg.dependencies.three, "0.186.1");
@@ -108,12 +128,30 @@ test("pinned Three basis assets match upstream bytes and local preloads", () => 
   );
   assert.deepEqual(threePackages, ["node_modules/three"]);
   assert.equal(lock.packages["node_modules/three"].version, pkg.dependencies.three);
-  const basis = `/assets/basis-${pkg.dependencies.three}/`;
+  const basis = "/assets/basis-1.50.0-no-eval/";
+  const hashes = Object.fromEntries(
+    read("third-party/basis-1.50.0-no-eval/SHA256SUMS")
+      .toString()
+      .trim()
+      .split("\n")
+      .map((line) => {
+        const [hash, file] = line.split(/\s+/);
+        return [file, hash];
+      }),
+  );
   assert.ok(read("main.js").toString().includes(`setTranscoderPath("${basis}")`));
   for (const file of ["basis_transcoder.js", "basis_transcoder.wasm"]) {
-    assert.deepEqual(
-      read(`dist${basis}${file}`),
-      read(`node_modules/three/examples/jsm/libs/basis/${file}`),
+    const owned =
+      file === "basis_transcoder.wasm"
+        ? decodeBasisWasm(read(`third-party/basis-1.50.0-no-eval/${file}.base64`).toString())
+        : read(`third-party/basis-1.50.0-no-eval/${file}`);
+    assert.deepEqual(read(`dist${basis}${file}`), owned);
+    assert.equal(existsSync(new URL(`dist${basis}${file}.base64`, import.meta.url)), false);
+    assert.equal(
+      createHash("sha256")
+        .update(read(`dist${basis}${file}`))
+        .digest("hex"),
+      hashes[file],
     );
     for (const html of ["index.html", "dist/index.html"]) {
       assert.ok(read(html).toString().includes(`href="${basis}${file}"`), html);

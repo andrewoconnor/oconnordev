@@ -97,7 +97,21 @@ resource "aws_cloudfront_response_headers_policy" "drumrollworld" {
   name    = "drumrollworld-security-headers"
   comment = "Security response headers for the drumrollworld static site."
 
+  custom_headers_config {
+    items {
+      header   = "Permissions-Policy"
+      override = true
+      value    = "accelerometer=(), autoplay=(), camera=(), display-capture=(), encrypted-media=(), fullscreen=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), usb=(), xr-spatial-tracking=()"
+    }
+  }
+
   security_headers_config {
+    # Owned Basis is compiled with DYNAMIC_EXECUTION=0; only WASM compilation
+    # is allowed in inherited-CSP blob workers, never JavaScript string execution.
+    content_security_policy {
+      content_security_policy = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'; style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 'sha256-1OVkcrOQP7NV9SqPTIZQMVnSWqtceFiWV3g5XyDm98A=' 'sha256-9xjtvxMT1ApHlgn9ohbh2FNfvK5Tqtzy94BjfXBeMSY=' 'sha256-yfc2FhpkFR0EAy3T+zDsaAFGXSP9B3ELNvaJKDzNhkk=' 'sha256-GRFgt45UbKYCV14/Fqy6H9EB3zlAwSnH4xbsYt03Q6M='; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+      override                = true
+    }
     strict_transport_security {
       access_control_max_age_sec = 31536000
       include_subdomains         = true
