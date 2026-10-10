@@ -43,12 +43,10 @@ Read-only HTTP checks during implementation found the live homepage, favicon,
 first-paint earth texture and a representative entry photo returning HTTP 200.
 This confirms those samples, not an inventory or backup of every asset.
 
-The deployment command deliberately excludes this prefix:
-
-```sh
-mise exec -- aws s3 sync apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/
-mise exec -- aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/ --delete --exclude "images/*" --exclude "assets/*"
-```
+The workflow excludes `images/*` and prior `assets/*` from root sync/deletion.
+See `.github/workflows/drumrollworld-site.yml` for the complete publication
+commands, including cache metadata, the diagnostic exclusion and the narrowly
+scoped KTX2 metadata repair described below.
 
 AWS CLI excludes matching destination objects from deletion. The deploy role
 also explicitly denies `s3:DeleteObject` on `drumrollworld-web/images/*`, so a
@@ -59,9 +57,10 @@ hashed modules and versioned decoder assets remain available while cached HTML
 and open clients still reference them. This is not an atomic release switch;
 asset cleanup needs a separate reviewed retention procedure, not an unbounded
 `--delete` during publication. The workflow does
-not upload or manage images, including images added to the checkout later;
-asset publication needs a separate explicit procedure or a future versioned
-asset-source design. Do not remove the exclusion without migrating that asset
+not upload image bytes from the checkout. It now manages only the content-type
+and cache metadata of existing `images/globe/*.ktx2` via server-side self-copy;
+other images remain untouched. Asset publication needs a separate explicit
+procedure or a future versioned asset-source design. Do not remove the exclusion without migrating that asset
 ownership. The original fallback picture is now a repository-owned SVG outside
 `images/`; it is included in the release.
 
@@ -93,9 +92,139 @@ and browser-check with external CDN traffic blocked. Commit sources and locks,
 not generated bundles or installed packages. Package downloads happen during
 CI only; browser startup no longer depends on esm.sh or unpkg.com. Image/texture
 asset ownership and the existing S3/CloudFront infrastructure are unchanged.
-After the original deployment bootstrap, this code-only update needs no new
-Terraform resources, IAM permissions or infrastructure apply: merge it to
-`master` and the existing workflow builds, syncs and invalidates CloudFront.
+After the original deployment bootstrap, the dependency migration itself needed
+no new Terraform resources, IAM permissions or infrastructure apply: the existing
+workflow builds, syncs and invalidates CloudFront on `master`.
+
+The background-texture/cache-metadata update below additionally requires the
+narrow KTX2 read grant to be applied before the new deployment workflow runs.
+
+## Background texture upgrades
+
+Once the four first-paint KTX2 textures have completed and the 2k tier is
+installed, the app schedules 4k, 8k and (when supported) 10k upgrades during idle
+time (`requestIdleCallback` with a 3-second timeout, or a 500ms timer fallback).
+No zoom is needed. Each tier is installed rather than retained as a prefetch
+cache; superseded map/normal/specular textures are disposed. Stars are reused
+while their resolution stays unchanged. The normal map still stops at 8k.
+
+A single automatic upgrade owns at most four texture requests. A zoom request
+starts immediately if no tier is loading, or takes the next slot after the
+current tier drains; it can skip intermediate background tiers. Failure does
+not open another slot until late outstanding requests settle and their textures
+are disposed. A stalled request therefore stops background progress rather than
+accumulating more requests or GPU allocations. Each automatic tier is attempted
+once per page lifetime, avoiding retries on auto-rotation change events. Reload
+to retry a missing higher tier. Already-installed textures remain visible.
+
+The GPU ceiling and existing phone-sized 8k ceiling apply to background and zoom
+loads; they are rechecked before installation if the viewport changes in flight.
+Save-Data and 2g connections stay at 2k. JPEG fallback stays at its existing 2k
+tier and does not schedule further compressed loads. Loading-screen watchdog,
+list/search/navigation and the wasm-only no-JavaScript-eval CSP are unchanged.
+This deliberately increases background bandwidth on non-data-saving devices;
+it is not a prediction of production texture download time or mobile GPU usage.
+
+## Cache metadata, KTX2 MIME and private build diagnostics
+
+Only esbuild's generated `assets/main-XXXXXXXX.js` entry (eight uppercase
+alphanumeric hash characters) receives
+`Cache-Control: public,max-age=31536000,immutable`. The build owns that namespace
+and derives the filename from bundle content. Do not overwrite an old hashed
+entry with different bytes or introduce a stable file matching that namespace.
+Older bundles are preserved. The linked `.LEGAL.txt` file is not assumed to have
+an independent content hash.
+
+HTML, CSS, notices, manifests and other mutable site files use
+`public,max-age=0,must-revalidate`. All stable runtime assets, including
+`assets/question-image.svg` and the `basis-1.50.0-no-eval` JS/WASM paths, also
+revalidate. A release/version label is **not** a content-address guarantee; those
+paths could be repaired in place. Globe textures such as `earthmap8k.ktx2` are
+stable mutable URLs, not immutable assets. Query-string cache busting is not a
+solution with this distribution's query-string forwarding disabled. A future
+immutable texture cache requires content-addressed URLs and application changes.
+
+The workflow uploads assets before HTML, preserving prior runtime assets and
+all images. Explicit `s3 cp` passes also update metadata on unchanged files:
+`sync --cache-control` alone skips them. This causes repeat uploads/object
+versions and request/storage costs; it is deliberate rather than a claim that
+sync retroactively repairs headers. The existing CloudFront maximum TTL remains
+86400 seconds, so the year-long header is a browser directive, not a promise of
+a year in CloudFront. The zero minimum TTL permits mutable responses to
+revalidate. The existing `/*` invalidation clears prior edge metadata after
+publication; it cannot recall responses already cached in a browser.
+
+`build-meta.json` remains in the local build output for dependency graph,
+license and reproducibility tests. Both root publication passes exclude it.
+Because exclusions also protect destination objects from `sync --delete`, the
+production-only deployment explicitly removes **only**
+`s3://drumrollworld-web/build-meta.json` before invalidation. PR checks never
+obtain AWS credentials or perform this removal. S3 version history may retain
+prior copies privately; this is not a purge of historical versions.
+
+Existing `images/globe/*.ktx2` receive explicit `Content-Type: image/ktx2` and
+revalidation headers via a scoped S3-to-S3 self-copy, not unreliable filename
+inference. Bytes are copied server-side without downloading or regenerating
+artwork, and no images are deleted. `--metadata-directive REPLACE` intentionally
+replaces user metadata and unspecified content headers on these KTX2 objects;
+check for any custom metadata/content-encoding requirements before rollout.
+Other photo/JPEG/thumbnail objects are not included. Each deployment creates new
+versions of the selected objects in the versioned bucket.
+
+**Rollout prerequisite:** self-copy requires `s3:GetObject`, which the old deploy
+role did not have. Review and manually apply the `drumrollworld` stack's single
+new read grant, limited to `drumrollworld-web/images/globe/*.ktx2`, before running
+the updated workflow. Existing writes, image-delete denial, role trust and
+CloudFront permissions are unchanged. Repair runs before application uploads;
+without this apply the workflow fails before publishing new code, and the
+invalidation will not run. Metadata repair itself is not an atomic transaction.
+There were no live IAM/S3/CloudFront changes during local verification.
+
+After deployment and invalidation completion, check the current hashed module,
+`/`, `/styles.css`, the decoder JS/WASM, an existing KTX2 URL, and
+`/build-meta.json`: expect immutable only on the module, revalidation on stable
+objects, `image/ktx2` on the KTX2, and a genuine 404 for the diagnostic. Review
+headers/body from an allowed country; local tests are not deployed evidence.
+Rollback by reverting the application/workflow and redeploying current master;
+review and manually revert the read grant separately if no repair is needed.
+Do not mark stable texture/decoder URLs immutable during rollback.
+
+### Opt-in browser regression without installing dependencies
+
+After building the release with existing dependencies, run:
+
+```sh
+KTX2_FIXTURE=/path/to/genuine.ktx2 JPEG_FIXTURE=/path/to/image.jpg \
+CHROMIUM=/path/to/pinned/chrome-headless-shell \
+node scripts/drumrollworld/test/background-browser.cjs
+```
+
+`PLAYWRIGHT_MODULE` can select an existing installation; `BROWSER_SCREENSHOT`
+can save the desktop render. This test holds an initial normal request open to
+prove higher tiers cannot start early, holds background 4k requests while real
+mouse-wheel zoom queues 10k, and requires exact completed worker transcodes:
+desktop 14, phone 11, Save-Data 4, JPEG fallback 0 and prioritized zoom 11. All
+modes require peak KTX2 request concurrency <=4, zero page errors and zero
+compatibility CSP violations. Desktop/zoom emulate a 16384 capability to exercise
+the 10k scheduling path on SwiftShader; the fixture dimensions stay tiny, so
+this does **not** prove production 10k memory/performance. The existing security
+browser regression also retains exact hardware-dependent transcode counts and
+its explicit no-eval/foreign-script attacks.
+
+The prior synthetic pipeline fixtures were not present in this instance.
+Local verification reused genuine upstream Three r186 encoded fixtures, fetched
+read-only, not fabricated KTX2 headers or production artwork:
+
+- `https://raw.githubusercontent.com/mrdoob/three.js/r186/examples/textures/ktx2/2d_uastc.ktx2`
+  SHA256 `21b6912cae1f074ae3eda1b751f43c36eafc7eb83f3af71f85bba2ccbafce125`
+- `https://raw.githubusercontent.com/mrdoob/three.js/r186/examples/textures/uv_grid_opengl.jpg`
+  SHA256 `909d9a1eb2a5d5de9d221a5e8de4e9119d409decddf522d48896bd51523d354d`
+
+No compiler, package installation, dependency version/lockfile change or edit to
+installed package contents was needed. A node_modules directory symlink changes
+esbuild's resolved metafile paths and is rejected by the existing single-Three
+validator; an unchanged copy of the existing dependencies avoids relaxing that
+assertion.
 
 ## Compression and real 404 rollout
 

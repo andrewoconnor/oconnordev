@@ -114,7 +114,8 @@ function maxAnisotropy() {
 // rather than level 0. scripts/build-globe-textures.sh therefore sharpens every
 // mip level of every tier.
 //
-// Tiers load on demand as the camera comes in. The ceiling depends on what the
+// Tiers upgrade in the background after first paint; zoom takes priority over
+// queued background work. The ceiling depends on what the
 // GPU can hold, not on whether the device is a phone: a modern phone reports
 // MAX_TEXTURE_SIZE 16384 and looked far worse than it had to when it was capped
 // at the 4k tier.
@@ -252,17 +253,24 @@ function loadImageTexture(url, { srgb = false } = {}) {
   });
 }
 
+const _pendingTextureLoads = new Set();
+
 function loadTierTextures(tier, ext = "ktx2") {
   const a = tierAssets(tier, ext);
   const load = ext === "ktx2" ? loadKTX2Texture : loadImageTexture;
   const loaded = new Set();
   let failed = false;
-  const trackedLoad = (url, options) =>
-    load(url, options).then((tex) => {
-      if (failed) disposeUnusedTextures([tex]);
-      else loaded.add(tex);
-      return tex;
-    });
+  const trackedLoad = (url, options) => {
+    const pending = load(url, options)
+      .then((tex) => {
+        if (failed) disposeUnusedTextures([tex]);
+        else loaded.add(tex);
+        return tex;
+      })
+      .finally(() => _pendingTextureLoads.delete(pending));
+    _pendingTextureLoads.add(pending);
+    return pending;
+  };
   // Cache only the star field actually installed in the scene, not completed loads.
   const stars =
     a.stars === _starsUrl ? Promise.resolve(null) : trackedLoad(a.stars, { srgb: true });
@@ -297,7 +305,11 @@ function disposeUnusedTextures(textures) {
 
 function applyGlobeTextures(tex, tier, mobile = isMobileLike()) {
   // Recheck after the asynchronous loads: a newer tier may already be active.
-  if (!globe || tierRank(tier) <= tierRank(_appliedTier)) {
+  if (
+    !globe ||
+    tierRank(tier) <= tierRank(_appliedTier) ||
+    tierRank(tier) > tierRank(tierCeiling())
+  ) {
     disposeUnusedTextures([tex.map, tex.normal, tex.spec, tex.stars]);
     return;
   }
@@ -338,16 +350,50 @@ function switchTier(tier) {
   return pending;
 }
 
+let _upgradeBusy = false;
+let _upgradeScheduled = false;
+let _zoomTier = null;
+const _backgroundAttempts = new Set();
+
+function nextBackgroundTier() {
+  return TIER_ORDER.find(
+    (tier) =>
+      tierRank(tier) > tierRank(_appliedTier) &&
+      tierRank(tier) <= tierRank(tierCeiling()) &&
+      !_backgroundAttempts.has(tier),
+  );
+}
+
+function runTextureUpgrade() {
+  if (_upgradeBusy || !globe) return;
+  const wanted = _zoomTier && cappedTier(_zoomTier);
+  _zoomTier = null;
+  const tier = wanted && tierRank(wanted) > tierRank(_appliedTier) ? wanted : nextBackgroundTier();
+  if (!tier) return;
+  _upgradeBusy = true;
+  _backgroundAttempts.add(tier);
+  switchTier(tier)
+    .then(() => Promise.allSettled([..._pendingTextureLoads]))
+    .finally(() => {
+      _upgradeBusy = false;
+      if (_zoomTier) runTextureUpgrade();
+      else upgradeTexturesWhenIdle();
+    });
+}
+
 function upgradeTexturesWhenIdle() {
-  const tier = cappedTier(TIER_IDLE);
-  if (tier === _appliedTier) return;
-  const start = () => switchTier(tier);
+  if (_upgradeBusy || _upgradeScheduled || !nextBackgroundTier()) return;
+  _upgradeScheduled = true;
+  const start = () => {
+    _upgradeScheduled = false;
+    runTextureUpgrade();
+  };
   if (typeof requestIdleCallback === "function") requestIdleCallback(start, { timeout: 3000 });
   else setTimeout(start, 500);
 }
 
-// Higher tiers are large, so only fetch one once the camera is close enough for
-// the extra detail to reach the screen.
+// Zoom bypasses idle scheduling, but never overlaps the current tier. It takes
+// the next available slot ahead of any intermediate background upgrades.
 function upgradeTexturesOnZoom() {
   const controls = globe.controls();
   let scheduled = false;
@@ -357,7 +403,10 @@ function upgradeTexturesOnZoom() {
     requestAnimationFrame(() => {
       scheduled = false;
       const wanted = cappedTier(tierForAltitude(globe.pointOfView().altitude));
-      if (tierRank(wanted) > tierRank(_appliedTier)) switchTier(wanted);
+      if (tierRank(wanted) > tierRank(_appliedTier) && !_backgroundAttempts.has(wanted)) {
+        _zoomTier = wanted;
+        runTextureUpgrade();
+      }
     });
   };
   controls.addEventListener("change", check);

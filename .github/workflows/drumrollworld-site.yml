@@ -105,10 +105,28 @@ jobs:
           role-chaining: true
           role-skip-session-tagging: true
           allowed-account-ids: "767397796791"
-      - name: Publish versioned runtime assets before the HTML
-        run: mise exec -- aws s3 sync apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/
+      - name: Repair existing globe KTX2 content type without uploading images
+        run: |
+          mise exec -- aws s3 cp s3://drumrollworld-web/images/globe/ s3://drumrollworld-web/images/globe/ --recursive --exclude "*" --include "*.ktx2" --metadata-directive REPLACE --content-type "image/ktx2" --cache-control "public,max-age=0,must-revalidate"
+      - name: Publish runtime assets before the HTML with explicit cache metadata
+        run: |
+          mise exec -- aws s3 sync apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/ --cache-control "public,max-age=0,must-revalidate"
+          # cp also updates unchanged objects: sync alone skips their metadata.
+          mise exec -- aws s3 cp apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/ --recursive --cache-control "public,max-age=0,must-revalidate"
+          # Only esbuild's content-hashed entry is immutable. Version labels on
+          # Basis, the SVG and linked notices are not a content-address guarantee.
+          for asset in apps/drumrollworld/dist/assets/main-????????.js; do
+            if [[ "$asset" =~ /main-[A-Z0-9]{8}\.js$ ]] && [[ -f "$asset" ]]; then
+              mise exec -- aws s3 cp "$asset" "s3://drumrollworld-web/assets/${asset##*/}" --content-type "application/javascript" --cache-control "public,max-age=31536000,immutable"
+            fi
+          done
       - name: Sync site code to S3 (preserve images and prior runtime assets)
-        run: mise exec -- aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/ --delete --exclude "images/*" --exclude "assets/*"
+        run: |
+          mise exec -- aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/ --delete --exclude "images/*" --exclude "assets/*" --exclude "build-meta.json" --cache-control "public,max-age=0,must-revalidate"
+          mise exec -- aws s3 cp apps/drumrollworld/dist/ s3://drumrollworld-web/ --recursive --exclude "images/*" --exclude "assets/*" --exclude "build-meta.json" --cache-control "public,max-age=0,must-revalidate"
+          # Excluded destination keys are protected from sync --delete; remove
+          # only this legacy diagnostic object, never any images or old bundles.
+          mise exec -- aws s3 rm s3://drumrollworld-web/build-meta.json
       - name: Invalidate CloudFront
         env:
           DISTRIBUTION_ID: ${{ vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID }}

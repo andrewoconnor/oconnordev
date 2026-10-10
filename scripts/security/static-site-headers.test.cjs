@@ -40,6 +40,7 @@ const mime = {
   ".css": "text/css",
   ".js": "text/javascript",
   ".wasm": "application/wasm",
+  ".ktx2": "image/ktx2",
   ".jpg": "image/jpeg",
   ".png": "image/png",
   ".svg": "image/svg+xml",
@@ -212,7 +213,16 @@ async function observe(context) {
               assert.ok((await page.locator("#entryList > .entry-item").count()) > 0);
               if (mode === "globe") {
                 try {
-                  await page.waitForFunction(() => window.transcodes.length === 7);
+                  const expectedTranscodes = await page.evaluate(() => {
+                    const gl = document.querySelector("canvas").getContext("webgl2");
+                    const size = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+                    // Exact counts include all automatic tiers up to the actual GPU ceiling.
+                    return size >= 10800 ? 14 : size >= 8192 ? 11 : size >= 4096 ? 7 : 4;
+                  });
+                  await page.waitForFunction(
+                    (count) => window.transcodes.length === count,
+                    expectedTranscodes,
+                  );
                 } catch (error) {
                   console.error({
                     consoleErrors,
