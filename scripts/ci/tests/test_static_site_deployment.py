@@ -281,7 +281,13 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertTrue(config["css"]["linter"]["enabled"])
         self.assertEqual(
             config["files"]["includes"],
-            ["apps/**/*.html", "apps/**/*.css", "apps/**/*.js", "apps/**/*.mjs"],
+            [
+                "apps/**/*.html",
+                "apps/**/*.css",
+                "apps/**/*.js",
+                "apps/**/*.mjs",
+                "!apps/drumrollworld/third-party/basis-1.50.0-no-eval/basis_transcoder.js",
+            ],
         )
         self.assertTrue(config["vcs"]["enabled"])
         self.assertTrue(config["vcs"]["useIgnoreFile"])
