@@ -838,7 +838,7 @@
     "infra/github/oconnordev/providers.tf": "c68fad0bd76fc38f22476d1df982b1b845bf621ae26cb0d534a5c0ca813687dd",
     "infra/github/oconnordev/versions.tf": "e502a6359cf7a194b314347ee78fa7d028d08820f15c180dc627d672471b06b4",
     "infra/github/oconnordev/.terraform.lock.hcl": "581b81533a70c1e23da602eabaa13d3b3a8c6a332e89b1c1dc9ab39b4282960b",
-    "infra/spacelift/dependencies.tf": "2729e8b1811f0d36a613d0e81e15b1a9ee03595c2489b0119ca56b08967e4aa4",
+    "infra/spacelift/dependencies.tf": "917cc4c8929a6ac92cef16d19e2793f0d25b1f98af810203ef6a976d23966e50",
     "infra/spacelift/github-repository-config.tf": "05420bb7b05a2b22adc87039a81ef20b63f074b7e0b17479be48962abcb79f60"
   }
 }

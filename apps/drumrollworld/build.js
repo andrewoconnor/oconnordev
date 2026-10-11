@@ -86,5 +86,9 @@ for (const license of ["LICENSE", "EMSCRIPTEN-LICENSE.txt"]) {
 notices +=
   "\nOriginal question-image.svg fallback: created for DrumrollWorld; no third-party artwork.\n";
 await writeFile(join(dist, "THIRD-PARTY-NOTICES.txt"), notices);
-await writeFile(join(dist, "build-meta.json"), `${JSON.stringify(result.metafile, null, 2)}\n`);
+await mkdir(join(root, ".build"), { recursive: true });
+await writeFile(
+  join(root, ".build/build-meta.json"),
+  `${JSON.stringify(result.metafile, null, 2)}\n`,
+);
 console.log(`Built ${entry} (${output.bytes} bytes)`);

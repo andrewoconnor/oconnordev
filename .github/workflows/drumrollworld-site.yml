@@ -10,6 +10,7 @@ on:
       - "docs/assets/drumrollworld-published-assets.json"
       - ".github/workflows/drumrollworld-site.yml"
       - "biome.json"
+      - "scripts/ci/**"
       - "mise.toml"
       - "mise.lock"
   pull_request:
@@ -21,6 +22,7 @@ on:
       - "docs/assets/drumrollworld-published-assets.json"
       - ".github/workflows/drumrollworld-site.yml"
       - "biome.json"
+      - "scripts/ci/**"
       - "mise.toml"
       - "mise.lock"
   workflow_dispatch:
@@ -38,9 +40,14 @@ concurrency:
 jobs:
   check:
     name: Lint, format, build and test
+    timeout-minutes: 20
     runs-on: ubuntu-latest
+    outputs:
+      sha256: ${{ steps.package.outputs.sha256 }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: '2026.10.3'
@@ -52,12 +59,28 @@ jobs:
       - name: Build self-hosted site and dependencies
         run: mise run build:drumrollworld
       - name: Test generated site assets
-        run: mise run test:drumrollworld
+        run: |
+          mise run test:drumrollworld
+          mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment scripts.ci.tests.test_tested_site_artifact scripts.ci.tests.test_site_publication -v
+
+      - name: Package tested public bytes
+        id: package
+        run: |
+          DIGEST=$(mise exec -- python scripts/ci/site_artifact.py pack apps/drumrollworld/dist release/release.tar)
+          printf 'sha256=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: drumrollworld-${{ github.sha }}
+          path: release/release.tar
+          if-no-files-found: error
+          retention-days: 2
 
   deploy:
-    name: Deploy to S3 and invalidate CloudFront
+    name: Deploy tested release to S3 and invalidate CloudFront
     if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: check
+    timeout-minutes: 15
+    environment: drumrollworld-production
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,22 +88,28 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: master
+          ref: ${{ github.sha }}
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: '2026.10.3'
           github_token: ${{ github.token }}
-      - name: Check static-site formatting
-        run: mise run fmt:site
-      - name: Lint static sites
-        run: mise run lint:site
-      - name: Build self-hosted site and dependencies
-        run: mise run build:drumrollworld
-      - name: Test generated site assets
-        run: mise run test:drumrollworld
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: drumrollworld-${{ github.sha }}
+          path: release
+      - name: Verify tested artifact before AWS credentials
+        env:
+          EXPECTED_DIGEST: ${{ needs.check.outputs.sha256 }}
+        run: mise exec -- python scripts/ci/site_artifact.py verify release/release.tar "$EXPECTED_DIGEST" apps/drumrollworld/dist
+      - name: Reject stale master before AWS credentials
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          MASTER_SHA=$(git ls-remote origin refs/heads/master | cut -f1)
+          test "$MASTER_SHA" = "$EXPECTED_SHA"
       - name: Require deployment configuration
         env:
-          BROKER_ROLE_ARN: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
+          BROKER_ROLE_ARN: ${{ vars.DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
           DEPLOY_ROLE_ARN: ${{ vars.DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN }}
           DISTRIBUTION_ID: ${{ vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID }}
         run: |
@@ -90,7 +119,7 @@ jobs:
       - name: Assume TOOLS GitHub Actions broker with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
-          role-to-assume: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
+          role-to-assume: ${{ vars.DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
           aws-region: us-east-1
           role-session-name: drumrollworld-site-broker-${{ github.run_id }}
           role-duration-seconds: 900
@@ -105,28 +134,8 @@ jobs:
           role-chaining: true
           role-skip-session-tagging: true
           allowed-account-ids: "767397796791"
-      - name: Repair existing globe KTX2 content type without uploading images
-        run: |
-          mise exec -- aws s3 cp s3://drumrollworld-web/images/globe/ s3://drumrollworld-web/images/globe/ --recursive --exclude "*" --include "*.ktx2" --metadata-directive REPLACE --content-type "image/ktx2" --cache-control "public,max-age=0,must-revalidate"
-      - name: Publish runtime assets before the HTML with explicit cache metadata
-        run: |
-          mise exec -- aws s3 sync apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/ --cache-control "public,max-age=0,must-revalidate"
-          # cp also updates unchanged objects: sync alone skips their metadata.
-          mise exec -- aws s3 cp apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/ --recursive --cache-control "public,max-age=0,must-revalidate"
-          # Only esbuild's content-hashed entry is immutable. Version labels on
-          # Basis, the SVG and linked notices are not a content-address guarantee.
-          for asset in apps/drumrollworld/dist/assets/main-????????.js; do
-            if [[ "$asset" =~ /main-[A-Z0-9]{8}\.js$ ]] && [[ -f "$asset" ]]; then
-              mise exec -- aws s3 cp "$asset" "s3://drumrollworld-web/assets/${asset##*/}" --content-type "application/javascript" --cache-control "public,max-age=31536000,immutable"
-            fi
-          done
-      - name: Sync site code to S3 (preserve images and prior runtime assets)
-        run: |
-          mise exec -- aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/ --delete --exclude "images/*" --exclude "assets/*" --exclude "build-meta.json" --cache-control "public,max-age=0,must-revalidate"
-          mise exec -- aws s3 cp apps/drumrollworld/dist/ s3://drumrollworld-web/ --recursive --exclude "images/*" --exclude "assets/*" --exclude "build-meta.json" --cache-control "public,max-age=0,must-revalidate"
-          # Excluded destination keys are protected from sync --delete; remove
-          # only this legacy diagnostic object, never any images or old bundles.
-          mise exec -- aws s3 rm s3://drumrollworld-web/build-meta.json
+      - name: Publish tested bytes once with explicit cache metadata
+        run: mise exec -- bash scripts/ci/publish_site.sh apps/drumrollworld/dist drumrollworld-web
       - name: Invalidate CloudFront
         env:
           DISTRIBUTION_ID: ${{ vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID }}

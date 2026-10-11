@@ -37,6 +37,11 @@ test("build emits a local hashed ESM entry and unchanged stylesheet", () => {
   assert.deepEqual(read("dist/styles.css"), read("styles.css"));
 });
 
+test("public release omits private build metadata", () => {
+  assert.equal(existsSync(new URL("dist/build-meta.json", import.meta.url)), false);
+  assert.ok(existsSync(new URL(".build/build-meta.json", import.meta.url)));
+});
+
 test("build publishes a small accessible standalone 404 page unchanged", () => {
   assert.ok(existsSync(new URL("dist/404.html", import.meta.url)), "404.html must be published");
   const bytes = read("dist/404.html");
@@ -65,7 +70,7 @@ test("local fallback is emitted without creating an images tree", () => {
 
 test("notices include every bundled npm package and embedded texture libraries", () => {
   const notices = read("dist/THIRD-PARTY-NOTICES.txt").toString();
-  const meta = JSON.parse(read("dist/build-meta.json"));
+  const meta = JSON.parse(read(".build/build-meta.json"));
   const packages = new Set(
     Object.keys(meta.inputs).flatMap((input) => {
       const match = input.match(/^node_modules\/((?:@[^/]+\/)?[^/]+)\//);
@@ -89,7 +94,7 @@ test("notices include every bundled npm package and embedded texture libraries",
 
 test("build validator rejects remote or bare executable dependency imports", async () => {
   const { validateRuntime } = await import("./runtime-validation.js");
-  const meta = JSON.parse(read("dist/build-meta.json"));
+  const meta = JSON.parse(read(".build/build-meta.json"));
   const entry = Object.keys(meta.outputs).find((file) => meta.outputs[file].entryPoint);
   const source = read(entry).toString();
   const html = read("dist/index.html").toString();
@@ -158,7 +163,7 @@ test("pinned Three and owned no-eval Basis assets match provenance hashes and lo
       assert.doesNotMatch(read(html).toString(), /importmap|esm\.sh|unpkg\.com/);
     }
   }
-  const meta = JSON.parse(read("dist/build-meta.json"));
+  const meta = JSON.parse(read(".build/build-meta.json"));
   assert.ok(meta.inputs["data.js"]);
   assert.ok(meta.inputs["node_modules/globe.gl/dist/globe.gl.mjs"]);
   assert.equal(Object.keys(meta.inputs).filter((key) => key.endsWith("/three.core.js")).length, 1);

@@ -31,7 +31,7 @@ The private key is an ephemeral provider input and is not written to OpenTofu pl
 
 ## Managed Actions variables and dependencies
 
-The child stack has five managed repository Actions variables (the two
+The child stack has six managed repository Actions variables after this cutover (the two
 DrumrollWorld resources are gated until both deployment inputs are populated):
 
 - `OCONNORDEV_SITE_DEPLOY_ROLE_ARN` — from the PRODUCTION stack.
@@ -40,6 +40,7 @@ DrumrollWorld resources are gated until both deployment inputs are populated):
 
 - `DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN` — from the DRUMROLLWORLD stack.
 - `DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID` — from the DRUMROLLWORLD stack.
+- `DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` — the dedicated TOOLS broker output.
 
 Accordingly, `oconnordev-github-repository-config` has three producer dependencies:
 PRODUCTION, TOOLS, and DRUMROLLWORLD. The broker ARN has no OpenTofu default or
@@ -57,9 +58,13 @@ the existing default branch, and the empty topics set. Each new resource has
 
 See the [settings-adoption runbook](../../../docs/runbooks/github-settings-adoption.md)
 for exact import addresses/IDs, [observed evidence](../../../docs/assets/github-settings-observed.json),
-permission bootstrap, unsupported families, and the mandatory live **imports-only,
-zero-create/update/delete** plan gate. Offline schema/mock tests do not prove that
-live gate. No `github_repository`, collaborator grants, environment configuration,
+permission bootstrap and unsupported families. Preserve the settings-adoption
+addresses with an imports-only, zero-update/delete gate. The tested-artifact
+cutover separately adds explicitly reviewed environment/branch-policy resources
+and one variable; a combined full-root plan is therefore not literally zero-create.
+Do not treat those approved additions as authorization to mutate adopted settings.
+Offline schema/mock tests do not prove the live gate. The two new production environments are managed separately in `site-environments.tf`,
+with exactly master branch deployment rules and no tags. No `github_repository`, collaborator grants,
 merge flags, hooks, Pages, Actions policy/secrets, workflows, or AWS resources are
 adopted here. The owner is inherent, not an importable collaborator grant.
 
@@ -68,3 +73,15 @@ provides deliberately incomplete authenticated read coverage. Its machine-user
 PAT remains separate from this dedicated provider App and must never be borrowed
 for provider authentication. Repository description/homepage null values and
 unknown omitted administration fields are left externally owned.
+
+
+## Production environments
+
+These environments are new declarative resources, not part of the preservation-only
+settings adoption/import gate. Environment management requires user approval of
+repository Environments write permission for the dedicated provider App. Retain
+all existing permissions/boundaries; do not reuse Hermes credentials. Both custom
+branch policies must allow only branch master before environment OIDC trust is
+operational. See [the cutover sequence](../../../docs/runbooks/infrastructure-bootstrap.md#tested-artifact-environment-cutover)
+for user-owned applies before merging auto-deploy workflows. Offline mock plans
+are not live environment enforcement evidence.
