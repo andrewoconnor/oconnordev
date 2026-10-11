@@ -9,6 +9,7 @@ on:
       - "scripts/ci/tests/test_static_site_deployment.py"
       - ".github/workflows/oconnordev-site.yml"
       - "biome.json"
+      - "scripts/ci/**"
       - "mise.toml"
       - "mise.lock"
   pull_request:
@@ -19,6 +20,7 @@ on:
       - "scripts/ci/tests/test_static_site_deployment.py"
       - ".github/workflows/oconnordev-site.yml"
       - "biome.json"
+      - "scripts/ci/**"
       - "mise.toml"
       - "mise.lock"
   workflow_dispatch:
@@ -34,11 +36,16 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  format:
+  check:
     name: Lint, format, build and test
+    timeout-minutes: 20
     runs-on: ubuntu-latest
+    outputs:
+      sha256: ${{ steps.package.outputs.sha256 }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: '2026.10.3'
@@ -52,12 +59,26 @@ jobs:
       - name: Test resume, PDF and deployment boundary
         run: |
           mise run test:oconnordev
-          mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment -v
+          mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment scripts.ci.tests.test_tested_site_artifact scripts.ci.tests.test_site_publication -v
+
+      - name: Package tested public bytes
+        id: package
+        run: |
+          DIGEST=$(mise exec -- python scripts/ci/site_artifact.py pack apps/oconnordev/dist release/release.tar)
+          printf 'sha256=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: oconnordev-${{ github.sha }}
+          path: release/release.tar
+          if-no-files-found: error
+          retention-days: 2
 
   deploy:
-    name: Deploy to S3 and invalidate CloudFront
+    name: Deploy tested release to S3 and invalidate CloudFront
     if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
-    needs: format
+    needs: check
+    timeout-minutes: 15
+    environment: oconnordev-production
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -65,21 +86,34 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
-          ref: master
+          ref: ${{ github.sha }}
       - uses: jdx/mise-action@2d8d4cafcbd33be2ea37d2b6f5ad595363d1f1ca # v5.1.1
         with:
           version: '2026.10.3'
           github_token: ${{ github.token }}
-      - name: Check static-site formatting
-        run: mise run fmt:site
-      - name: Lint static sites
-        run: mise run lint:site
-      - name: Build continuous PDF and self-hosted preview
-        run: mise run build:oconnordev
-      - name: Test resume, PDF and deployment boundary
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: oconnordev-${{ github.sha }}
+          path: release
+      - name: Verify tested artifact before AWS credentials
+        env:
+          EXPECTED_DIGEST: ${{ needs.check.outputs.sha256 }}
+        run: mise exec -- python scripts/ci/site_artifact.py verify release/release.tar "$EXPECTED_DIGEST" apps/oconnordev/dist
+      - name: Reject stale master before AWS credentials
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
         run: |
-          mise run test:oconnordev
-          mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment -v
+          MASTER_SHA=$(git ls-remote origin refs/heads/master | cut -f1)
+          test "$MASTER_SHA" = "$EXPECTED_SHA"
+      - name: Require deployment configuration
+        env:
+          BROKER_ROLE_ARN: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
+          DEPLOY_ROLE_ARN: ${{ vars.OCONNORDEV_SITE_DEPLOY_ROLE_ARN }}
+          DISTRIBUTION_ID: ${{ vars.OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID }}
+        run: |
+          test -n "$BROKER_ROLE_ARN"
+          test -n "$DEPLOY_ROLE_ARN"
+          test -n "$DISTRIBUTION_ID"
       - name: Assume TOOLS GitHub Actions broker with GitHub OIDC
         uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
@@ -98,10 +132,8 @@ jobs:
           role-chaining: true
           role-skip-session-tagging: true
           allowed-account-ids: "767397796791"
-      - name: Publish versioned CSS before the HTML (retain previous releases)
-        run: mise exec -- aws s3 sync apps/oconnordev/dist/assets/css/ s3://oconnordev-web/assets/css/
-      - name: Sync site to S3 (preserve prior hashed CSS for cached HTML)
-        run: mise exec -- aws s3 sync apps/oconnordev/dist/ s3://oconnordev-web --delete --exclude "assets/css/*"
+      - name: Publish tested bytes once with explicit cache metadata
+        run: mise exec -- bash scripts/ci/publish_site.sh apps/oconnordev/dist oconnordev-web
       - name: Invalidate CloudFront
         env:
           DISTRIBUTION_ID: ${{ vars.OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID }}

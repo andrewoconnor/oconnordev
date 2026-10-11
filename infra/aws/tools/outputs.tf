@@ -57,3 +57,8 @@ output "tools_github_actions_broker_role_arn" {
   description = "TOOLS account GitHub Actions OIDC broker role ARN, permitted to assume only the PRODUCTION site deploy role."
   value       = aws_iam_role.github_actions_broker.arn
 }
+
+output "drumrollworld_tools_github_actions_broker_role_arn" {
+  description = "Dedicated TOOLS broker for the drumrollworld-production environment, permitted to assume only drumrollworld-site-deploy."
+  value       = aws_iam_role.drumrollworld_broker.arn
+}

@@ -1,24 +1,18 @@
-"""Deployment boundaries for both static sites; no AWS calls or credentials."""
-
-from __future__ import annotations
+"""Tested same-run artifacts and credential/deployment boundaries."""
 
 import json
-import os
 import re
-import subprocess
-import sys
-import tempfile
 import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
 
 
-def read(path: str) -> str:
-    return (ROOT / path).read_text(encoding="utf-8")
+def read(path):
+    return (ROOT / path).read_text()
 
 
-def block(source: str, kind: str, name: str) -> str:
+def block(source, kind, name):
     match = re.search(
         rf'(?:resource|data) "{kind}" "{name}" \{{(.*?)^\}}',
         source,
@@ -30,270 +24,63 @@ def block(source: str, kind: str, name: str) -> str:
 
 
 class StaticSiteDeploymentTests(unittest.TestCase):
-    def test_drumroll_workflow_is_master_only_and_prs_have_no_oidc(self):
-        workflow = read(".github/workflows/drumrollworld-site.yml")
-        self.assertNotIn("pull_request_target:", workflow)
-        self.assertIn("workflow_dispatch:", workflow)
-        self.assertEqual(workflow.count('"apps/drumrollworld/**"'), 2)
-        for path in (
-            ".github/workflows/drumrollworld-site.yml",
-            "biome.json",
-            "mise.toml",
-            "mise.lock",
-        ):
-            self.assertEqual(workflow.count(f'"{path}"'), 2)
-        self.assertIn(
-            "github.ref == 'refs/heads/master' && "
-            "(github.event_name == 'push' || "
-            "github.event_name == 'workflow_dispatch')",
-            workflow,
-        )
-        before, deploy = workflow.split("  deploy:", 1)
-        self.assertNotIn("id-token: write", before)
-        self.assertIn("id-token: write", deploy)
-        self.assertIn("needs: check", deploy)
-        self.assertIn("concurrency:", workflow)
-        self.assertIn("cancel-in-progress: false", workflow)
-        self.assertIn("ref: master", deploy)
-        self.assertIn("mise run fmt:site", deploy)
-        self.assertIn("mise run lint:site", deploy)
-
-    def test_drumroll_build_and_tests_precede_credentials_and_sync(self):
-        workflow = read(".github/workflows/drumrollworld-site.yml")
-        check, deploy = workflow.split("  deploy:", 1)
-        for job in (check, deploy):
-            self.assertIn("mise run build:drumrollworld", job)
-            self.assertIn("mise run test:drumrollworld", job)
-        build = deploy.index("mise run build:drumrollworld")
-        tests = deploy.index("mise run test:drumrollworld")
-        credentials = deploy.index("Assume TOOLS GitHub Actions broker")
-        sync = deploy.index("aws s3 sync")
-        self.assertLess(build, credentials)
-        self.assertLess(tests, credentials)
-        self.assertLess(credentials, sync)
-        self.assertNotIn("aws s3 sync apps/drumrollworld/ s3:", deploy)
-        assets = deploy.index(
-            "aws s3 sync apps/drumrollworld/dist/assets/ s3://drumrollworld-web/assets/"
-        )
-        html = deploy.index(
-            "aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/"
-        )
-        self.assertLess(assets, html)
-        asset_command = deploy[assets:].splitlines()[0]
-        self.assertNotIn("--delete", asset_command)
-        tasks = read("mise.toml")
-        self.assertIn("ci --ignore-scripts --no-audit --no-fund", tasks)
-        self.assertIn("node =", tasks)
-
-    def test_drumroll_sync_preserves_out_of_repo_images(self):
-        workflow = read(".github/workflows/drumrollworld-site.yml")
-        self.assertIn(
-            "aws s3 sync apps/drumrollworld/dist/ s3://drumrollworld-web/ "
-            '--delete --exclude "images/*" --exclude "assets/*"',
-            workflow,
-        )
-        self.assertIn("vars.DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN", workflow)
-        self.assertIn("vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID", workflow)
-        self.assertIn("vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN", workflow)
-        self.assertIn('allowed-account-ids: "421680664125"', workflow)
-        self.assertIn('allowed-account-ids: "767397796791"', workflow)
-        self.assertIn("role-chaining: true", workflow)
-        self.assertIn("role-skip-session-tagging: true", workflow)
-        self.assertIn('test -n "$DEPLOY_ROLE_ARN"', workflow)
-        self.assertIn('test -n "$DISTRIBUTION_ID"', workflow)
-        self.assertIn('test -n "$BROKER_ROLE_ARN"', workflow)
-        self.assertIn('--distribution-id "$DISTRIBUTION_ID" --paths "/*"', workflow)
-
-    def test_drumroll_publication_revalidates_mutable_files_and_keeps_build_meta_local(
-        self,
-    ):
-        workflow = read(".github/workflows/drumrollworld-site.yml")
-        self.assertIn('--cache-control "public,max-age=0,must-revalidate"', workflow)
-        self.assertIn('--exclude "build-meta.json"', workflow)
-        self.assertIn("aws s3 rm s3://drumrollworld-web/build-meta.json", workflow)
-        self.assertIn('--content-type "image/ktx2"', workflow)
-        self.assertLess(
-            workflow.index("aws s3 cp s3://drumrollworld-web/images/globe/"),
-            workflow.index("aws s3 sync apps/drumrollworld/dist/assets/"),
-            "fail on missing repair read permission before publishing application code",
-        )
-        self.assertIn("s3://drumrollworld-web/images/globe/", workflow)
-        self.assertIn("--metadata-directive REPLACE", workflow)
-        self.assertIn("public,max-age=31536000,immutable", workflow)
-        self.assertIn("main-[A-Z0-9]{8}\\.js$", workflow)
-        self.assertNotIn(
-            '--cache-control "public,max-age=31536000,immutable"\n      - name: Sync',
-            workflow,
-        )
-
-    def test_publication_shell_assigns_immutable_only_to_hashed_entry(self):
-        # Execute the real workflow's Bash, recording CLI argv instead of AWS
-        # calls. This checks quoting, glob expansion and ordered filters offline.
-        workflow = read(".github/workflows/drumrollworld-site.yml")
-        publish = workflow.split("      - name: Repair existing globe KTX2", 1)[
-            1
-        ].split("      - name: Invalidate CloudFront", 1)[0]
-        commands = "\n".join(
-            line[10:] for line in publish.splitlines() if line.startswith("          ")
-        )
-        with tempfile.TemporaryDirectory(prefix="drumroll-publication-") as tmp:
-            directory = Path(tmp)
-            assets = directory / "apps/drumrollworld/dist/assets"
-            assets.mkdir(parents=True)
-            for name in (
-                "main-A2B3C4D5.js",
-                "main-unhashed.js",
-                "main-A2B3C4D5.js.LEGAL.txt",
-                "question-image.svg",
-            ):
-                (assets / name).write_text("fixture")
-            recorder = directory / "mise"
-            recorder.write_text(
-                f"#!{sys.executable}\n"
-                "import json, os, sys\n"
-                "assert sys.argv[1:3] == ['exec', '--']\n"
-                "with open(os.environ['ARGV_LOG'], 'a') as out:\n"
-                "    out.write(json.dumps(sys.argv[3:]) + '\\n')\n"
+    def test_checks_once_and_deploys_exact_same_run_before_credentials(self):
+        for site in ("oconnordev", "drumrollworld"):
+            workflow = (ROOT / f".github/workflows/{site}-site.yml").read_text()
+            check, deploy = workflow.split("  deploy:", 1)
+            self.assertIn("  check:", check)
+            self.assertEqual(workflow.count(f"mise run build:{site}"), 1)
+            self.assertEqual(workflow.count(f"mise run test:{site}"), 1)
+            self.assertNotIn("id-token: write", check)
+            self.assertIn("needs: check", deploy)
+            self.assertEqual(workflow.count("timeout-minutes:"), 2)
+            self.assertIn(f"environment: {site}-production", deploy)
+            self.assertNotIn("ref: master", workflow)
+            self.assertEqual(workflow.count("ref: ${{ github.sha }}"), 2)
+            self.assertRegex(check, r"actions/upload-artifact@[a-f0-9]{40}")
+            self.assertRegex(deploy, r"actions/download-artifact@[a-f0-9]{40}")
+            self.assertEqual(workflow.count(f"name: {site}-${{{{ github.sha }}}}"), 2)
+            self.assertNotIn("run-id:", deploy)
+            self.assertNotIn("github-token:", deploy)
+            self.assertIn("needs.check.outputs.sha256", deploy)
+            self.assertLess(
+                deploy.index("site_artifact.py verify"),
+                deploy.index("configure-aws-credentials@"),
             )
-            recorder.chmod(0o700)
-            log = directory / "argv.jsonl"
-            subprocess.run(
-                ["bash", "-euo", "pipefail", "-c", commands],
-                cwd=directory,
-                env=dict(
-                    os.environ,
-                    PATH=f"{directory}:{os.environ['PATH']}",
-                    ARGV_LOG=str(log),
-                ),
-                check=True,
-                capture_output=True,
-                text=True,
+            self.assertLess(
+                deploy.index('test "$MASTER_SHA" = "$EXPECTED_SHA"'),
+                deploy.index("configure-aws-credentials@"),
             )
-            calls = [json.loads(line) for line in log.read_text().splitlines()]
-        immutable = [
-            call for call in calls if "public,max-age=31536000,immutable" in call
-        ]
-        self.assertEqual(len(immutable), 1)
-        self.assertEqual(
-            immutable[0][4], "s3://drumrollworld-web/assets/main-A2B3C4D5.js"
-        )
-        for call in calls:
-            if "--cache-control" in call and call not in immutable:
-                self.assertEqual(
-                    call[call.index("--cache-control") + 1],
-                    "public,max-age=0,must-revalidate",
-                )
-            if "apps/drumrollworld/dist/" in call:
-                self.assertIn("build-meta.json", call)
-                self.assertIn("images/*", call)
-                self.assertIn("assets/*", call)
-        repair = calls[0]
-        self.assertEqual(repair[3:5], ["s3://drumrollworld-web/images/globe/"] * 2)
-        self.assertEqual(repair[repair.index("--content-type") + 1], "image/ktx2")
-        self.assertEqual(repair[repair.index("--exclude") + 1], "*")
-        self.assertEqual(repair[repair.index("--include") + 1], "*.ktx2")
-        self.assertEqual(
-            [call for call in calls if call[2] == "rm"],
-            [["aws", "s3", "rm", "s3://drumrollworld-web/build-meta.json"]],
-        )
+            self.assertIn("git ls-remote origin refs/heads/master", deploy)
+            self.assertIn("cancel-in-progress: false", workflow)
+            self.assertIn("github.ref == 'refs/heads/master'", deploy)
+            self.assertNotIn("pull_request_target:", workflow)
+            self.assertNotIn("mise run build:", deploy)
+            self.assertNotIn("mise run lint:", deploy)
+            self.assertNotIn("mise run fmt:", deploy)
+            for action in re.findall(r"uses:\s+(\S+)", workflow):
+                self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
 
-    def test_oconnordev_serializes_and_checks_current_master_before_auth(self):
-        workflow = read(".github/workflows/oconnordev-site.yml")
-        header, jobs = workflow.split("jobs:", 1)
-        self.assertIn(
-            "concurrency:\n"
-            "  group: oconnordev-production-${{ github.ref }}\n"
-            "  cancel-in-progress: false\n",
-            header,
-        )
-        self.assertNotIn("drumrollworld-production-", header)
-        check, deploy = jobs.split("  deploy:", 1)
-        self.assertNotIn("id-token: write", check)
-        self.assertNotIn("ref: master", check)
-        self.assertNotIn("pull_request_target:", workflow)
-        self.assertIn(
-            "github.ref == 'refs/heads/master' && "
-            "(github.event_name == 'push' || "
-            "github.event_name == 'workflow_dispatch')",
-            deploy,
-        )
-        self.assertIn("needs: format", deploy)
-        self.assertIn("id-token: write", deploy)
-        self.assertRegex(
-            deploy,
-            r"uses: actions/checkout@[0-9a-f]{40}[^\n]*\n"
-            r"        with:\n          ref: master\n",
-        )
-        checkout = deploy.index("ref: master")
-        formatting = deploy.index("run: mise run fmt:site")
-        lint = deploy.index("run: mise run lint:site")
-        broker = deploy.index("name: Assume TOOLS GitHub Actions broker")
-        production = deploy.index("name: Assume PRODUCTION site deploy role")
-        self.assertIn(
-            "aws s3 sync apps/oconnordev/dist/assets/css/ s3://oconnordev-web/assets/css/",
-            deploy,
-        )
-        css = deploy.index(
-            "aws s3 sync apps/oconnordev/dist/assets/css/ s3://oconnordev-web/assets/css/"
-        )
-        sync = deploy.index(
-            "aws s3 sync apps/oconnordev/dist/ s3://oconnordev-web --delete "
-            '--exclude "assets/css/*"'
-        )
-        self.assertNotIn("--delete", deploy[css:].splitlines()[0])
-        self.assertLess(production, css)
-        self.assertLess(css, sync)
-        self.assertIn("vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN", deploy)
-        self.assertIn("vars.OCONNORDEV_SITE_DEPLOY_ROLE_ARN", deploy)
-        self.assertIn('allowed-account-ids: "421680664125"', deploy)
-        self.assertIn('allowed-account-ids: "767397796791"', deploy)
-        self.assertIn("role-chaining: true", deploy)
-        self.assertIn("role-skip-session-tagging: true", deploy)
-        self.assertLess(checkout, formatting)
-        self.assertLess(formatting, lint)
-        self.assertLess(lint, broker)
-        self.assertLess(broker, production)
-        self.assertLess(production, sync)
+    def test_account_guards_match_authoritative_accounts(self):
+        accounts = json.loads((ROOT / "infra/aws/accounts.json").read_text())
+        for site in ("oconnordev", "drumrollworld"):
+            workflow = (ROOT / f".github/workflows/{site}-site.yml").read_text()
+            self.assertEqual(
+                re.findall(r'allowed-account-ids: "([0-9]+)"', workflow),
+                [accounts["TOOLS"], accounts["PRODUCTION"]],
+            )
+            self.assertIn(
+                f"vars.{site.upper()}_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN", workflow
+            )
 
-    def test_oconnordev_release_is_built_and_verified_before_aws_auth(self):
-        workflow = read(".github/workflows/oconnordev-site.yml")
-        check, deploy = workflow.split("  deploy:", 1)
-        for job in (check, deploy):
-            self.assertIn("mise run build:oconnordev", job)
-            self.assertIn("mise run test:oconnordev", job)
-        credentials = deploy.index("Assume TOOLS GitHub Actions broker")
-        self.assertLess(deploy.index("mise run build:oconnordev"), credentials)
-        self.assertLess(deploy.index("mise run test:oconnordev"), credentials)
-        self.assertNotIn("aws s3 sync apps/oconnordev/ s3:", deploy)
-        self.assertEqual(
-            workflow.count('"scripts/ci/tests/test_static_site_deployment.py"'), 2
-        )
-        tasks = read("mise.toml").split('[tasks."build:oconnordev"]', 1)[1]
-        self.assertIn(
-            "npm --prefix apps/oconnordev ci --ignore-scripts --no-audit --no-fund",
-            tasks,
-        )
-        self.assertIn("playwright install --with-deps chromium", tasks)
-        self.assertLess(
-            tasks.index("ci --ignore-scripts"), tasks.index("playwright install")
-        )
-        self.assertLess(
-            tasks.index("playwright install"),
-            tasks.index("npm --prefix apps/oconnordev run build"),
-        )
-        ignore_rules = read(".gitignore").splitlines()
-        for path in ("/apps/oconnordev/node_modules", "/apps/oconnordev/dist/"):
-            self.assertEqual(ignore_rules.count(path), 1)
-        self.assertNotIn("/apps/oconnordev/node_modules/", ignore_rules)
-
-    def test_existing_site_uses_biome_and_config_changes_trigger_push(self):
-        workflow = read(".github/workflows/oconnordev-site.yml")
-        self.assertNotIn("deno", workflow.lower())
-        self.assertIn("mise run fmt:site", workflow)
-        self.assertIn("mise run lint:site", workflow)
-        for path in ("biome.json", "mise.toml", "mise.lock"):
-            self.assertEqual(workflow.count(f'"{path}"'), 2)
-        self.assertIn("s3://oconnordev-web --delete", workflow)
+    def test_publication_has_no_duplicate_sync_uploads(self):
+        source = (ROOT / "scripts/ci/publish_site.sh").read_text()
+        self.assertIn("--delete --size-only", source)
+        self.assertIn('--exclude "assets/*" --exclude "images/*"', source)
+        self.assertIn("public,max-age=31536000,immutable", source)
+        self.assertIn("public,max-age=0,must-revalidate", source)
+        self.assertIn("[A-Z0-9]{8}", source)
+        self.assertNotIn("build-meta.json", source)
 
     def test_every_action_is_pinned(self):
         for name in ("oconnordev", "drumrollworld"):
@@ -323,19 +110,6 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertIn('sid       = "PreserveExternalImages"', policy)
         self.assertIn('effect    = "Deny"', policy)
         self.assertIn('resources = ["${aws_s3_bucket.web.arn}/images/*"]', policy)
-
-    def test_broker_admits_only_two_specific_deploy_roles(self):
-        source = read("infra/aws/tools/github-actions-broker.tf")
-        policy = block(
-            source, "aws_iam_policy_document", "github_actions_broker_assume_production"
-        )
-        self.assertIn("local.production_site_deploy_role_arn", policy)
-        self.assertIn("local.drumrollworld_site_deploy_role_arn", policy)
-        self.assertIn('role/drumrollworld-site-deploy"', source)
-        self.assertNotIn('"*"', policy)
-        self.assertIn(
-            'values   = ["repo:andrewoconnor/oconnordev:ref:refs/heads/master"]', source
-        )
 
     def test_outputs_flow_from_workload_stack_to_repository_variables(self):
         outputs = read("infra/aws/drumrollworld/outputs.tf")
@@ -396,7 +170,3 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertFalse(config["assist"]["enabled"])
         self.assertNotIn("deno =", read("mise.toml"))
         self.assertIn('[tasks."lint:site"]', read("mise.toml"))
-
-
-if __name__ == "__main__":
-    unittest.main()

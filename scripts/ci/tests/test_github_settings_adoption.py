@@ -73,6 +73,62 @@ class GitHubSettingsAdoptionTests(unittest.TestCase):
             )
         self.assertEqual(len(OBSERVED["already_managed_addresses"]), 5)
 
+    def test_site_environments_allow_only_master_branches_not_tags(self):
+        path = CONFIG / "site-environments.tf"
+        self.assertTrue(path.exists(), "Production environments must be declared")
+        source = path.read_text()
+        self.offline_plan(
+            source,
+            [
+                (
+                    "toset(keys(github_repository_environment.site)) == "
+                    'toset(["oconnordev-production", '
+                    '"drumrollworld-production"])'
+                ),
+                (
+                    "alltrue([for env in github_repository_environment.site "
+                    ': env.repository == "oconnordev" && '
+                    "!env.deployment_branch_policy[0].protected_branches && "
+                    "env.deployment_branch_policy[0].custom_branch_policies])"
+                ),
+                (
+                    "alltrue([for policy in "
+                    "github_repository_environment_deployment_policy.master "
+                    ': policy.branch_pattern == "master" && '
+                    "policy.tag_pattern == null])"
+                ),
+                (
+                    ""
+                    "toset(keys("
+                    "github_repository_environment_deployment_policy.master)) "
+                    '== toset(["oconnordev-production", '
+                    '"drumrollworld-production"])'
+                ),
+            ],
+        )
+
+    def test_drumroll_broker_output_reaches_repository_variable(self):
+        for path, expected in (
+            (
+                "infra/aws/tools/outputs.tf",
+                'output "drumrollworld_tools_github_actions_broker_role_arn"',
+            ),
+            (
+                "infra/spacelift/dependencies.tf",
+                (
+                    "input_name          = "
+                    '"TF_VAR_drumrollworld_tools_github_actions_broker_role_arn"'
+                ),
+            ),
+            (
+                "infra/github/oconnordev/site-brokers.tf",
+                'variable_name = "DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN"',
+            ),
+        ):
+            file = ROOT / path
+            self.assertTrue(file.exists(), path)
+            self.assertIn(expected, file.read_text())
+
     def test_import_scope_counts_no_duplicates_and_destroy_guards(self):
         source = (CONFIG / "settings-adoption.tf").read_text()
         resources = re.findall(r'^resource "([^"]+)" "([^"]+)"', source, re.M)

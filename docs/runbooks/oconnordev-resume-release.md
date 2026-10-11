@@ -38,10 +38,15 @@ signature and 1200×630 dimensions are checked.
 
 ## Release and rollback
 
-Pull requests validate without AWS credentials. On an approved master release,
-the deploy job rechecks current master, builds and tests **before** assuming
-existing AWS roles, syncs only `dist/` to the existing S3 bucket, and invalidates
-the existing CloudFront distribution. No AWS infrastructure changes are needed.
+Pull requests validate without AWS credentials. The check job builds/lints/tests
+`github.sha` once and uploads the tested dist as a pinned same-run artifact.
+Deployment downloads it without rebuilding, verifies SHA256 before credentials,
+and rejects a tested SHA that no longer equals remote master. The
+`oconnordev-production` environment restricts deployments to branch master;
+its exact environment subject can assume only the OConnorDev broker/site-role
+chain. [User-owned IAM/environment bootstrap](infrastructure-bootstrap.md#tested-artifact-environment-cutover)
+must finish before merging the auto-deploy cutover. No runtime or hosting changes
+are required, but the trust/environment configuration **does require apply**.
 
 After deployment, verify the canonical page, contact links, `/resume.pdf` download
 and `/assets/resume-preview.png` at `https://oconnor.dev/`; verify the PDF opens
@@ -66,11 +71,13 @@ The build hashes the exact CSS bytes using Node's SHA-256 and rewrites only the
 built HTML's stylesheet URL; source HTML keeps `/assets/css/resume.css` readable.
 The release test validates the href against the actual asset hash and allowlist.
 
-Deployment uploads CSS first, without deletion, then syncs the built release with
-`--delete --exclude "assets/css/*"`. This preserves previous hashed CSS (and the
-legacy CSS URL) for cached HTML and avoids publishing HTML before its CSS exists.
-Do not delete earlier CSS assets as part of an ordinary release or rollback.
-No source files are uploaded. AWS roles and PDF rendering remain unchanged.
+Deployment uploads assets first, once per file with final cache metadata.
+Only the content-hashed CSS is immutable; HTML, PDF, preview and stable assets
+use `public,max-age=0,must-revalidate`. The final root deletion pass uses
+`--delete --size-only --exclude "assets/*" --exclude "images/*"`, skipping current
+files already uploaded at equal size and retaining all prior hashed CSS for cached
+HTML. Do not delete older assets during ordinary releases/rollback. No sources
+are uploaded; PDF rendering and runtime behavior are unchanged.
 
 ## Continuous PDF limitations
 

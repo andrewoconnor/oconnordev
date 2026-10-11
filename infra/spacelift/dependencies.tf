@@ -120,3 +120,11 @@ resource "spacelift_stack_dependency_reference" "github_repository_config_drumro
   output_name         = "drumrollworld_cloudfront_distribution_id"
   input_name          = "TF_VAR_drumrollworld_cloudfront_distribution_id"
 }
+
+resource "spacelift_stack_dependency_reference" "github_repository_config_drumrollworld_tools_broker" {
+  count = var.enable_github_repository_config ? 1 : 0
+
+  stack_dependency_id = spacelift_stack_dependency.github_repository_config_tools[0].id
+  output_name         = "drumrollworld_tools_github_actions_broker_role_arn"
+  input_name          = "TF_VAR_drumrollworld_tools_github_actions_broker_role_arn"
+}

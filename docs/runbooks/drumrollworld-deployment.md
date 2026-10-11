@@ -11,28 +11,26 @@ pipeline does not replace those resources or move them into the `production`
 state. It creates a deployment identity and configuration, not another hosting
 service or a new fixed-monthly-cost stack.
 
-The workflow `.github/workflows/drumrollworld-site.yml` checks pull requests
-with Biome, installs the exact npm lock without dependency lifecycle scripts,
-builds and tests the publish directory. Only a `master` push or manual dispatch
-on `master` can deploy.
-The check job has no OIDC permission; the deploy job obtains short-lived
-credentials through the existing chain:
+The check job builds/lints/tests the exact `github.sha` once and uploads a
+pinned Actions artifact containing the tested public bytes. Deployment downloads
+that same-run artifact by SHA-qualified name, verifies the check job's SHA256
+before extraction and AWS credentials, and never rebuilds or checks out moving
+`master`. Both jobs have bounded timeouts. A pre-credential remote-master SHA
+comparison rejects stale queued runs; concurrency serializes each site's runs
+without cancelling an active publication. A newer merge during publication is
+handled by the next run. S3 publication is not an atomic release switch.
 
-1. GitHub OIDC -> `oconnordev-github-actions-broker` in TOOLS.
-2. TOOLS broker -> `drumrollworld-site-deploy` in PRODUCTION.
-
-The broker still admits only the exact repository's `master` OIDC subject
-and `sts.amazonaws.com` audience. It can assume only the existing OConnorDev
-site role and the new DrumrollWorld site role. The new role trusts only that
-broker and can list/sync only `drumrollworld-web` and invalidate only its
-specific CloudFront distribution. No AWS access keys are stored in GitHub.
-
-Deployments are serialized without interrupting an active S3 sync. A queued
-deploy checks out current `master`, not an older push's snapshot, then reruns
-format, lint, build and release tests before obtaining credentials. This
-prevents a queued older push from restoring stale application code. An update merged during a running
-deployment is handled by the next queued run. S3 uploads are not an atomic
-release switch, and CloudFront invalidation propagation is asynchronous.
+The `drumrollworld-production` GitHub environment allows deployments only from
+branch `master` (no tag rule). Its exact OIDC subject is
+`repo:andrewoconnor/oconnordev:environment:drumrollworld-production`; audience is
+`sts.amazonaws.com`. Environment subjects do not include a ref: GitHub must
+apply the deployment-branch gate **before** a runner can request that token.
+The dedicated `drumrollworld-github-actions-broker` in TOOLS can assume only
+`drumrollworld-site-deploy` in PRODUCTION. The OConnorDev broker is independently
+restricted to its own environment and site role; neither site's identity can
+chain into the other site. Repository inspection found no non-site consumers
+of the former shared broker; the existing OConnorDev broker address/ARN and OIDC
+provider are retained. No AWS access keys are stored in GitHub.
 
 ## Images and globe textures are outside this checkout
 
@@ -45,8 +43,7 @@ This confirms those samples, not an inventory or backup of every asset.
 
 The workflow excludes `images/*` and prior `assets/*` from root sync/deletion.
 See `.github/workflows/drumrollworld-site.yml` for the complete publication
-commands, including cache metadata, the diagnostic exclusion and the narrowly
-scoped KTX2 metadata repair described below.
+commands, including cache metadata and deletion-only root reconciliation.
 
 AWS CLI excludes matching destination objects from deletion. The deploy role
 also explicitly denies `s3:DeleteObject` on `drumrollworld-web/images/*`, so a
@@ -57,12 +54,10 @@ hashed modules and versioned decoder assets remain available while cached HTML
 and open clients still reference them. This is not an atomic release switch;
 asset cleanup needs a separate reviewed retention procedure, not an unbounded
 `--delete` during publication. The workflow does
-not upload image bytes from the checkout. It now manages only the content-type
-and cache metadata of existing `images/globe/*.ktx2` via server-side self-copy;
-other images remain untouched. Asset publication needs a separate explicit
-procedure or a future versioned asset-source design. Do not remove the exclusion without migrating that asset
-ownership. The original fallback picture is now a repository-owned SVG outside
-`images/`; it is included in the release.
+not upload or self-copy image bytes. Image publication needs a separate explicit
+procedure or future versioned asset-source design. Do not remove the exclusions
+without migrating ownership. The repository-owned SVG fallback is outside
+`images/` and is included in the release.
 
 ## Self-hosted runtime dependencies
 
@@ -96,8 +91,8 @@ After the original deployment bootstrap, the dependency migration itself needed
 no new Terraform resources, IAM permissions or infrastructure apply: the existing
 workflow builds, syncs and invalidates CloudFront on `master`.
 
-The background-texture/cache-metadata update below additionally requires the
-narrow KTX2 read grant to be applied before the new deployment workflow runs.
+The tested-artifact/environment cutover requires the user-owned bootstrap
+sequence below before merge-triggered deployment; it removes the old repair read grant.
 
 ## Background texture upgrades
 
@@ -144,50 +139,44 @@ stable mutable URLs, not immutable assets. Query-string cache busting is not a
 solution with this distribution's query-string forwarding disabled. A future
 immutable texture cache requires content-addressed URLs and application changes.
 
-The workflow uploads assets before HTML, preserving prior runtime assets and
-all images. Explicit `s3 cp` passes also update metadata on unchanged files:
-`sync --cache-control` alone skips them. This causes repeat uploads/object
-versions and request/storage costs; it is deliberate rather than a claim that
-sync retroactively repairs headers. The existing CloudFront maximum TTL remains
-86400 seconds, so the year-long header is a browser directive, not a promise of
-a year in CloudFront. The zero minimum TTL permits mutable responses to
-revalidate. The existing `/*` invalidation clears prior edge metadata after
-publication; it cannot recall responses already cached in a browser.
+Both sites use the same publication helper: one `s3 cp` per file supplies final
+cache metadata, assets before root/HTML. Only content-hashed DrumrollWorld JS and
+OConnorDev SHA256 CSS are immutable. Stable HTML and other assets revalidate.
+The final root `sync --delete --size-only` excludes `assets/*` and `images/*`.
+All current root files have already been uploaded at identical sizes; S3's
+strongly consistent listing and size-only comparison skip their upload, leaving
+only stale root deletions. The offline regression executes the real pinned AWS
+CLI dry-run planner against a local S3 listing and checks zero second uploads,
+old hashed/image preservation, and deletion of stale root files. cp deliberately
+refreshes unchanged metadata once per deployment, with associated request/version
+costs. CloudFront invalidation cannot recall existing browser caches.
 
-`build-meta.json` remains in the local build output for dependency graph,
-license and reproducibility tests. Both root publication passes exclude it.
-Because exclusions also protect destination objects from `sync --delete`, the
-production-only deployment explicitly removes **only**
-`s3://drumrollworld-web/build-meta.json` before invalidation. PR checks never
-obtain AWS credentials or perform this removal. S3 version history may retain
-prior copies privately; this is not a purge of historical versions.
+Build diagnostics now live in `apps/drumrollworld/.build/build-meta.json`, outside
+`dist/`, where dependency-graph/license/runtime tests still read them. They never
+enter the release artifact. Ordinary root deletion reconciliation removes a
+legacy public `build-meta.json`; there is no recurring special `s3 rm` command.
+S3 historical versions may remain privately; this is not a historical purge.
 
-Existing `images/globe/*.ktx2` receive explicit `Content-Type: image/ktx2` and
-revalidation headers via a scoped S3-to-S3 self-copy, not unreliable filename
-inference. Bytes are copied server-side without downloading or regenerating
-artwork, and no images are deleted. `--metadata-directive REPLACE` intentionally
-replaces user metadata and unspecified content headers on these KTX2 objects;
-check for any custom metadata/content-encoding requirements before rollout.
-Other photo/JPEG/thumbnail objects are not included. Each deployment creates new
-versions of the selected objects in the versioned bucket.
+### Verified KTX2 scope and repair retirement
 
-**Rollout prerequisite:** self-copy requires `s3:GetObject`, which the old deploy
-role did not have. Review and manually apply the `drumrollworld` stack's single
-new read grant, limited to `drumrollworld-web/images/globe/*.ktx2`, before running
-the updated workflow. Existing writes, image-delete denial, role trust and
-CloudFront permissions are unchanged. Repair runs before application uploads;
-without this apply the workflow fails before publishing new code, and the
-invalidation will not run. Metadata repair itself is not an atomic transaction.
-There were no live IAM/S3/CloudFront changes during local verification.
+Before removing the recurring repair, read-only public production HEAD requests
+to `https://drumroll.world/images/globe/<key>` verified all **13 unique KTX2 paths
+referenced by `tierAssets`**, across 2k/4k/8k/10k: every response was HTTP 200,
+`Content-Type: image/ktx2`, and
+`Cache-Control: public,max-age=0,must-revalidate`. Recorded observations are in
+[the KTX2 HEAD evidence](../assets/drumrollworld-ktx2-heads-2026-10-11.json).
+These are public HTTP observations, not a complete S3-prefix inventory. The AWS
+gateway's cross-account `ListObjectsV2` request was denied, so unreferenced keys
+and the entire bucket/prefix have **not** been verified. On that bounded evidence,
+the workflow self-copy and its `ReadGlobeKtxForMetadataRepair` GetObject grant are
+removed. Any future image migration/repair is a separate user-approved operation,
+not a recurring site-deployment task. New texture references require their own
+MIME/readability checks before merge.
 
-After deployment and invalidation completion, check the current hashed module,
-`/`, `/styles.css`, the decoder JS/WASM, an existing KTX2 URL, and
-`/build-meta.json`: expect immutable only on the module, revalidation on stable
-objects, `image/ktx2` on the KTX2, and a genuine 404 for the diagnostic. Review
-headers/body from an allowed country; local tests are not deployed evidence.
-Rollback by reverting the application/workflow and redeploying current master;
-review and manually revert the read grant separately if no repair is needed.
-Do not mark stable texture/decoder URLs immutable during rollback.
+After user apply/deployment, verify current hashed JS, `/`, `/styles.css`, decoder
+JS/WASM, the referenced KTX2 paths and `/build-meta.json`; expect immutable only
+on the hashed JS, mutable revalidation, image/ktx2, and a real diagnostic 404.
+Local tests are not evidence of an applied environment/IAM role or deployed bytes.
 
 ### Opt-in browser regression without installing dependencies
 
@@ -304,37 +293,14 @@ For rollback, revert the reviewed CloudFront settings and manually apply the
 harmless `/404.html` object until the old mappings have stopped serving; do not
 remove it first and strand an active custom-error mapping.
 
-## First rollout: merge is not sufficient
+## Cutover bootstrap: user applies before merge
 
-Infrastructure stacks retain their existing manual-apply policy. After merging:
-
-1. Apply `oconnordev-tools` to authorize the broker to assume the new role.
-2. Apply `drumrollworld` to create its deploy role/policy and publish
-   `drumrollworld_site_deploy_role_arn` and
-   `drumrollworld_cloudfront_distribution_id` from the existing distribution.
-3. Apply the `oconnordev` administrative Spacelift stack to add the repository
-   configuration stack's dependency and both generated-output references to
-   `drumrollworld`. Neither these outputs nor their dependency existed before
-   this change.
-4. Apply `oconnordev-github-repository-config` (when enabled). Its two new Actions
-   variables are created only when both dependency inputs are non-empty:
-   - `DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN`
-   - `DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID`
-   The existing `OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` is reused.
-   Empty bootstrap defaults allow speculative plans before the producer has
-   applied; they do not make deployment operational. If these variables already
-   exist outside state, import them before apply using the GitHub provider's
-   `oconnordev:VARIABLE_NAME` variable import ID.
-5. Rerun the failed merge-triggered workflow or manually dispatch
-   **drumrollworld site** on `master`. The workflow fails before authentication
-   when required variables are missing; after variables are populated, role
-   setup must also have applied. No console-created credentials are required.
-
-The workflow may run before these applies finish and fail its first deployment.
-Once setup is applied, subsequent qualifying `master` pushes deploy
-without additional infrastructure applies. Both site workflows run lint and
-format checks after shared Biome/mise configuration changes. The existing
-OConnorDev site retains its own deployment target and role.
+Follow [the shared bootstrap sequence](infrastructure-bootstrap.md#tested-artifact-environment-cutover).
+Do not merge an auto-deploy workflow expecting merge to apply IAM/environments.
+After setup, qualifying `master` pushes deploy tested artifacts automatically;
+manual applies remain user-owned. If setup cannot be staged before merge, the
+user must disable/pause both site workflows first and only re-enable them after
+reviewed applies and readback verification. Expect a temporary deployment pause.
 
 ## Validation and post-apply checks
 
@@ -352,7 +318,7 @@ attributes is not linted; keep handlers in external JS, as the OConnorDev print
 action now is. Formatter strict whitespace mode preserves text-node spacing;
 CSS cascade/fallback order is retained with narrowly documented suppressions.
 
-After applying, verify the three repository variables, both role assumptions,
+After applying, verify the three site variables plus the dedicated broker variable, both role assumptions,
 S3 sync success, and creation of an invalidation on the DrumrollWorld distribution.
 Check `https://drumroll.world/`, its CSS/hashed JS module responses and local
 decoder JS/WASM (WASM should have `application/wasm` content type). Block
@@ -373,8 +339,7 @@ or HTTP failures were observed. This local result is not proof of deployment.
 ## Rollback
 
 Revert app code on `master` and let the same pipeline publish it; alternatively,
-dispatch a reviewed restoration committed to `master`. The workflow intentionally
-deploys current `master`, so dispatching an old GitHub run is not a historical
-release rollback. S3 versioning exists, but restoring individual historical
+dispatch a reviewed restoration committed to `master`. The workflow deploys only its tested SHA when it still equals remote `master`;
+an old run is rejected rather than rebuilt as a historical rollback. S3 versioning exists, but restoring individual historical
 objects is a separate approved live operation. Disable the site workflow to
 halt automation without deleting its bucket, distribution or image assets.
