@@ -34,11 +34,17 @@ locals {
       project_root             = "infra/aws/security"
       additional_project_globs = ["infra/aws/accounts.json", "infra/aws/cost-export-schema.json"]
     }
+    oconnordev = {
+      name                     = "oconnordev-resume"
+      description              = "Resume static-site workload in PRODUCTION; mandatory owner state handoff before first apply"
+      project_root             = "infra/aws/oconnordev"
+      additional_project_globs = ["infra/aws/accounts.json", "infra/modules/static-site/**"]
+    }
     drumrollworld = {
       name                     = "drumrollworld"
       description              = "DrumrollWorld static-site workload in the PRODUCTION account"
       project_root             = "infra/aws/drumrollworld"
-      additional_project_globs = ["infra/aws/accounts.json"]
+      additional_project_globs = ["infra/aws/accounts.json", "infra/modules/static-site/**"]
     }
   }
 }

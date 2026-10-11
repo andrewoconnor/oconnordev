@@ -1,7 +1,3 @@
-data "aws_kms_key" "dnssec" {
-  key_id = "alias/dnssec"
-}
-
 resource "aws_route53_hosted_zone_dnssec" "drumrollworld" {
   depends_on = [
     aws_route53_key_signing_key.drumrollworld
@@ -11,7 +7,7 @@ resource "aws_route53_hosted_zone_dnssec" "drumrollworld" {
 
 resource "aws_route53_key_signing_key" "drumrollworld" {
   hosted_zone_id             = aws_route53_zone.drumrollworld.id
-  key_management_service_arn = data.aws_kms_key.dnssec.arn
+  key_management_service_arn = var.dnssec_key_arn
   name                       = local.zone_name
 }
 

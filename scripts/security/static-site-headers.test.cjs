@@ -15,17 +15,18 @@ assert.ok(fixtures, "Set DRUMROLL_FIXTURES to existing real encoded test fixture
 const sites = (process.env.SITES || "oconnordev,drumrollworld").split(",");
 const policies = Object.fromEntries(
   [
-    ["oconnordev", "production"],
+    ["oconnordev", "oconnordev"],
     ["drumrollworld", "drumrollworld"],
   ]
     .filter(([site]) => sites.includes(site))
     .map(([site, stack]) => {
       const source = fs.readFileSync(
-        path.join(root, `infra/aws/${stack}/static-site-delivery.tf`),
+        path.join(root, `infra/aws/${stack}/site.tf`),
         "utf8",
       );
+      const delivery = fs.readFileSync(path.join(root, "infra/modules/static-site/delivery.tf"), "utf8");
       const csp = source.match(/content_security_policy\s*=\s*"([^"]+)"/)?.[1];
-      const permissions = source.match(
+      const permissions = delivery.match(
         /header\s*=\s*"Permissions-Policy"\s+override\s*=\s*true\s+value\s*=\s*"([^"]+)"/,
       )?.[1];
       assert.ok(
@@ -76,7 +77,7 @@ async function serve(site) {
     res.setHeader("Permissions-Policy", policies[site].permissions);
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.statusCode = 404;
-      file = site === "drumrollworld" ? path.join(dist, "404.html") : null;
+      file = path.join(dist, "404.html");
     }
     res.setHeader(
       "Content-Type",
@@ -138,7 +139,7 @@ async function observe(context) {
         for (const mode of process.env.MODES
           ? process.env.MODES.split(",")
           : site === "oconnordev"
-            ? ["resume"]
+            ? ["resume", "404"]
             : ["globe", "webgl-unavailable", "404"]) {
           const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
           try {
@@ -186,14 +187,19 @@ async function observe(context) {
             } else if (mode === "404") {
               assert.equal(response.status(), 404);
               assert.match(await page.locator("h1").innerText(), /404/);
-              assert.equal(
-                await page.locator("body").evaluate((e) => getComputedStyle(e).backgroundColor),
-                "rgb(16, 24, 32)",
-              );
-              assert.equal(
-                await page.locator("main").evaluate((e) => getComputedStyle(e).maxWidth),
-                "576px",
-              );
+              if (site === "drumrollworld") {
+                assert.equal(
+                  await page.locator("body").evaluate((e) => getComputedStyle(e).backgroundColor),
+                  "rgb(16, 24, 32)",
+                );
+                assert.equal(
+                  await page.locator("main").evaluate((e) => getComputedStyle(e).maxWidth),
+                  "576px",
+                );
+              } else {
+                assert.equal(await page.locator("style, script, [style]").count(), 0);
+                assert.equal(await page.locator('link[rel="stylesheet"]').count(), 1);
+              }
               assert.equal(await page.locator("a").getAttribute("href"), "/");
             } else {
               try {

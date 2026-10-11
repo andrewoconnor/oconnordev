@@ -46,22 +46,28 @@ provider "aws" {
         for prefix, source in [("broker", broker)] + [
             (
                 site,
-                (
-                    ROOT / f"infra/aws/{account}/github-actions-site-deploy.tf"
-                ).read_text(),
+                (ROOT / "infra/modules/static-site/deploy.tf").read_text(),
             )
             for site, account in (
-                ("oconnordev", "production"),
+                ("oconnordev", "oconnordev"),
                 ("drumrollworld", "drumrollworld"),
             )
         ]:
             if prefix != "broker":
-                account = "production" if prefix == "oconnordev" else prefix
+                account = prefix
                 locals_source = (ROOT / f"infra/aws/{account}/locals.tf").read_text()
                 arn = re.search(
                     r"  tools_github_actions_broker_role_arn = (.*)", locals_source
                 ).group(1)
                 config += f"\nlocals {{ {prefix}_broker_arn = {arn} }}\n"
+                site_source = (ROOT / f"infra/aws/{account}/site.tf").read_text()
+                extra = re.search(
+                    r"extra_deploy_statements\s*=\s*(\[.*?^  \}\])",
+                    site_source,
+                    re.M | re.S,
+                )
+                extra_value = extra.group(1) if extra else "[]"
+                config += f"\nlocals {{ {prefix}_extra = {extra_value} }}\n"
             for match in re.finditer(
                 r'^data "aws_iam_policy_document" "([^\"]+)" \{.*?^\}',
                 source,
@@ -80,7 +86,7 @@ provider "aws" {
                     ),
                 )
                 body = body.replace(
-                    "local.tools_github_actions_broker_role_arn",
+                    "var.broker_role_arn",
                     f"local.{prefix}_broker_arn",
                 )
                 body = body.replace(
@@ -95,6 +101,10 @@ provider "aws" {
                     ),
                     body,
                 )
+                if prefix != "broker":
+                    body = body.replace(
+                        "var.extra_deploy_statements", f"local.{prefix}_extra"
+                    )
                 config += "\n" + body
                 documents.append(name)
         config += (

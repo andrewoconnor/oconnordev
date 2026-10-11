@@ -96,6 +96,7 @@ test("release publishes only deployable assets with a real 1200x630 preview and 
   );
   assert.deepEqual(css, await readFile(new URL("./assets/css/resume.css", import.meta.url)));
   assert.deepEqual(files, [
+    "404.html",
     href.slice(1),
     "assets/resume-preview.png",
     "favicon.ico",
@@ -131,4 +132,14 @@ test("release publishes only deployable assets with a real 1200x630 preview and 
   } finally {
     await site.close();
   }
+});
+
+test("resume 404 is a standalone local page compatible with the no-inline CSP", async () => {
+  const html = await readFile(new URL("./dist/404.html", import.meta.url), "utf8");
+  assert.match(html, /<h1>404 — Page not found<\/h1>/);
+  assert.match(html, /<a href="\/">Return to Andrew O'Connor's resume<\/a>/);
+  assert.doesNotMatch(html, /<script|<style|\sstyle=|https?:\/\//);
+  const href = html.match(/<link href="([^"]+)" rel="stylesheet">/)?.[1];
+  assert.match(href || "", /^\/assets\/css\/resume-[0-9a-f]{64}\.css$/);
+  assert.ok(existsSync(new URL(`./dist${href}`, import.meta.url)));
 });

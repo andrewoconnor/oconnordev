@@ -19,7 +19,7 @@ run = "tofu fmt -check -recursive"
 
 [tasks.lint]
 description = "Initialize TFLint plugins and lint every OpenTofu root"
-run = ["tflint --init", "tflint -f compact --recursive"]
+run = ['tflint --init --config="$PWD/.tflint.hcl"', 'tflint -f compact --recursive --config="$PWD/.tflint.hcl"']
 
 [tasks.validate]
 description = "Initialize and validate every affected OpenTofu root"
@@ -103,6 +103,11 @@ export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-$HOME/.opentofu.d/plugin-cach
 mkdir -p "$TF_PLUGIN_CACHE_DIR"
 tofu -chdir=infra/aws/drumrollworld init -backend=false -input=false -no-color -lockfile=readonly
 tofu -chdir=infra/aws/drumrollworld test -no-color
+tofu -chdir=infra/aws/oconnordev init -backend=false -input=false -no-color -lockfile=readonly
+tofu -chdir=infra/aws/oconnordev test -no-color
+tofu -chdir=infra/aws/production init -backend=false -input=false -no-color -lockfile=readonly
+tofu -chdir=infra/aws/production test -no-color
+python3 scripts/infra/test_static_site_state.py
 """
 
 [tasks.test]

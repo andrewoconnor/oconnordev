@@ -64,7 +64,7 @@ resource "spacelift_stack_dependency" "github_repository_config_production" {
   count = var.enable_github_repository_config ? 1 : 0
 
   stack_id            = spacelift_stack.github_repository_config[0].id
-  depends_on_stack_id = spacelift_stack.accounts["production"].id
+  depends_on_stack_id = spacelift_stack.accounts["oconnordev"].id
 }
 
 resource "spacelift_stack_dependency_reference" "github_repository_config_deploy_role_arn" {
@@ -127,4 +127,26 @@ resource "spacelift_stack_dependency_reference" "github_repository_config_drumro
   stack_dependency_id = spacelift_stack_dependency.github_repository_config_tools[0].id
   output_name         = "drumrollworld_tools_github_actions_broker_role_arn"
   input_name          = "TF_VAR_drumrollworld_tools_github_actions_broker_role_arn"
+}
+
+resource "spacelift_stack_dependency" "site_production" {
+  for_each            = toset(["drumrollworld", "oconnordev"])
+  stack_id            = spacelift_stack.accounts[each.key].id
+  depends_on_stack_id = spacelift_stack.accounts["production"].id
+}
+resource "spacelift_stack_dependency_reference" "site_dnssec_key" {
+  for_each            = toset(["drumrollworld", "oconnordev"])
+  stack_dependency_id = spacelift_stack_dependency.site_production[each.key].id
+  output_name         = "dnssec_key_arn"
+  input_name          = "TF_VAR_dnssec_key_arn"
+}
+resource "spacelift_stack_dependency_reference" "resume_zone" {
+  stack_dependency_id = spacelift_stack_dependency.site_production["oconnordev"].id
+  output_name         = "oconnordev_zone_id"
+  input_name          = "TF_VAR_site_zone_id"
+}
+resource "spacelift_stack_dependency_reference" "resume_certificate" {
+  stack_dependency_id = spacelift_stack_dependency.site_production["oconnordev"].id
+  output_name         = "oconnordev_certificate_arn"
+  input_name          = "TF_VAR_site_certificate_arn"
 }

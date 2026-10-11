@@ -1,5 +1,7 @@
 # oconnor.dev resume release
 
+Hosting now lives in `infra/aws/oconnordev` / Spacelift `oconnordev-resume`, using the shared local static-site module. Before any infrastructure apply, complete the [mandatory state handoff](../static-site-state-migration.md). Production retains the shared wildcard certificate and hosted zone for Hermes MCP.
+
 ## Build and validate
 
 From the repository root, use the versions pinned in `mise.toml`/`mise.lock`:
@@ -23,7 +25,7 @@ npm --prefix apps/oconnordev exec --no -- playwright install chromium --only-she
 
 CI installs Playwright's matching Chromium headless shell and OS dependencies before
 rendering, and uses it instead of any system Chromium.
-The generated release in `apps/oconnordev/dist/` contains only `index.html`,
+The generated release in `apps/oconnordev/dist/` contains only `index.html`, `404.html`,
 `assets/css/resume-<sha256>.css`, `favicon.ico`, `assets/resume-preview.png`, and
 `resume.pdf`. Never sync the source directory or `node_modules`.
 
@@ -49,7 +51,7 @@ must finish before merging the auto-deploy cutover. No runtime or hosting change
 are required, but the trust/environment configuration **does require apply**.
 
 After deployment, verify the canonical page, contact links, `/resume.pdf` download
-and `/assets/resume-preview.png` at `https://oconnor.dev/`; verify the PDF opens
+and `/assets/resume-preview.png` plus a real missing-path HTTP 404 at `https://oconnor.dev/`; verify the PDF opens
 as one page and the preview returns `image/png`. Social services may retain
 cached previews. For rollback, revert the approved change on master and use the
 same gated release workflow; do not upload development sources manually.

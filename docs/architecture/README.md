@@ -24,7 +24,7 @@ Both static-site workflows authenticate with GitHub OIDC to the TOOLS broker,
 then assume separate site-scoped deploy roles in PRODUCTION. The broker trusts
 only this repository’s `master` subject and may assume exactly those two roles.
 Each role trusts only the broker and targets its own bucket/distribution.
-`production` owns the OConnorDev site role; `drumrollworld` owns the DrumrollWorld
+`oconnordev-resume` (root `infra/aws/oconnordev`) owns the OConnorDev site role; `drumrollworld` owns the DrumrollWorld
 role. Generated DrumrollWorld outputs reach the GitHub repository-configuration
 stack through its own dependency. Both apps use locked Biome lint/format checks.
 Each site has a separate per-ref concurrency group with active-run cancellation
@@ -43,4 +43,4 @@ one-time apply order, master-only deployment gates, and image preservation.
 
 ## Stack dependency order
 
-`general -> security -> tools -> production`. `security` waits for management-account delegated-administrator setup. TOOLS consumes the generated security gateway URL and ARN. PRODUCTION consumes the generated TOOLS outputs used by its workloads. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow [`docs/runbooks/infrastructure-bootstrap.md`](../runbooks/infrastructure-bootstrap.md).
+`general -> security -> tools -> production -> {oconnordev-resume, drumrollworld}`. Both site workloads consume production's DNSSEC key ARN; resume also consumes the shared zone ID and wildcard certificate ARN. The zone/certificate remain in production for the Hermes endpoint. Site resources share the local `infra/modules/static-site` module. The cross-state resume move requires the [owner-operated state handoff](../static-site-state-migration.md), not an ordinary moved block. `security` waits for management-account delegated-administrator setup. TOOLS consumes the generated security gateway URL and ARN. PRODUCTION consumes the generated TOOLS outputs used by its workloads. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow [`docs/runbooks/infrastructure-bootstrap.md`](../runbooks/infrastructure-bootstrap.md).

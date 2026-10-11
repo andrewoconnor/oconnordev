@@ -1,0 +1,15 @@
+{
+  "aws_cloudfront_distribution.oconnordev": "module.site.aws_cloudfront_distribution.site",
+  "aws_cloudfront_origin_access_control.oconnordev": "module.site.aws_cloudfront_origin_access_control.site",
+  "aws_cloudfront_response_headers_policy.oconnordev": "module.site.aws_cloudfront_response_headers_policy.site",
+  "aws_route53_record.apex": "module.site.aws_route53_record.apex",
+  "aws_route53_record.www": "module.site.aws_route53_record.www",
+  "aws_s3_bucket.web": "module.site.aws_s3_bucket.web",
+  "aws_s3_bucket_lifecycle_configuration.web": "module.site.aws_s3_bucket_lifecycle_configuration.web",
+  "aws_s3_bucket_policy.web_tls": "module.site.aws_s3_bucket_policy.web_tls",
+  "aws_s3_bucket_public_access_block.web": "module.site.aws_s3_bucket_public_access_block.web",
+  "aws_s3_bucket_server_side_encryption_configuration.web": "module.site.aws_s3_bucket_server_side_encryption_configuration.web",
+  "aws_s3_bucket_versioning.web": "module.site.aws_s3_bucket_versioning.web",
+  "aws_iam_role.github_actions_site_deploy": "module.site.aws_iam_role.github_actions_site_deploy",
+  "aws_iam_role_policy.github_actions_site_deploy": "module.site.aws_iam_role_policy.github_actions_site_deploy"
+}
