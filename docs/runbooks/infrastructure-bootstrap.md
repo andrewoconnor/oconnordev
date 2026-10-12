@@ -99,3 +99,7 @@ Rollback: pause workflows, review the intended trust/environment changes and
 apply them as a user-owned operation, then merge a compatible workflow. Reverting
 only IAM or only workflow subjects strands deployments. Application rollback is
 a reviewed revert committed to master, not a rebuild of a stale queued run.
+
+## Static-site root/module split
+
+Before applying the new resume root or refactored production configuration, follow [the mandatory owner-operated state handoff](../static-site-state-migration.md). The existing administrative stack is `oconnordev`; the new resume stack is **`oconnordev-resume`**, root `infra/aws/oconnordev`. Do not reuse or relocate the administrative stack. Production keeps the shared zone, certificate and DNSSEC resources used by the Hermes endpoint. Both workloads consume explicit production outputs. Default-false guards intentionally block ordinary plans until the handoff is complete.

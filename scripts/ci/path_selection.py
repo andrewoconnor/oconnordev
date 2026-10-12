@@ -8,6 +8,7 @@ ALL_ROOTS = (
     "infra/aws/tools",
     "infra/aws/production",
     "infra/aws/drumrollworld",
+    "infra/aws/oconnordev",
     "infra/spacelift",
     "infra/github/oconnordev",
 )
@@ -18,13 +19,14 @@ ACCOUNT_MAP_CONSUMERS = (
     "infra/aws/tools",
     "infra/aws/production",
     "infra/aws/drumrollworld",
+    "infra/aws/oconnordev",
     "infra/spacelift",
 )
 
 _ACCOUNT_MAP = "infra/aws/accounts.json"
 _COST_EXPORT_SCHEMA = "infra/aws/cost-export-schema.json"
 _TOOLS_ADAPTER_DIR = "agents/hermes/adapter/"
-_ALL_ROOTS_INPUTS = ("mise.toml", "mise.lock")
+_ALL_ROOTS_INPUTS = ("mise.toml", "mise.lock", ".tflint.hcl")
 
 
 def roots_for_paths(paths: Iterable[str]) -> tuple[str, ...]:
@@ -42,6 +44,9 @@ def roots_for_paths(paths: Iterable[str]) -> tuple[str, ...]:
         for root in ALL_ROOTS:
             if path == root or path.startswith(f"{root}/"):
                 selected.add(root)
+
+        if path.startswith("infra/modules/static-site/"):
+            selected.update(("infra/aws/drumrollworld", "infra/aws/oconnordev"))
 
         if path == _ACCOUNT_MAP:
             selected.update(ACCOUNT_MAP_CONSUMERS)

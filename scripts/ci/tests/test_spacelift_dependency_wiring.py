@@ -35,7 +35,7 @@ class SpaceliftDependencyWiringTests(unittest.TestCase):
             ),
             "github_repository_config_production": (
                 "spacelift_stack.github_repository_config[0].id",
-                'spacelift_stack.accounts["production"].id',
+                'spacelift_stack.accounts["oconnordev"].id',
             ),
             "github_repository_config_tools": (
                 "spacelift_stack.github_repository_config[0].id",

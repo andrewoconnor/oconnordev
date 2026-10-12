@@ -45,7 +45,7 @@ class OpenTofuRootSelectionTests(unittest.TestCase):
             roots_for_paths(["infra/aws/accounts.json"]),
             ACCOUNT_MAP_CONSUMERS,
         )
-        self.assertEqual(len(ACCOUNT_MAP_CONSUMERS), 6)
+        self.assertEqual(len(ACCOUNT_MAP_CONSUMERS), 7)
 
     def test_workflow_only_change_selects_no_opentofu_root(self):
         self.assertEqual(

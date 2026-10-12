@@ -19,27 +19,23 @@ mock_provider "aws" {
 
 variables {
   spacelift_run_id = "offline-delivery-test"
+  dnssec_key_arn   = "arn:aws:kms:us-east-1:767397796791:key/00000000-0000-0000-0000-000000000000"
 }
 
-run "gzip_preserves_legacy_cache_behavior" {
+run "gzip_uses_managed_compression_cache_policy" {
   command = plan
 
   assert {
-    condition     = aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].compress == true
+    condition     = module.site.distribution.default_cache_behavior[0].compress == true
     error_message = "CloudFront must compress eligible responses."
   }
 
   assert {
     condition = (
-      aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].min_ttl == 0 &&
-      aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].default_ttl == 3600 &&
-      aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].max_ttl == 86400 &&
-      aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].forwarded_values[0].query_string == false &&
-      aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].forwarded_values[0].cookies[0].forward == "none" &&
-      length(aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].forwarded_values[0].headers) == 0 &&
-      aws_cloudfront_distribution.drumrollworld.default_cache_behavior[0].cache_policy_id == null
+      module.site.distribution.default_cache_behavior[0].cache_policy_id == "658327ea-f89d-4fab-a63d-7e88639e58f6" &&
+      length(module.site.distribution.default_cache_behavior[0].forwarded_values) == 0
     )
-    error_message = "Keep legacy forwarding and TTLs; do not migrate to a cache policy."
+    error_message = "Use AWS Managed-CachingOptimized, not incompatible legacy forwarding or behavior TTLs."
   }
 }
 
@@ -48,12 +44,26 @@ run "missing_objects_return_real_html_404" {
 
   assert {
     condition = (
-      length(aws_cloudfront_distribution.drumrollworld.custom_error_response) == 2 &&
-      toset([for response in aws_cloudfront_distribution.drumrollworld.custom_error_response : response.error_code]) == toset([403, 404]) &&
-      alltrue([for response in aws_cloudfront_distribution.drumrollworld.custom_error_response :
+      length(module.site.distribution.custom_error_response) == 2 &&
+      toset([for response in module.site.distribution.custom_error_response : response.error_code]) == toset([403, 404]) &&
+      alltrue([for response in module.site.distribution.custom_error_response :
         response.response_code == 404 && response.response_page_path == "/404.html" && response.error_caching_min_ttl == 10
       ])
     )
     error_message = "Both S3 missing-object cases must return /404.html with HTTP 404 and a short 10-second error TTL, never the app shell or HTTP 200."
   }
+}
+
+run "ipv6_aliases_preserve_routing" {
+  command = plan
+  assert {
+    condition     = module.site.dns_records.apex.type == "A" && module.site.dns_records.www.type == "A" && module.site.dns_records.apex_ipv6.type == "AAAA" && module.site.dns_records.www_ipv6.type == "AAAA" && module.site.dns_records.apex.alias[0].name == module.site.dns_records.www.fqdn && module.site.dns_records.apex_ipv6.alias[0].name == module.site.dns_records.www_ipv6.fqdn
+    error_message = "Both IPv4 and IPv6 retain apex -> www -> CloudFront routing."
+  }
+}
+
+run "dnssec_requires_explicit_key_arn" {
+  command = plan
+  variables { dnssec_key_arn = "alias/dnssec" }
+  expect_failures = [var.dnssec_key_arn]
 }

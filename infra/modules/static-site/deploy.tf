@@ -6,13 +6,13 @@ data "aws_iam_policy_document" "github_actions_site_deploy_trust" {
 
     principals {
       type        = "AWS"
-      identifiers = [local.tools_github_actions_broker_role_arn]
+      identifiers = [var.broker_role_arn]
     }
   }
 }
 
 resource "aws_iam_role" "github_actions_site_deploy" {
-  name               = "drumrollworld-site-deploy"
+  name               = "${var.name}-site-deploy"
   assume_role_policy = data.aws_iam_policy_document.github_actions_site_deploy_trust.json
 }
 
@@ -40,19 +40,22 @@ data "aws_iam_policy_document" "github_actions_site_deploy" {
     sid       = "InvalidateSiteDistribution"
     effect    = "Allow"
     actions   = ["cloudfront:CreateInvalidation"]
-    resources = [aws_cloudfront_distribution.drumrollworld.arn]
+    resources = [aws_cloudfront_distribution.site.arn]
   }
 
-  statement {
-    sid       = "PreserveExternalImages"
-    effect    = "Deny"
-    actions   = ["s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.web.arn}/images/*"]
+  dynamic "statement" {
+    for_each = var.extra_deploy_statements
+    content {
+      sid       = statement.value.sid
+      effect    = statement.value.effect
+      actions   = statement.value.actions
+      resources = [for suffix in statement.value.object_suffixes : "${aws_s3_bucket.web.arn}/${suffix}"]
+    }
   }
 }
 
 resource "aws_iam_role_policy" "github_actions_site_deploy" {
-  name   = "drumrollworld-site-deploy"
+  name   = "${var.name}-site-deploy"
   role   = aws_iam_role.github_actions_site_deploy.id
   policy = data.aws_iam_policy_document.github_actions_site_deploy.json
 }

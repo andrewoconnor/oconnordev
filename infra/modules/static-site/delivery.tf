@@ -1,9 +1,10 @@
-resource "aws_acm_certificate" "drumrollworld" {
-  domain_name       = local.zone_name
+resource "aws_acm_certificate" "site" {
+  count             = var.existing_certificate_arn == null ? 1 : 0
+  domain_name       = var.domain_name
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "*.${local.zone_name}"
+    "*.${var.domain_name}"
   ]
 
   lifecycle {
@@ -11,15 +12,19 @@ resource "aws_acm_certificate" "drumrollworld" {
   }
 }
 
-resource "aws_cloudfront_distribution" "drumrollworld" {
+resource "aws_cloudfront_distribution" "site" {
   # checkov:skip=CKV_AWS_68:A WAF web ACL carries a fixed monthly cost per ACL and per rule. This distribution serves static objects from a private bucket with no dynamic surface, so the fixed cost is not justified; the bucket policy and origin access control are the access boundary.
   # checkov:skip=CKV_AWS_86:Access logs are intentionally disabled to avoid a second log bucket, its storage cost and the retained request metadata. Nothing reads them.
   # checkov:skip=CKV_AWS_310:Origin failover needs a second independent origin. The only origin is one S3 bucket reached by origin access control, which has no independent failover endpoint.
   # checkov:skip=CKV2_AWS_47:No WAF is attached by design, so there is no WAFv2 web ACL to configure with the AMR managed rule group.
   origin {
     domain_name              = aws_s3_bucket.web.bucket_regional_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.drumrollworld.id
-    origin_id                = local.s3_origin_id
+    origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+    origin_id                = var.origin_id
+  }
+
+  lifecycle {
+    prevent_destroy = true
   }
 
   enabled             = true
@@ -27,46 +32,32 @@ resource "aws_cloudfront_distribution" "drumrollworld" {
   default_root_object = "index.html"
 
   aliases = [
-    local.zone_name,
-    "www.${local.zone_name}"
+    var.domain_name,
+    "www.${var.domain_name}"
   ]
 
   default_cache_behavior {
     allowed_methods            = ["GET", "HEAD"]
     cached_methods             = ["GET", "HEAD"]
     compress                   = true
-    target_origin_id           = local.s3_origin_id
-    response_headers_policy_id = aws_cloudfront_response_headers_policy.drumrollworld.id
+    target_origin_id           = var.origin_id
+    response_headers_policy_id = aws_cloudfront_response_headers_policy.site.id
 
-    forwarded_values {
-      query_string = false
-
-      cookies {
-        forward = "none"
-      }
-    }
+    # AWS Managed-CachingOptimized (Gzip and Brotli cache keys).
+    cache_policy_id = "658327ea-f89d-4fab-a63d-7e88639e58f6"
 
     viewer_protocol_policy = "redirect-to-https"
-    min_ttl                = 0
-    default_ttl            = 3600
-    max_ttl                = 86400
   }
 
-  # Publish /404.html before applying. Private S3 without ListBucket returns
-  # 403 for missing keys; this also masks genuine origin permission denials.
-  # Keep a real 404 (not an SPA fallback) for both S3 missing-object responses.
-  custom_error_response {
-    error_code            = 403
-    response_code         = 404
-    response_page_path    = "/404.html"
-    error_caching_min_ttl = 10
-  }
-
-  custom_error_response {
-    error_code            = 404
-    response_code         = 404
-    response_page_path    = "/404.html"
-    error_caching_min_ttl = 10
+  # Private S3 missing keys are often 403. This also masks origin denials.
+  dynamic "custom_error_response" {
+    for_each = var.error_responses
+    content {
+      error_code            = custom_error_response.value.error_code
+      response_code         = custom_error_response.value.response_code
+      response_page_path    = custom_error_response.value.response_page_path
+      error_caching_min_ttl = custom_error_response.value.error_caching_min_ttl
+    }
   }
 
   price_class = "PriceClass_100"
@@ -79,23 +70,23 @@ resource "aws_cloudfront_distribution" "drumrollworld" {
   }
 
   viewer_certificate {
-    acm_certificate_arn      = aws_acm_certificate_validation.drumrollworld.certificate_arn
+    acm_certificate_arn      = var.existing_certificate_arn != null ? var.existing_certificate_arn : aws_acm_certificate_validation.site[0].certificate_arn
     minimum_protocol_version = "TLSv1.2_2021"
     ssl_support_method       = "sni-only"
   }
 }
 
-resource "aws_cloudfront_origin_access_control" "drumrollworld" {
-  name                              = "drumrollworld"
-  description                       = "drumrollworld S3 policy"
+resource "aws_cloudfront_origin_access_control" "site" {
+  name                              = var.name
+  description                       = "${var.name} S3 policy"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
 
-resource "aws_cloudfront_response_headers_policy" "drumrollworld" {
-  name    = "drumrollworld-security-headers"
-  comment = "Security response headers for the drumrollworld static site."
+resource "aws_cloudfront_response_headers_policy" "site" {
+  name    = "${var.name}-security-headers"
+  comment = "Security response headers for the ${var.name} static site."
 
   custom_headers_config {
     items {
@@ -109,7 +100,7 @@ resource "aws_cloudfront_response_headers_policy" "drumrollworld" {
     # Owned Basis is compiled with DYNAMIC_EXECUTION=0; only WASM compilation
     # is allowed in inherited-CSP blob workers, never JavaScript string execution.
     content_security_policy {
-      content_security_policy = "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; script-src-attr 'none'; style-src 'self' 'sha256-47DEQpj8HBSa+/TImW+5JCeuQeRkm5NMpJWZG3hSuFU=' 'sha256-1OVkcrOQP7NV9SqPTIZQMVnSWqtceFiWV3g5XyDm98A=' 'sha256-9xjtvxMT1ApHlgn9ohbh2FNfvK5Tqtzy94BjfXBeMSY=' 'sha256-yfc2FhpkFR0EAy3T+zDsaAFGXSP9B3ELNvaJKDzNhkk=' 'sha256-GRFgt45UbKYCV14/Fqy6H9EB3zlAwSnH4xbsYt03Q6M='; style-src-attr 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; worker-src blob:; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+      content_security_policy = var.content_security_policy
       override                = true
     }
     strict_transport_security {
@@ -136,20 +127,20 @@ resource "aws_cloudfront_response_headers_policy" "drumrollworld" {
 }
 
 resource "aws_route53_record" "apex" {
-  zone_id = aws_route53_zone.drumrollworld.zone_id
-  name    = local.zone_name
+  zone_id = var.zone_id
+  name    = var.domain_name
   type    = "A"
 
   alias {
     name                   = aws_route53_record.www.fqdn
-    zone_id                = aws_route53_zone.drumrollworld.zone_id
+    zone_id                = var.zone_id
     evaluate_target_health = false
   }
 }
 
-resource "aws_route53_record" "drumrollworld_validation" {
+resource "aws_route53_record" "site_validation" {
   for_each = {
-    for dvo in aws_acm_certificate.drumrollworld.domain_validation_options : dvo.domain_name => {
+    for dvo in try(aws_acm_certificate.site[0].domain_validation_options, []) : dvo.domain_name => {
       name   = dvo.resource_record_name
       record = dvo.resource_record_value
       type   = dvo.resource_record_type
@@ -162,22 +153,44 @@ resource "aws_route53_record" "drumrollworld_validation" {
   records         = [each.value.record]
   ttl             = 60
   type            = each.value.type
-  zone_id         = aws_route53_zone.drumrollworld.id
+  zone_id         = var.zone_id
 }
 
-resource "aws_acm_certificate_validation" "drumrollworld" {
-  certificate_arn         = aws_acm_certificate.drumrollworld.arn
-  validation_record_fqdns = [for record in aws_route53_record.drumrollworld_validation : record.fqdn]
+resource "aws_acm_certificate_validation" "site" {
+  count                   = var.existing_certificate_arn == null ? 1 : 0
+  certificate_arn         = aws_acm_certificate.site[0].arn
+  validation_record_fqdns = [for record in aws_route53_record.site_validation : record.fqdn]
 }
 
 resource "aws_route53_record" "www" {
-  zone_id = aws_route53_zone.drumrollworld.zone_id
-  name    = "www.${local.zone_name}"
+  zone_id = var.zone_id
+  name    = "www.${var.domain_name}"
   type    = "A"
 
   alias {
-    name                   = aws_cloudfront_distribution.drumrollworld.domain_name
-    zone_id                = aws_cloudfront_distribution.drumrollworld.hosted_zone_id
+    name                   = aws_cloudfront_distribution.site.domain_name
+    zone_id                = aws_cloudfront_distribution.site.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+resource "aws_route53_record" "apex_ipv6" {
+  zone_id = var.zone_id
+  name    = var.domain_name
+  type    = "AAAA"
+  alias {
+    name                   = aws_route53_record.www_ipv6.fqdn
+    zone_id                = var.zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "www_ipv6" {
+  zone_id = var.zone_id
+  name    = "www.${var.domain_name}"
+  type    = "AAAA"
+  alias {
+    name                   = aws_cloudfront_distribution.site.domain_name
+    zone_id                = aws_cloudfront_distribution.site.hosted_zone_id
     evaluate_target_health = false
   }
 }

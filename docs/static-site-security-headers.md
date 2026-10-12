@@ -3,8 +3,7 @@
 ## Scope and compatibility tradeoff
 
 Both existing CloudFront response headers policies now enforce an overriding CSP
-and Permissions-Policy. Distribution settings, origin authentication, cache TTLs,
-forwarding, existing security headers, dependency pins and lockfiles are unchanged.
+and Permissions-Policy. The shared-module refactor preserves these exact CSP values, origin authentication and other security headers. Compression and real 404s now apply to both sites; Managed-CachingOptimized replaces legacy forwarding/TTLs. See the [state handoff and cache contract](static-site-state-migration.md). The verification measurements below are historical evidence from the prior headers change, not the current refactor.
 No publication or cloud change was performed.
 
 The resume remains strict: `default-src 'none'`, same-origin stylesheets/images,
@@ -96,12 +95,12 @@ export PLAYWRIGHT_BROWSERS_PATH=/opt/data/cache/scratch/oconnordev-playwright
 export DRUMROLL_FIXTURES=/opt/data/cache/scratch/drumrollworld-real-pipeline-proof
 node apps/oconnordev/build.js
 node apps/drumrollworld/build.js
-for stack in production drumrollworld; do
+for stack in oconnordev drumrollworld; do
   tofu -chdir=infra/aws/$stack init -backend=false -input=false -no-color -lockfile=readonly
   tofu -chdir=infra/aws/$stack fmt -check
   tofu -chdir=infra/aws/$stack validate -no-color
   tofu -chdir=infra/aws/$stack test -no-color
-  tflint --chdir=infra/aws/$stack -f compact
+  tflint --chdir=infra/aws/$stack --config="$PWD/.tflint.hcl" -f compact
 done
 timeout 180 node scripts/security/static-site-headers.test.cjs
 npm --prefix apps/oconnordev test

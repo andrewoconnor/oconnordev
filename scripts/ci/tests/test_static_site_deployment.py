@@ -92,24 +92,27 @@ class StaticSiteDeploymentTests(unittest.TestCase):
                 self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
 
     def test_drumroll_role_trust_and_policy_are_site_scoped(self):
-        source = read("infra/aws/drumrollworld/github-actions-site-deploy.tf")
+        source = read("infra/modules/static-site/deploy.tf")
         trust = block(
             source, "aws_iam_policy_document", "github_actions_site_deploy_trust"
         )
-        self.assertIn("local.tools_github_actions_broker_role_arn", trust)
+        self.assertIn("var.broker_role_arn", trust)
         self.assertIn('actions = ["sts:AssumeRole"]', trust)
         self.assertNotIn("Federated", trust)
         role = block(source, "aws_iam_role", "github_actions_site_deploy")
-        self.assertIn('"drumrollworld-site-deploy"', role)
+        self.assertIn('"${var.name}-site-deploy"', role)
         policy = block(source, "aws_iam_policy_document", "github_actions_site_deploy")
         self.assertIn("aws_s3_bucket.web.arn", policy)
-        self.assertIn("aws_cloudfront_distribution.drumrollworld.arn", policy)
+        self.assertIn("aws_cloudfront_distribution.site.arn", policy)
         self.assertIn('"cloudfront:CreateInvalidation"', policy)
         self.assertNotIn('"s3:*"', policy)
         self.assertNotIn('"cloudfront:*"', policy)
-        self.assertIn('sid       = "PreserveExternalImages"', policy)
-        self.assertIn('effect    = "Deny"', policy)
-        self.assertIn('resources = ["${aws_s3_bucket.web.arn}/images/*"]', policy)
+        site = read("infra/aws/drumrollworld/site.tf")
+        self.assertIn('sid             = "PreserveExternalImages"', site)
+        self.assertIn('effect          = "Deny"', site)
+        self.assertIn('object_suffixes = ["images/*"]', site)
+        self.assertIn("for_each = var.extra_deploy_statements", policy)
+        self.assertIn("${aws_s3_bucket.web.arn}/${suffix}", policy)
 
     def test_outputs_flow_from_workload_stack_to_repository_variables(self):
         outputs = read("infra/aws/drumrollworld/outputs.tf")

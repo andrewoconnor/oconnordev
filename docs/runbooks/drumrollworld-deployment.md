@@ -1,5 +1,7 @@
 # DrumrollWorld production deployment
 
+Both sites now inherit the local module at `infra/modules/static-site`. Before applying the module refactor, follow the [mandatory state handoff](../static-site-state-migration.md): DrumrollWorld uses same-state `moved` blocks; resume is transferred to `oconnordev-resume`. External image recovery risk and existing 30-day noncurrent-version expiry are explicitly documented there.
+
 ## Scope
 
 `apps/drumrollworld/` is a static browser app with a reproducible npm/esbuild
@@ -217,11 +219,7 @@ assertion.
 
 ## Compression and real 404 rollout
 
-This change enables `compress = true` on the existing distribution. It retains
-legacy `forwarded_values`, no query strings/cookies/headers, and the existing
-0/3600/86400-second minimum/default/maximum TTLs. This supports CloudFront gzip
-for eligible responses; Brotli is **not promised** with legacy forwarding. There
-is no cache-policy migration or new infrastructure service.
+The shared module enables `compress = true` for both sites and uses AWS Managed-CachingOptimized (`658327ea-f89d-4fab-a63d-7e88639e58f6`) with normalized Accept-Encoding cache keys for Gzip/Brotli, no query strings or cookies. Managed TTLs are minimum 1s, default 86400s, maximum 31536000s; the legacy 0/3600/86400 TTLs no longer apply. Mutable publication metadata and invalidation remain unchanged. See the state-handoff runbook for staged apply and cache-header risks.
 
 Both origin 403 and 404 map to `/404.html` with viewer status **404**, never 200
 or the application shell. Private S3 without `s3:ListBucket` for CloudFront
