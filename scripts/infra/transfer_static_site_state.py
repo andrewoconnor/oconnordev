@@ -83,7 +83,8 @@ def transfer(source: Path, destination: Path, output: Path, tofu: str) -> dict:
         before = inventory[old]["instances"]
         after = resource["instances"]
 
-        # OpenTofu 1.12.6 state mv clears the WHOLE dependency list in the
+        # Observed on OpenTofu 1.12.6 and verified on 1.13.1: state mv clears
+        # the WHOLE dependency list in the
         # destination when it refers to the current move's source address.
         # Only this move and later moves can affect an instance: earlier moves
         # ran before it arrived in the destination. It does not remap edges.

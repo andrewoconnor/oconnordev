@@ -90,7 +90,7 @@ because esbuild's existing single-Three validator requires local real paths.
 
 ```sh
 export TF_PLUGIN_CACHE_DIR=/opt/data/.opentofu.d/plugin-cache
-export PATH=/opt/data/.local/share/mise/installs/opentofu/1.12.6:/opt/data/.local/share/mise/installs/tflint/0.64.0:$PATH
+export PATH=/opt/data/.local/share/mise/installs/opentofu/1.13.1:/opt/data/.local/share/mise/installs/tflint/0.64.0:$PATH
 export PLAYWRIGHT_BROWSERS_PATH=/opt/data/cache/scratch/oconnordev-playwright
 export DRUMROLL_FIXTURES=/opt/data/cache/scratch/drumrollworld-real-pipeline-proof
 node apps/oconnordev/build.js

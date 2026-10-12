@@ -4,7 +4,7 @@ data "spacelift_role" "space_admin" {
 }
 
 locals {
-  tofu_version = "1.12.6"
+  tofu_version = "1.13.1"
 
   managed_stacks = {
     general = {
