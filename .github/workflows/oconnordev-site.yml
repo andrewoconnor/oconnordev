@@ -6,6 +6,9 @@ on:
       - master
     paths:
       - "apps/oconnordev/**"
+      - "infra/aws/*/site.tf"
+      - "infra/modules/static-site/**"
+      - "scripts/security/**"
       - "scripts/ci/tests/test_static_site_deployment.py"
       - ".github/workflows/oconnordev-site.yml"
       - "biome.json"
@@ -17,6 +20,9 @@ on:
       - master
     paths:
       - "apps/oconnordev/**"
+      - "infra/aws/*/site.tf"
+      - "infra/modules/static-site/**"
+      - "scripts/security/**"
       - "scripts/ci/tests/test_static_site_deployment.py"
       - ".github/workflows/oconnordev-site.yml"
       - "biome.json"
@@ -59,7 +65,7 @@ jobs:
       - name: Test resume, PDF and deployment boundary
         run: |
           mise run test:oconnordev
-          mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment scripts.ci.tests.test_tested_site_artifact scripts.ci.tests.test_site_publication -v
+          mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment scripts.ci.tests.test_tested_site_artifact scripts.ci.tests.test_site_publication scripts.ci.tests.test_site_freshness scripts.ci.tests.test_site_csp_ci -v
 
       - name: Package tested public bytes
         id: package
@@ -102,9 +108,7 @@ jobs:
       - name: Reject stale master before AWS credentials
         env:
           EXPECTED_SHA: ${{ github.sha }}
-        run: |
-          MASTER_SHA=$(git ls-remote origin refs/heads/master | cut -f1)
-          test "$MASTER_SHA" = "$EXPECTED_SHA"
+        run: mise exec -- python scripts/ci/site_freshness.py oconnordev "$EXPECTED_SHA"
       - name: Require deployment configuration
         env:
           BROKER_ROLE_ARN: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}

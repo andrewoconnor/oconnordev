@@ -1,13 +1,13 @@
-# Static-site module and mandatory state handoff
+# Static-site module: completed migration and historical handoff
 
-**Do not promote an ordinary plan after merging this refactor.** No AWS apply,
-Spacelift setting change, state download/upload, or deployment was performed by
-this change. The owner performs the following staged handoff. Both production
-and resume have a default-false `site_state_handoff_complete` precondition:
-normal plans intentionally fail until the owner confirms the state transfer.
-`removed { lifecycle { destroy = false } }` protects all former production
-site addresses even if a source detach is reviewed separately. Never remove
-these declarations until the old addresses are verified absent.
+The owner reports migration complete: production and `oconnordev-resume` runs
+are FINISHED, with distribution `E2YPD9UPXXK53Y` and the deploy role unchanged.
+Resume owns `infra/aws/oconnordev`; this change performs no remote writes.
+The default-false confirmation variables and guard resources are retired.
+Retain production’s non-destructive `removed` blocks and DrumrollWorld’s
+`moved` mappings as protection for older state snapshots. Do not rerun the
+transfer against the already-owned resume state. The procedure and evidence
+below are historical records, not prerequisites for normal current plans.
 
 ## Ownership and why some resources stay in production
 
@@ -35,7 +35,7 @@ compatibility aliases (the distribution ID is an explicitly overridable
 compatibility input, not a competing resource). Existing broker trust and
 physical AWS names/account/region are unchanged.
 
-## Required bootstrap and ordered handoff (owner only)
+## Historical bootstrap and ordered handoff (owner only; completed)
 
 1. Review the draft, then freeze/lock production, resume, DrumrollWorld and
    GitHub repository-configuration Spacelift runs and pause site-deploy jobs
@@ -124,7 +124,8 @@ physical AWS names/account/region are unchanged.
    restore the original production state before any apply. Never leave two
    active owners or allow an intervening run. Re-download both states and
    verify the 13 addresses exist only at `module.site.*` in resume.
-8. Only now set `TF_VAR_site_state_handoff_complete=true` for both roots.
+8. At the time, set `TF_VAR_site_state_handoff_complete=true` for both roots
+   (this confirmation input has since been retired).
    Keep production's existing nonempty `hermes_gateway_origin_hostname`
    dependency intact. Review a fresh production plan: only guard/output
    metadata may change; no site destroy/replace, no Hermes changes. Apply

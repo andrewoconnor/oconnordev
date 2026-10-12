@@ -24,7 +24,7 @@ class StaticSiteModuleTests(unittest.TestCase):
         records = re.findall(r'resource "aws_route53_record" "([^"]+)"', delivery)
         self.assertTrue({"apex", "www", "apex_ipv6", "www_ipv6"} <= set(records))
 
-    def test_cross_state_handoff_is_fail_closed_and_keeps_shared_zone(self):
+    def test_completed_handoff_retains_old_address_defense_and_shared_zone(self):
         production = ROOT / "infra/aws/production"
         self.assertTrue(
             (production / "site-handoff.tf").exists(),
@@ -41,8 +41,9 @@ class StaticSiteModuleTests(unittest.TestCase):
         self.assertIn(
             "aws_acm_certificate", (production / "site-certificate.tf").read_text()
         )
-        self.assertIn("precondition", source)
-        self.assertRegex(source, r"default\s*=\s*false")
+        self.assertNotIn("site_state_handoff_guard", source)
+        self.assertNotIn("site_state_handoff_complete", source)
+        self.assertFalse((ROOT / "infra/aws/oconnordev/site-handoff.tf").exists())
         self.assertTrue((ROOT / "scripts/infra/transfer_static_site_state.py").exists())
         drum = (ROOT / "infra/aws/drumrollworld/moved.tf").read_text()
         self.assertIn("from = aws_cloudfront_distribution.drumrollworld", drum)

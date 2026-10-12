@@ -27,11 +27,10 @@ mock_provider "aws" {
 }
 
 variables {
-  spacelift_run_id            = "offline-delivery-test"
-  dnssec_key_arn              = "arn:aws:kms:us-east-1:767397796791:key/00000000-0000-0000-0000-000000000000"
-  site_certificate_arn        = "arn:aws:acm:us-east-1:767397796791:certificate/00000000-0000-0000-0000-000000000000"
-  site_zone_id                = "ZOFFLINE"
-  site_state_handoff_complete = true
+  spacelift_run_id     = "offline-delivery-test"
+  dnssec_key_arn       = "arn:aws:kms:us-east-1:767397796791:key/00000000-0000-0000-0000-000000000000"
+  site_certificate_arn = "arn:aws:acm:us-east-1:767397796791:certificate/00000000-0000-0000-0000-000000000000"
+  site_zone_id         = "ZOFFLINE"
 }
 
 run "static_security_headers" {

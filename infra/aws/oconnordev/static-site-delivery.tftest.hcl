@@ -18,11 +18,10 @@ mock_provider "aws" {
 }
 
 variables {
-  spacelift_run_id            = "offline-delivery-test"
-  site_certificate_arn        = "arn:aws:acm:us-east-1:767397796791:certificate/00000000-0000-0000-0000-000000000000"
-  site_zone_id                = "ZOFFLINE"
-  site_state_handoff_complete = true
-  dnssec_key_arn              = "arn:aws:kms:us-east-1:767397796791:key/00000000-0000-0000-0000-000000000000"
+  spacelift_run_id     = "offline-delivery-test"
+  site_certificate_arn = "arn:aws:acm:us-east-1:767397796791:certificate/00000000-0000-0000-0000-000000000000"
+  site_zone_id         = "ZOFFLINE"
+  dnssec_key_arn       = "arn:aws:kms:us-east-1:767397796791:key/00000000-0000-0000-0000-000000000000"
 }
 
 run "gzip_uses_managed_compression_cache_policy" {
@@ -65,13 +64,6 @@ run "ipv6_aliases_preserve_routing" {
   }
 }
 
-run "handoff_blocks_ordinary_apply" {
-  command = plan
-  variables {
-    site_state_handoff_complete = false
-  }
-  expect_failures = [terraform_data.site_state_handoff_guard]
-}
 
 run "dnssec_requires_explicit_key_arn" {
   command = plan

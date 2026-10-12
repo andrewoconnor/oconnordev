@@ -1,0 +1,16 @@
+{
+  "upstream": "BinomialLLC/basis_universal",
+  "commit": "051ad6d8a64bb95a79e8601c317055fd1782ad3e",
+  "files": {
+    "kodim23.ktx2": {
+      "source": "https://raw.githubusercontent.com/BinomialLLC/basis_universal/051ad6d8a64bb95a79e8601c317055fd1782ad3e/webgl/ktx2_encode_test/assets/kodim23.ktx2",
+      "sha256": "693b57d02c35b1426425aa141a71af16aba520218187831569c555e547d4e22a",
+      "bytes": 510819
+    },
+    "kodim18_64x64.png": {
+      "source": "https://raw.githubusercontent.com/BinomialLLC/basis_universal/051ad6d8a64bb95a79e8601c317055fd1782ad3e/webgl/ktx2_encode_test/assets/kodim18_64x64.png",
+      "sha256": "26311a167e1cc06291e57bb8980b74201e4f8c3327a1a057cca7f4c75c222021",
+      "bytes": 10798
+    }
+  }
+}

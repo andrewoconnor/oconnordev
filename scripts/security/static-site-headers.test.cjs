@@ -1,18 +1,17 @@
-// Run after both site builds. No network, installs or cloud credentials required.
-// PLAYWRIGHT_MODULE can point at an existing Playwright installation.
-// DRUMROLL_FIXTURES must contain the existing real encoder pipeline's tiny fixtures.
+// Run after the selected site build and pinned Chromium provisioning.
+// All fixture bytes are vendored and verified: no network or cloud credentials.
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const http = require("node:http");
 const crypto = require("node:crypto");
-const { chromium } = require(
-  process.env.PLAYWRIGHT_MODULE || "../../apps/oconnordev/node_modules/playwright",
-);
 const root = path.resolve(__dirname, "../..");
-const fixtures = process.env.DRUMROLL_FIXTURES;
-assert.ok(fixtures, "Set DRUMROLL_FIXTURES to existing real encoded test fixtures");
 const sites = (process.env.SITES || "oconnordev,drumrollworld").split(",");
+assert.ok(sites.every((site) => ["oconnordev", "drumrollworld"].includes(site)));
+const { chromium } = require(path.join(root, "apps", sites[0], "node_modules/playwright"));
+const fixtures = sites.includes("drumrollworld")
+  ? require("./fixture-reader.cjs").readFixtures(path.join(__dirname, "fixtures"))
+  : {};
 const policies = Object.fromEntries(
   [
     ["oconnordev", "oconnordev"],
@@ -62,19 +61,15 @@ async function serve(site) {
       return;
     }
     let file = path.join(dist, url.pathname === "/" ? "index.html" : url.pathname);
-    // Explicitly synthetic image content, genuinely encoded KTX2 files. Never
-    // claim these are production artwork or representative production sizes.
-    if (site === "drumrollworld" && url.pathname.startsWith("/images/")) {
-      file = url.pathname.endsWith(".ktx2")
-        ? path.join(
-            fixtures,
-            "derived-fixtures/globe",
-            path.basename(url.pathname).replace(/(?:2k|4k|8k|10k)/, "16px"),
-          )
-        : path.join(fixtures, "thumbnail-fixtures/fixture.thumb.jpg");
-    }
     res.setHeader("Content-Security-Policy", policies[site].csp);
     res.setHeader("Permissions-Policy", policies[site].permissions);
+    // Genuine upstream samples decoded and verified before browser launch.
+    if (site === "drumrollworld" && url.pathname.startsWith("/images/")) {
+      const name = url.pathname.endsWith(".ktx2") ? "kodim23.ktx2" : "kodim18_64x64.png";
+      res.setHeader("Content-Type", mime[path.extname(name)]);
+      res.end(fixtures[name]);
+      return;
+    }
     if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
       res.statusCode = 404;
       file = path.join(dist, "404.html");
@@ -128,7 +123,6 @@ async function observe(context) {
 }
 (async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM || "/usr/bin/chromium",
     headless: true,
     args: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
   });

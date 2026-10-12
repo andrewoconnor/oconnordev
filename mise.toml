@@ -55,12 +55,13 @@ run = [
 
 [tasks."test:oconnordev"]
 description = "Verify resume semantics, metadata, accessibility and actual PDF contents"
-run = "npm --prefix apps/oconnordev test"
+run = ["npm --prefix apps/oconnordev test", "SITES=oconnordev node scripts/security/static-site-headers.test.cjs"]
 
 [tasks."build:drumrollworld"]
 description = "Install locked packages without lifecycle scripts and build self-hosted assets"
 run = [
   "npm --prefix apps/drumrollworld ci --ignore-scripts --no-audit --no-fund",
+  'if [ "${CI:-}" = "true" ]; then npm --prefix apps/drumrollworld exec --no -- playwright install --with-deps chromium --only-shell; fi',
   "npm --prefix apps/drumrollworld run build",
 ]
 
@@ -69,6 +70,7 @@ description = "Check the generated self-hosted DrumrollWorld release"
 run = [
   "npm --prefix apps/drumrollworld run test",
   "node --test scripts/drumrollworld/test/*.test.mjs",
+  "SITES=drumrollworld node scripts/security/static-site-headers.test.cjs",
 ]
 
 [tasks.checkov]
