@@ -48,10 +48,10 @@ class StaticSiteDeploymentTests(unittest.TestCase):
                 deploy.index("configure-aws-credentials@"),
             )
             self.assertLess(
-                deploy.index('test "$MASTER_SHA" = "$EXPECTED_SHA"'),
+                deploy.index("site_freshness.py"),
                 deploy.index("configure-aws-credentials@"),
             )
-            self.assertIn("git ls-remote origin refs/heads/master", deploy)
+            self.assertIn(f'site_freshness.py {site} "$EXPECTED_SHA"', deploy)
             self.assertIn("cancel-in-progress: false", workflow)
             self.assertIn("github.ref == 'refs/heads/master'", deploy)
             self.assertNotIn("pull_request_target:", workflow)

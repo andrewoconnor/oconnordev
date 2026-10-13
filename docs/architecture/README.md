@@ -4,7 +4,7 @@
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to OpenTofu data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
 
-`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, and Spacelift targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint; `drumrollworld` owns the static site.
+`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, and Spacelift targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
 ## Audit architecture
 
@@ -20,27 +20,33 @@ The security-account gateway is a separate AWS_IAM trust boundary. Its resource 
 
 ## GitHub Actions site deployment
 
-Both static-site workflows authenticate with GitHub OIDC to the TOOLS broker,
-then assume separate site-scoped deploy roles in PRODUCTION. The broker trusts
-only this repository’s `master` subject and may assume exactly those two roles.
-Each role trusts only the broker and targets its own bucket/distribution.
-`oconnordev-resume` (root `infra/aws/oconnordev`) owns the OConnorDev site role; `drumrollworld` owns the DrumrollWorld
-role. Generated DrumrollWorld outputs reach the GitHub repository-configuration
-stack through its own dependency. Both apps use locked Biome lint/format checks.
-Each site has a separate per-ref concurrency group with active-run cancellation
-disabled. Protected-branch deployments check out current `master` and rerun
-format/lint before obtaining AWS credentials, so queued runs or old manual
-reruns do not restore their triggering commit. GitHub concurrency is not a FIFO
-queue and may replace pending runs; the target is current `master`, not deployment
-of every intermediate commit. A merge during an active deployment is picked up
-by the next qualifying queued run. S3 sync and CloudFront invalidation remain
-non-atomic; this change does not introduce a release-switch mechanism.
-DrumrollWorld additionally builds a locked npm/esbuild release with self-hosted
-Three.js, Globe.gl and KTX2 decoder JS/WASM. Its S3/CloudFront origin serves the
-complete runtime dependency bundle; no external module CDN is needed.
-See [DrumrollWorld deployment](../runbooks/drumrollworld-deployment.md) for the
-one-time apply order, master-only deployment gates, and image preservation.
+Each static-site workflow authenticates with GitHub OIDC to its own
+TOOLS environment-scoped broker (`oconnordev-production` or
+`drumrollworld-production`), then assumes only its own site deploy role in
+PRODUCTION. Each deploy role trusts its corresponding broker, not the other
+site’s broker. `oconnordev-resume` (`infra/aws/oconnordev`) owns the resume
+role/distribution outputs; DrumrollWorld owns its outputs. Both reach the
+GitHub repository-configuration stack through their workload dependencies.
+
+The check job checks out `github.sha`, runs locked builds, lint/format, app
+tests and the actual-HCL CSP browser proof, then packages tested public bytes.
+The deploy job checks out the same `github.sha` and downloads the same-run,
+SHA-named artifact. It verifies the archive digest and validates app-scoped
+freshness before AWS credentials: exact fetched master and tested commits
+must agree on app, deploy scripts, shared build inputs, security proof and
+site policy/module inputs. Infrastructure/docs-only successors may deploy
+the preserved tested artifact; relevant input changes reject stale runs.
+It never blindly checks out master or rebuilds untested bytes.
+
+Each site has separate per-ref concurrency with active-run cancellation
+disabled. Concurrency is not FIFO and may replace pending runs; neither it
+nor freshness verification provides an atomic release switch. S3 publication
+and CloudFront invalidation remain non-atomic. DrumrollWorld’s locked
+esbuild release self-hosts Three.js, Globe.gl and KTX2 JS/WASM. Its CSP proof
+uses checksum-pinned genuine upstream KTX2 fixtures and Playwright’s pinned
+Chromium, not manually provisioned fixtures or production artwork.
+See [DrumrollWorld deployment](../runbooks/drumrollworld-deployment.md).
 
 ## Stack dependency order
 
-`general -> security -> tools -> production -> {oconnordev-resume, drumrollworld}`. Both site workloads consume production's DNSSEC key ARN; resume also consumes the shared zone ID and wildcard certificate ARN. The zone/certificate remain in production for the Hermes endpoint. Site resources share the local `infra/modules/static-site` module. The cross-state resume move requires the [owner-operated state handoff](../static-site-state-migration.md), not an ordinary moved block. `security` waits for management-account delegated-administrator setup. TOOLS consumes the generated security gateway URL and ARN. PRODUCTION consumes the generated TOOLS outputs used by its workloads. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow [`docs/runbooks/infrastructure-bootstrap.md`](../runbooks/infrastructure-bootstrap.md).
+`general -> security -> tools -> production -> {oconnordev-resume, drumrollworld}`. Both site workloads consume production's DNSSEC key ARN; resume also consumes the shared zone ID and wildcard certificate ARN. The zone/certificate remain in production for the Hermes endpoint. Site resources share the local `infra/modules/static-site` module. The cross-state resume move is owner-reported complete (both stacks FINISHED with unchanged distribution and role); the [historical handoff](../static-site-state-migration.md) remains available, not a current migration prerequisite. `security` waits for management-account delegated-administrator setup. TOOLS consumes the generated security gateway URL and ARN. PRODUCTION consumes the generated TOOLS outputs used by its workloads. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow [`docs/runbooks/infrastructure-bootstrap.md`](../runbooks/infrastructure-bootstrap.md).

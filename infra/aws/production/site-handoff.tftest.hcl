@@ -31,13 +31,8 @@ variables {
 }
 
 
-run "handoff_blocks_production_apply" {
-  command         = plan
-  expect_failures = [terraform_data.site_state_handoff_guard]
-}
 run "shared_zone_certificate_and_dnssec_stay_production" {
   command = plan
-  variables { site_state_handoff_complete = true }
   assert {
     condition     = aws_route53_zone.oconnordev.name == "oconnor.dev" && aws_acm_certificate.oconnordev.domain_name == "oconnor.dev" && contains(aws_acm_certificate.oconnordev.subject_alternative_names, "*.oconnor.dev") && aws_route53_key_signing_key.oconnordev.key_management_service_arn == aws_kms_key.dnssec.arn
     error_message = "Shared zone, wildcard certificate and DNSSEC must stay in production for Hermes MCP."
