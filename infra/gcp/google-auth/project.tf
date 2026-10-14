@@ -21,6 +21,8 @@ data "google_project" "google_auth" {
 }
 
 resource "google_project" "google_auth" {
+  # checkov:skip=CKV_GCP_27:Import-only adoption; default-network presence is not inventoried and no network deletion is authorized. Assess networking separately after adoption.
+  # checkov:skip=CKV2_GCP_5:Import-only adoption with read-only credentials; project-wide audit logging is not managed or verified here. Assess logging separately without silently changing this project.
   project_id      = "adept-presence-510022-p7"
   name            = "oconnordev-tools"
   deletion_policy = "ABANDON"
