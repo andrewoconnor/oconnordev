@@ -11,6 +11,7 @@ ALL_ROOTS = (
     "infra/aws/oconnordev",
     "infra/spacelift",
     "infra/github/oconnordev",
+    "infra/gcp/google-auth",
 )
 
 ACCOUNT_MAP_CONSUMERS = (

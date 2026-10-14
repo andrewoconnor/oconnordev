@@ -6,6 +6,27 @@ The account map in `infra/aws/accounts.json` is the sole repository source for c
 
 `general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, and Spacelift targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
+## Google Auth project discovery ownership
+
+The administrative `oconnordev` stack owns the separate
+`oconnordev-gcp-google-auth` stack and its native Spacelift GCP service account in
+`infra/spacelift/gcp-google-auth.tf`. It does not join the AWS managed-stack or
+integration-attachment loop. The root `infra/gcp/google-auth` only reads the
+existing project `adept-presence-510022-p7` and validates its expected number
+`693193037198` and name `oconnordev-tools`; ACTIVE rejection is enforced by the
+pinned Google provider's real data-source read. No Google resources are yet
+managed or imported. The owner controls administrative merge/apply, obtains the
+actual native account email and grants project-scoped `roles/browser` in Cloud
+Shell. Cloud-platform token scope does not grant IAM permissions.
+
+Native run-token availability, exact live read and billing association are
+pending gates. A second owner-reviewed PR may import the project only after
+those gates and a preservation-only plan. Both stacks disable autodeploy and
+have Spacelift deletion protection. This path does not mount local federation
+JSON, require a paid generic OIDC pool, modify the existing Gmail OAuth client
+or MCP scopes, or remove manually created WIF resources. See the
+[staged runbook](../runbooks/gcp-google-auth-discovery.md).
+
 ## Audit architecture
 
 `general` owns the organization CloudTrail trail. `security` owns the CloudTrail and AWS Config destination buckets, their explicit S3 bucket policies, the Config organization aggregator, and the security-account gateway. Member-account Config recorders deliver to the central Config bucket. The trail and bucket policy intentionally avoid a reverse stack dependency: the trail uses the bucket name as configuration, while the bucket policy constructs the trail ARN from the account map.
