@@ -112,6 +112,17 @@ tofu -chdir=infra/aws/production test -no-color
 python3 scripts/infra/test_static_site_state.py
 """
 
+[tasks."test:opentofu-gcp"]
+description = "Run offline Google project discovery tests"
+run = """
+set -eu
+export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-$HOME/.opentofu.d/plugin-cache}"
+mkdir -p "$TF_PLUGIN_CACHE_DIR"
+tofu -chdir=infra/gcp/google-auth init -backend=false -input=false -no-color -lockfile=readonly
+tofu -chdir=infra/gcp/google-auth test -no-color
+python3 scripts/ci/verify_gcp_discovery_plan.py
+"""
+
 [tasks.test]
-description = "Run Python unit tests and OpenTofu boundary and delivery tests"
-depends = ["test:python", "test:opentofu-boundary", "test:opentofu-delivery"]
+description = "Run Python unit tests and OpenTofu boundary, delivery, and discovery tests"
+depends = ["test:python", "test:opentofu-boundary", "test:opentofu-delivery", "test:opentofu-gcp"]

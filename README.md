@@ -78,7 +78,7 @@ The production workflow publishes only that directory to the existing bucket.
 │   │   ├── production/      Public MCP endpoint
 │   │   └── security/        Central audit and security gateway
 │   ├── modules/static-site/ Shared local storage/delivery/deploy module
-│   ├── gcp/
+│   ├── gcp/google-auth/     Read-only existing Google Auth project discovery
 │   └── spacelift/           Spacelift management stack
 ├── scripts/
 │   ├── adapter/             Adapter deploy/smoke commands and offline tests
@@ -87,7 +87,7 @@ The production workflow publishes only that directory to the existing bucket.
 └── README.md
 ```
 
-Each configured workload directory under `infra/aws/` is an independent OpenTofu root mapped to a Spacelift stack. The `infra/gcp/` directory is currently a placeholder. `infra/spacelift/main.tf` owns the mapping and its explicit stack dependencies. OpenTofu configuration in each AWS root is organized around versions, providers, locals, feature resources, and outputs. Both site roots use the relative local source `../../modules/static-site`; no private registry, paid feature or registry credential is needed. Production retains the shared zone, DNSSEC key, wildcard certificate and Hermes endpoint. Every root commits a `.terraform.lock.hcl` with providers resolved from `registry.opentofu.org`; CI checks that lockfiles keep using the OpenTofu registry namespace.
+Each configured workload directory under `infra/aws/` is an independent OpenTofu root mapped to a Spacelift stack. The standalone `infra/gcp/google-auth/` root discovers the existing Google Auth project; it does not yet manage or import it. `infra/spacelift/gcp-google-auth.tf` owns its separate native GCP stack/integration, outside the AWS stack loop. See the [staged discovery and adoption gates](docs/runbooks/gcp-google-auth-discovery.md). `infra/spacelift/` owns the stack mapping and its explicit stack dependencies. OpenTofu configuration in each AWS root is organized around versions, providers, locals, feature resources, and outputs. Both site roots use the relative local source `../../modules/static-site`; no private registry, paid feature or registry credential is needed. Production retains the shared zone, DNSSEC key, wildcard certificate and Hermes endpoint. Every root commits a `.terraform.lock.hcl` with providers resolved from `registry.opentofu.org`; CI checks that lockfiles keep using the OpenTofu registry namespace.
 
 AWS account identifiers and the Organizations ID are centralized in `infra/aws/accounts.json`. A stack uses `data.aws_caller_identity.current.account_id` for its own account; the JSON map is for cross-account references. Spacelift dependencies remain only where one stack consumes a generated output, such as the AgentCore gateway URL/ARN.
 
