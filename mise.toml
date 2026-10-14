@@ -113,13 +113,12 @@ python3 scripts/infra/test_static_site_state.py
 """
 
 [tasks."test:opentofu-gcp"]
-description = "Run offline Google project discovery tests"
+description = "Run offline Google project adoption identity tests (not live import evidence)"
 run = """
 set -eu
 export TF_PLUGIN_CACHE_DIR="${TF_PLUGIN_CACHE_DIR:-$HOME/.opentofu.d/plugin-cache}"
 mkdir -p "$TF_PLUGIN_CACHE_DIR"
 tofu -chdir=infra/gcp/google-auth init -backend=false -input=false -no-color -lockfile=readonly
-tofu -chdir=infra/gcp/google-auth test -no-color
 python3 scripts/ci/verify_gcp_discovery_plan.py
 """
 

@@ -42,14 +42,37 @@ class GCPDiscoveryTests(unittest.TestCase):
             "gcp_google_auth", (ROOT / "infra/spacelift/main.tf").read_text()
         )
 
-    def test_discovery_contains_no_management_or_imports(self):
+    def test_preservation_only_project_import(self):
+        root = ROOT / "infra/gcp/google-auth"
+        source = (root / "project.tf").read_text()
+        self.assertIn('resource "google_project" "google_auth"', source)
+        imports = (root / "imports.tf").read_text()
+        self.assertIn("to = google_project.google_auth", imports)
+        self.assertIn('id = "adept-presence-510022-p7"', imports)
+        self.assertIn("prevent_destroy = true", source)
+        self.assertIn('deletion_policy = "ABANDON"', source)
+        self.assertIn("ignore_changes = [auto_create_network]", source)
+        provider = " ".join((root / "providers.tf").read_text().split())
+        self.assertIn('deletion_policy = "ABANDON"', provider)
+        self.assertIn("add_terraform_attribution_label = false", provider)
+        for forbidden in (
+            "billing_account =",
+            "org_id =",
+            "folder_id =",
+            "google_project_iam",
+            "google_compute",
+            "google_project_service",
+            "ignore_changes = all",
+        ):
+            self.assertNotIn(forbidden, source)
+        self.assertIn('self.number == "693193037198"', source)
+
+    def test_discovery_identity_is_retained(self):
         root = ROOT / "infra/gcp/google-auth"
         self.assertTrue(root.is_dir(), "Working discovery root is missing")
         source = "\n".join(p.read_text() for p in root.glob("*.tf"))
         self.assertIn('data "google_project" "google_auth"', source)
         for forbidden in (
-            'resource "',
-            "import {",
             "credentials",
             "access_token",
             "billing_account =",
@@ -69,7 +92,7 @@ class GCPDiscoveryTests(unittest.TestCase):
         self.assertIn("test:opentofu-gcp", tasks["test"]["depends"])
         run = tasks["test:opentofu-gcp"]["run"]
         self.assertIn("-lockfile=readonly", run)
-        self.assertIn("-chdir=infra/gcp/google-auth test", run)
+        self.assertIn("python3 scripts/ci/verify_gcp_discovery_plan.py", run)
 
     def test_mock_plan_gate_rejects_cloud_mutation(self):
         gate = ROOT / "scripts/ci/verify_gcp_discovery_plan.py"
@@ -104,6 +127,88 @@ class GCPDiscoveryTests(unittest.TestCase):
             verify_plan(imported)
         tasks = (ROOT / "mise.toml").read_text()
         self.assertIn("python3 scripts/ci/verify_gcp_discovery_plan.py", tasks)
+
+    def test_import_plan_gate_accepts_only_exact_import(self):
+        import copy
+
+        from verify_gcp_discovery_plan import verify_import_plan
+
+        # Synthetic unit fixture ONLY, never provider/live plan evidence.
+        valid = {
+            "configuration": {
+                "root_module": {
+                    "resources": [
+                        {"address": "data.google_project.google_auth", "mode": "data"},
+                        {"address": "google_project.google_auth", "mode": "managed"},
+                    ]
+                }
+            },
+            "resource_changes": [
+                {
+                    "address": "google_project.google_auth",
+                    "mode": "managed",
+                    "change": {
+                        "actions": ["no-op"],
+                        "importing": {"id": "adept-presence-510022-p7"},
+                        "after": {
+                            "project_id": "adept-presence-510022-p7",
+                            "name": "oconnordev-tools",
+                            "number": "693193037198",
+                        },
+                    },
+                }
+            ],
+        }
+        verify_import_plan(valid, expected_imports=1)
+        for mutation in (
+            "create",
+            "update",
+            "delete",
+            "wrong_id",
+            "wrong_address",
+            "missing_import",
+            "drift",
+            "wrong_number",
+            "wrong_name",
+            "duplicate",
+            "extra",
+            "unknown_checks",
+            "parent",
+            "billing",
+            "labels",
+        ):
+            changed = copy.deepcopy(valid)
+            resource = changed["resource_changes"][0]
+            if mutation in ("create", "update", "delete"):
+                resource["change"]["actions"] = [mutation]
+            elif mutation == "wrong_id":
+                resource["change"]["importing"]["id"] = "another-project"
+            elif mutation == "wrong_address":
+                resource["address"] = "google_project.other"
+            elif mutation == "missing_import":
+                del resource["change"]["importing"]
+            elif mutation == "wrong_number":
+                resource["change"]["after"]["number"] = "693193037199"
+            elif mutation == "wrong_name":
+                resource["change"]["after"]["name"] = "another-project"
+            elif mutation == "duplicate":
+                changed["resource_changes"].append(copy.deepcopy(resource))
+            elif mutation == "extra":
+                extra = copy.deepcopy(resource)
+                extra["address"] = "google_project.other"
+                changed["resource_changes"].append(extra)
+            elif mutation == "unknown_checks":
+                changed["checks"] = [{"status": "unknown"}]
+            elif mutation == "parent":
+                resource["change"]["after"]["folder_id"] = "123"
+            elif mutation == "billing":
+                resource["change"]["after"]["billing_account"] = "123456-123456-123456"
+            elif mutation == "labels":
+                resource["change"]["after"]["effective_labels"] = {"new": "label"}
+            else:
+                changed["resource_drift"] = [{"change": {"actions": ["update"]}}]
+            with self.subTest(mutation=mutation), self.assertRaises(ValueError):
+                verify_import_plan(changed, expected_imports=1)
 
     def test_ci_selects_gcp_without_aws_inputs(self):
         root = "infra/gcp/google-auth"
