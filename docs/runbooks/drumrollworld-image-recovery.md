@@ -7,8 +7,8 @@ using original source masters. None of these commands uploads to S3.
 ## Recorded public assets
 
 [`../assets/drumrollworld-published-assets.json`](../assets/drumrollworld-published-assets.json)
-records all 72 app-referenced image URLs at its recorded repository revision:
-27 original artifact photographs, their 27 thumbnails, 17 globe delivery textures/JPEGs,
+records all 80 app-referenced image URLs at its recorded repository revision:
+31 original artifact photographs, their 31 thumbnails, 17 globe delivery textures/JPEGs,
 and the favicon. Every entry includes an actual streamed SHA-256, byte size, observation
 time, public URL, and mapped `s3://drumrollworld-web/images/...` key. Photo attribution
 and licenses are retained from the app data. This is not a complete bucket inventory;

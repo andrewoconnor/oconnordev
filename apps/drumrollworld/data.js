@@ -494,4 +494,63 @@ export const DRUMS = [
       },
     ],
   },
+  {
+    id: "beiliu-bronze-drum-king",
+    title: "Beiliu bronze “Drum King”",
+    region: "Beiliu, Guangxi, China",
+    year: 25,
+    dateLabel: "Han dynasty (c. 1st century BCE – 2nd century CE)",
+    lat: 22.708,
+    lng: 110.354,
+    description:
+      "Unearthed at Shuitong'an in Beiliu, Guangxi, this bronze drum decorated with cloud-and-thunder patterns has a face 165 cm across and weighs 299 kg. It is the largest ancient bronze drum found so far, and it is known in China as the “Drum King”. It belongs to the Beiliu type, a group of giant drums cast in south-east Guangxi and south-west Guangdong from the Han to the Tang dynasty. Beiliu drums have a face wider than the body, an overhanging rim, an eight-rayed sun at the centre, and small four-legged frogs at the edge. Their walls can be as thin as 0.3 mm, which shows a very advanced clay-mould casting technology. Lead-isotope and trace-element analyses connect the metal to local ore sources, including the Tongshiling ancient copper mine in Beiliu. Historical texts link these drums to the Li and Liao peoples of ancient Lingnan, who used them as instruments of ritual, music and power.",
+    type: "bronze drum",
+    source: {
+      title:
+        "Separation or integration? Further insights from a study on chemical datasets of ancient bronze drums from South and Southeast Guangxi, China",
+      authors: ["Qiuyan Lu", "Yanxiang Li", "Guisen Zou", "Shiyang Gong"],
+      publicationTitle: "Heritage Science",
+      year: 2022,
+      volume: "10",
+      article: "175",
+      doi: "10.1186/s40494-022-00808-0",
+      url: "https://doi.org/10.1186/s40494-022-00808-0",
+      license: "CC BY 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+      note: "Open-access archaeometallurgical study of Beiliu- and Lingshan-type drums that identifies the 165 cm cloud-and-thunder drum as the largest known. See also Ruoxin Huang, Journal of Music Archaeology 2 (2024): 171–189, doi:10.1553/jma-002-07 (CC BY-NC-ND 4.0).",
+    },
+    images: [
+      {
+        src: "images/beiliu-bronze-drum-king/1.jpg",
+        caption:
+          "The cloud-and-thunder bronze drum on display in Nanning, standing on edge to show its 165 cm face with the central sun star and concentric bands of decoration.",
+        credit: "Photo by EditQ, 5 October 2022, own work, via Wikimedia Commons.",
+        license: "CC BY-SA 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-sa/4.0/",
+      },
+      {
+        src: "images/beiliu-bronze-drum-king/2.jpg",
+        caption:
+          "Detail of the cloud-and-thunder spiral pattern that covers the face and body of Beiliu-type drums.",
+        credit: "Cropped from Fig. 2, published in Lu et al. 2022, Heritage Science 10: 175.",
+        license: "CC BY 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+      },
+      {
+        src: "images/beiliu-bronze-drum-king/3.jpg",
+        caption: "A small four-legged bronze frog cast on the edge of a Beiliu-type drum face.",
+        credit: "Cropped from Fig. 2, published in Lu et al. 2022, Heritage Science 10: 175.",
+        license: "CC BY 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+      },
+      {
+        src: "images/beiliu-bronze-drum-king/4.jpg",
+        caption:
+          "Eleven Beiliu-type drums from museums in south-east Guangxi, showing the wide overhanging face, ring handles and frog figures typical of the type.",
+        credit: "Cropped from Fig. 2, published in Lu et al. 2022, Heritage Science 10: 175.",
+        license: "CC BY 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by/4.0/",
+      },
+    ],
+  },
 ];

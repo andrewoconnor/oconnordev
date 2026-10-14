@@ -14,7 +14,7 @@ const response = (body) => new Response(body, { status: 200 });
 test('committed catalog covers current original photos and every thumbnail link', async () => {
  const recorded = JSON.parse(await readFile(new URL('../../../docs/assets/drumrollworld-published-assets.json', import.meta.url), 'utf8'));
  validateCatalog(recorded);
- assert.equal(recorded.assets.length, 72);
+ assert.equal(recorded.assets.length, 80);
  const originals = new Set(DRUMS.flatMap(entry => (entry.images || []).map(image => new URL(image.src, 'https://drumroll.world').pathname)));
  assert.deepEqual(new Set(recorded.assets.filter(a => a.kind === 'artifact-original').map(a => a.path)), originals);
  const expectedThumbs = new Set([...originals].map(path => path.replace(/\.(jpe?g|png)$/i, '.thumb.jpg')));
