@@ -46,14 +46,15 @@ batch, write, arbitrary URL/header, auth, profile, calendar or users endpoints.
 
 ## Independent trust and persistence
 
-**Activation privacy gate:** the existing shared gateway application log delivery
-(`infra/aws/tools/gateway-observability.tf`) is documented to retain MCP request
-and response bodies for seven days. Runtime log suppression does **not** suppress
-those gateway logs. Before enabling this mail target, the owner must verify the
-actual delivery payload and approve an explicit mail-data retention decision, or
-separately review a supported way to suppress payload logging. Do not claim
-end-to-end no-mailbox-logging from the runtime's settings alone. This review does
-not silently change shared gateway observability.
+**Activation privacy gate:** the owner explicitly approved disabling the shared
+Gateway APPLICATION_LOGS delivery through a separate IaC PR. The change is
+**pending owner apply and live verification**; see
+[Gateway log privacy](gateway-log-privacy.md) for the exact one-delivery removal,
+metadata-only verification and retained historical seven-day expiry. Keep this
+mail runtime disabled until that gate passes. Runtime log suppression does **not**
+suppress Gateway logs, and disabling Gateway delivery does not suppress runtime
+or other logs. No end-to-end no-mailbox-logging guarantee or retroactive purge is
+claimed; this runbook does not itself change shared observability or enable mail.
 
 * Gateway role: only InvokeFunctionUrl conditioned on FunctionUrlAuthType=AWS_IAM
   and InvokeFunction conditioned on InvokedViaFunctionUrl=true, for this exact

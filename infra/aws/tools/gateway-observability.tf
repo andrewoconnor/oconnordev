@@ -19,7 +19,7 @@ locals {
 
 resource "aws_cloudwatch_log_group" "gateway_application_logs" {
   # checkov:skip=CKV_AWS_158:Encrypted at rest with the default AWS-owned key. An AWS-managed key cannot be referenced here -- alias/aws/logs is created lazily by the service and does not resolve beforehand -- and a customer-managed key would need a key policy granting the log-delivery service kms:GenerateDataKey*, where a policy wrong in either direction fails the delivery silently rather than loudly.
-  # checkov:skip=CKV_AWS_338:Retention is deliberately 7 days, not a year. These are high-volume diagnostic records carrying MCP request and response bodies, kept to debug an active problem rather than as an audit trail, and the shorter retention bounds their storage. Raise var.hermes_gateway_log_retention_days to keep them longer.
+  # checkov:skip=CKV_AWS_338:Historical MCP request/response bodies retain the existing seven-day default expiry, not a year. Disabling delivery is not a retroactive purge; preserve this group and its retention unchanged.
   name              = local.hermes_gateway_log_group_name
   retention_in_days = var.hermes_gateway_log_retention_days
 }
@@ -38,10 +38,11 @@ resource "aws_cloudwatch_log_delivery_destination" "gateway_application_logs" {
   }
 }
 
-resource "aws_cloudwatch_log_delivery" "gateway_application_logs" {
-  delivery_source_name     = aws_cloudwatch_log_delivery_source.gateway_application_logs.name
-  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.gateway_application_logs.arn
-}
+# APPLICATION_LOGS delivery is intentionally absent: Gateway vended logs include
+# MCP request/response bodies. Retain inert source/destination metadata and the
+# historical log group (seven-day default expiry), not a replacement payload sink.
+# Native metrics and the UserErrors alarm below do not depend on this delivery.
+# Owner apply/live verification: docs/runbooks/gateway-log-privacy.md.
 
 resource "aws_cloudwatch_metric_alarm" "gateway_user_errors" {
   alarm_name          = "hermes-gateway-user-errors"
