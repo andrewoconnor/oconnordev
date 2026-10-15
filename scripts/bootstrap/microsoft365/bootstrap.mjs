@@ -28,7 +28,7 @@ export async function bootstrap({sts,secrets,lambda,authenticate,confirm,print,c
   print(`Writes ONE new cache version to ${SECRET_ARN}. No Graph/mailbox calls or local cache reads. Stop all competing writers; metadata checks are NOT atomic compare-and-swap.`);
   if(!await confirm('I approve these scopes/client and this write, and have stopped all other writers'))throw Error('Cancelled');
   session=await authenticate(clientId,({verificationUri,userCode})=>{
-   if(verificationUri!=='https://microsoft.com/devicelogin'||typeof userCode!=='string'||!/^[A-Z0-9-]{4,32}$/.test(userCode))throw Error('Invalid device instructions');
+   if(!['https://microsoft.com/devicelogin','https://www.microsoft.com/link'].includes(verificationUri)||typeof userCode!=='string'||!/^[A-Z0-9-]{4,32}$/.test(userCode))throw Error('Invalid device instructions');
    print(`Microsoft sign-in: ${verificationUri}`);print(`Device code (enter only at Microsoft, never in chat): ${userCode}`);
   });
   const account=session.result?.account;

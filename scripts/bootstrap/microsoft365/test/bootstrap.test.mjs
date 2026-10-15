@@ -27,6 +27,16 @@ test('new consumer cache is confirmed, validated, written once, read back by exa
  assert.match(h.stored.ClientRequestToken,/^[a-f0-9-]{36}$/);assert.ok(h.cleared);
  assert.ok(!h.logs.join('\n').includes('SYNTHETIC-SECRET'));
 });
+for(const verificationUri of ['https://microsoft.com/devicelogin','https://www.microsoft.com/link'])test(`accept exact Microsoft device URL ${verificationUri}`,async()=>{
+ const h=harness(),authenticate=h.deps.authenticate;
+ h.deps.authenticate=(id,cb)=>authenticate(id,instructions=>cb({...instructions,verificationUri}));
+ await subject.bootstrap(h.deps);assert.ok(h.stored);assert.ok(h.logs.includes(`Microsoft sign-in: ${verificationUri}`));
+});
+for(const verificationUri of ['http://www.microsoft.com/link','https://www.microsoft.com.evil.example/link','https://www.microsoft.com/link?redirect=evil','https://www.microsoft.com/link#fragment','https://evil@www.microsoft.com/link','https://www.microsoft.com/other'])test(`reject unapproved device URL ${verificationUri}`,async()=>{
+ const h=harness(),authenticate=h.deps.authenticate;
+ h.deps.authenticate=(id,cb)=>authenticate(id,instructions=>cb({...instructions,verificationUri}));
+ await assert.rejects(subject.bootstrap(h.deps),/Invalid device instructions/);assert.ok(!h.stored);assert.ok(!h.logs.includes(`Microsoft sign-in: ${verificationUri}`));
+});
 test('device callback rejects arbitrary links before printing anything from provider',async()=>{
  const h=harness();h.deps.authenticate=async(id,cb)=>{cb({verificationUri:'https://evil.example/devicelogin',userCode:'SAFE',message:'SYNTHETIC-SECRET'});throw Error('should not reach');};
  await assert.rejects(subject.bootstrap(h.deps),/Invalid device instructions/);
