@@ -8,4 +8,5 @@ RUN npm ci --ignore-scripts --omit=optional --omit=dev --no-audit --no-fund && n
 COPY *.mjs tools-manifest.json ./
 ENV NODE_ENV=production AWS_LWA_PORT=8080 AWS_LWA_READINESS_CHECK_PORT=8080 AWS_LWA_READINESS_CHECK_PATH=/health AWS_LWA_READINESS_CHECK_MIN_UNHEALTHY_STATUS=201 AWS_LWA_INVOKE_MODE=buffered AWS_LWA_ASYNC_INIT=true
 USER node
+HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 CMD node -e "fetch('http://127.0.0.1:8080/health', {signal: AbortSignal.timeout(2000)}).then(r => process.exit(r.status === 200 ? 0 : 1)).catch(() => process.exit(1))"
 CMD ["node", "main.mjs"]

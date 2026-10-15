@@ -117,4 +117,4 @@ jobs:
           # Readback must agree with the actual push, not merely a successful API call.
           PUSH_DIGEST=$(python3 -c 'import re; from pathlib import Path; print(re.findall(r"digest: (sha256:[0-9a-f]{64})", Path("release/push.txt").read_text())[-1])')
           test "$DIGEST" = "$PUSH_DIGEST"
-          printf 'Owner-reviewed image (not deployed): `%s@%s`\n' "$IMAGE_REPOSITORY" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Owner-reviewed image (not deployed): %s@%s\n' "$IMAGE_REPOSITORY" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
