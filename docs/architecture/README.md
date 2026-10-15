@@ -6,25 +6,28 @@ The account map in `infra/aws/accounts.json` is the sole repository source for c
 
 `general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, and Spacelift targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
-## Google Auth project discovery ownership
+## Google Auth project adoption ownership
 
-The administrative `oconnordev` stack owns the separate
-`oconnordev-gcp-google-auth` stack and its native Spacelift GCP service account in
-`infra/spacelift/gcp-google-auth.tf`. It does not join the AWS managed-stack or
-integration-attachment loop. The root `infra/gcp/google-auth` only reads the
-existing project `adept-presence-510022-p7` and validates its expected number
-`693193037198` and name `oconnordev-tools`; ACTIVE rejection is enforced by the
-pinned Google provider's real data-source read. No Google resources are yet
-managed or imported. The owner controls administrative merge/apply, obtains the
-actual native account email and grants project-scoped `roles/browser` in Cloud
-Shell. Cloud-platform token scope does not grant IAM permissions.
+The administrative `oconnordev` stack owns the separate protected,
+autodeploy-disabled native GCP stack/integration outside the AWS stack loop.
+`infra/gcp/google-auth` declares stage-two adoption of only project
+`adept-presence-510022-p7`, number `693193037198`, name `oconnordev-tools`.
+Independent discovery checks the live identity before the managed resource can
+mask a changed display name. One declarative import, `prevent_destroy` and
+`deletion_policy = "ABANDON"` protect the existing project; no IAM, APIs,
+networking, billing association, OAuth or WIF resources are managed here.
+This code is **not a claim that adoption has been applied**.
 
-Native run-token availability, exact live read and billing association are
-pending gates. A second owner-reviewed PR may import the project only after
-those gates and a preservation-only plan. Both stacks disable autodeploy and
-have Spacelift deletion protection. This path does not mount local federation
-JSON, require a paid generic OIDC pool, modify the existing Gmail OAuth client
-or MCP scopes, or remove manually created WIF resources. See the
+Stage-one native discovery FINISHED in run `01M4XYWS3DPJ5B2ZFPSXCG4FMV`
+with exact identity outputs. Owner-supplied Cloud Shell metadata reports ACTIVE,
+no labels/parent, and billing describe reports `billingEnabled: false` with the
+billing account name omitted. These are bounded observations, not proof of
+broad billing access. Native auth works on the existing free account;
+cloud-platform scope remains distinct from project IAM (`roles/browser`).
+
+The owner alone approves a real **1 import, 0 adds/changes/destroys**, drift-free
+plan and applies it. No credentials mount, paid generic OIDC, IAM elevation,
+Gmail client/scope changes or manual WIF cleanup is introduced. See the
 [staged runbook](../runbooks/gcp-google-auth-discovery.md).
 
 ## Audit architecture
