@@ -3,9 +3,14 @@
 ## Decision and status
 
 The owner explicitly approved disabling shared Gateway body logging through a
-separate IaC PR, with owner merge/apply. This change is **pending owner apply and
-live verification**, not a claim that live logging is already disabled. Keep
-Microsoft365 runtime activation disabled until this gate is verified.
+separate IaC PR #118, now merged and applied. TOOLS apply run
+`01M50PH738EP65ZF66HKX7CZMT0` is `FINISHED`, with **0 add, 0 change, 1 destroy**;
+`aws_cloudwatch_log_delivery.gateway_application_logs` was removed from managed
+state. The privacy apply gate is cleared on that apply/state evidence. This is
+not independent direct AWS enumeration, proof against out-of-band deliveries, or
+an end-to-end no-logging guarantee. The metadata-only checks below remain the
+procedure for stronger direct AWS verification. Microsoft365 runtime stays
+disabled while OAuth/cache bootstrap and separate activation proofs are pending.
 
 Remove only `aws_cloudwatch_log_delivery.gateway_application_logs`. Preserve the
 APPLICATION_LOGS source and destination metadata, existing log group
@@ -48,7 +53,8 @@ metrics/alarm remain; log-derived diagnostics from this delivery do not.
 1. Review the separate PR and exact-head checks. With the prior delivery managed
    and no unrelated drift, expect **0 add, 0 change, 1 destroy**, solely
    `aws_cloudwatch_log_delivery.gateway_application_logs`. This is the expected
-   shape, not an executed live plan. Stop on Gateway/auth/Cedar replacement,
+   shape, now matched by the recorded apply above. Stop on Gateway/auth/Cedar
+   replacement,
    log-group deletion, retention change, replacement sink or unrelated changes.
 2. Owner merges and applies the reviewed TOOLS plan (`autodeploy=false`). No apply,
    deploy, mail access, secret read, log-event read or live write is authorized by
@@ -77,8 +83,9 @@ physical deletion typically takes up to 72 hours after expiry, sometimes longer
 Do not delete the group, streams, or mail payload data as part of this change.
 Any historical copies/exports outside this group are not purged by this change.
 
-This only stops the configured Gateway APPLICATION_LOGS delivery after apply and
-verification. It does not prove absence of sensitive data in runtime, Lambda,
+The recorded apply removes the configured Gateway APPLICATION_LOGS delivery;
+independent metadata enumeration is still needed to exclude out-of-band delivery.
+It does not prove absence of sensitive data in runtime, Lambda,
 client/adapter, upstream, trace/span or other logs. Runtime log suppression does
 not suppress Gateway logs; conversely removing Gateway delivery does not suppress
 runtime logs. No end-to-end no-mailbox-logging guarantee is made.
