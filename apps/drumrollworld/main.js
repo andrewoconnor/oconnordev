@@ -568,17 +568,54 @@ function renderGallery(body, entry, idx = 0) {
   }
 }
 
+function renderVideos(el, entry) {
+  el.textContent = "";
+  for (const video of entry?.videos || []) {
+    const figure = document.createElement("figure");
+    figure.className = "entry-video";
+    const player = document.createElement("video");
+    player.className = "entry-video-player";
+    player.controls = true;
+    player.preload = "none";
+    player.playsInline = true;
+    player.disablePictureInPicture = true;
+    player.setAttribute("controlslist", "nofullscreen noremoteplayback");
+    if (video.poster) player.poster = video.poster;
+    player.src = video.src;
+    const caption = document.createElement("figcaption");
+    caption.className = "entry-video-caption";
+    caption.textContent = video.caption || "";
+    const credit = document.createElement("div");
+    credit.className = "entry-video-credit";
+    renderImageCredit(credit, video);
+    if (video.url) {
+      const link = document.createElement("a");
+      link.className = "entry-video-link";
+      link.href = video.url;
+      link.target = "_blank";
+      link.rel = "noopener";
+      link.textContent = "Original video";
+      credit.appendChild(link);
+    }
+    figure.appendChild(player);
+    figure.appendChild(caption);
+    figure.appendChild(credit);
+    el.appendChild(figure);
+  }
+}
+
 function buildEntryBody(entry) {
   if (entry._cachedBody) return entry._cachedBody;
   const wrapper = document.createElement("div");
   wrapper.className = "entry-body-wrapper";
   const body = document.createElement("div");
   body.className = "entry-body";
-  body.innerHTML = `<div class="entry-meta"></div><img class="entry-main-img" src="" /><div class="entry-caption"></div><div class="entry-credit"></div><div class="entry-thumbs"></div><p class="entry-desc"></p><div class="entry-source"></div>`;
+  body.innerHTML = `<div class="entry-meta"></div><img class="entry-main-img" src="" /><div class="entry-caption"></div><div class="entry-credit"></div><div class="entry-thumbs"></div><div class="entry-videos"></div><p class="entry-desc"></p><div class="entry-source"></div>`;
   body.querySelector(".entry-meta").textContent =
     `${entry.region} • ${entry._displayDate} • ${entry.type}`;
   body.querySelector(".entry-desc").textContent = entry.description;
   renderGallery(body, entry, 0);
+  renderVideos(body.querySelector(".entry-videos"), entry);
   renderSource(body.querySelector(".entry-source"), entry);
   wrapper.appendChild(body);
   entry._cachedBody = wrapper;

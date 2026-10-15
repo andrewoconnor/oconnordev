@@ -362,6 +362,31 @@ body {
 .entry-thumb.active {
   border-color: var(--accent);
 }
+.entry-video {
+  margin: 0 0 12px 0;
+}
+.entry-video-player {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: #000;
+  display: block;
+  margin-bottom: 8px;
+}
+.entry-video-caption {
+  font-size: 12px;
+  color: #bdbdbd;
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+.entry-video-credit {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+.entry-video-link {
+  margin-left: 4px;
+}
 .entry-desc {
   margin: 0;
   line-height: 1.4;
