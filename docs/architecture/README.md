@@ -12,13 +12,19 @@ The administrative `oconnordev` stack owns the separate protected,
 autodeploy-disabled native GCP stack/integration outside the AWS stack loop.
 `infra/gcp/google-auth` preserves adopted project `adept-presence-510022-p7`,
 number `693193037198`, name `oconnordev-tools`, with independent discovery and
-protected, idempotent project import history. This stage adds exactly five
-imports: existing manual WIF pool/provider, manual bootstrap service account
-without a display name, and two additive browser members. Every managed object
+protected, idempotent project import history. Supplied FINISHED run
+`01M4ZV628AS0TYRQGFDKEWDF55` adopted the manual WIF pool/provider, manual
+bootstrap service account without a display name, and two browser members.
+This stage adds only two existing unconditional read memberships for native
+`gcp-01m4xs8mrej8cdgz286edc0ab2@spacelift.iam.gserviceaccount.com`: project
+WIF Viewer and SA Viewer scoped only to manual account
+`spacelift-google-auth@adept-presence-510022-p7.iam.gserviceaccount.com`.
+Every managed object
 has `prevent_destroy`; project, pool/provider and SA use ABANDON. The owner policy
 is untouched. No APIs, authoritative IAM policies, impersonation grant, networking,
-billing association or OAuth resources are added. This is **not an executed
-bootstrap import**; incomplete manual WIF is preserved, not activated.
+billing association or OAuth resources are added. The owner reports both read
+grants succeeded; their two-import adoption plan is **not yet executed**.
+Incomplete manual WIF is preserved, not activated.
 
 Stage-one native discovery FINISHED in run `01M4XYWS3DPJ5B2ZFPSXCG4FMV`
 with exact identity outputs. Owner-supplied Cloud Shell metadata reports ACTIVE,
@@ -27,10 +33,12 @@ billing account name omitted. These are bounded observations, not proof of
 broad billing access. Native auth works on the existing free account;
 cloud-platform scope remains distinct from project IAM (`roles/browser`).
 
-The owner alone approves a real **5 imports, 0 adds/changes/destroys**, drift-free
-plan, with the existing project a no-op; afterward require zero imports. Native
-read grants are pending: project WIF Viewer and SA Viewer only on the manual
-account, separately inventoried if granted. No credentials mount, paid generic
+The owner alone approves a real **2 imports, 0 adds/changes/destroys**, drift-free
+plan on the exact published revision, with all six historical objects no-op;
+afterward require zero imports. There are eight managed objects plus existing
+discovery data. SA Viewer discloses key metadata through get/list, not key
+creation, signing or token minting; it already covers the provider's account
+getIamPolicy read. No extra read grant, credentials mount, paid generic
 OIDC, Service Usage Viewer, Gmail scope changes or WIF cleanup is introduced. See the
 [staged runbook](../runbooks/gcp-google-auth-discovery.md).
 

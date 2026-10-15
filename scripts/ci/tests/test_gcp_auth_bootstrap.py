@@ -210,8 +210,8 @@ class BootstrapTests(unittest.TestCase):
         imports = (root / "imports.tf").read_text()
         self.assertEqual(
             imports.count("import {"),
-            6,
-            "Existing project history plus five new imports",
+            8,
+            "Project/bootstrap history plus two stage-three read imports",
         )
         sa = source.split('resource "google_service_account"')[1].split(
             'resource "google_project_iam_member"'
