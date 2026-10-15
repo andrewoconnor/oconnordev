@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "scope": "All 96 image/video/icon/globe delivery URLs referenced by the application at the recorded repository revision; not a complete S3 bucket inventory.",
+  "scope": "All 98 image/video/icon/globe delivery URLs referenced by the application at the recorded repository revision; not a complete S3 bucket inventory.",
   "repositoryRevision": "0e5f6c534f554c22a3fc650644f7a420a6b00dbb",
   "origin": "https://drumroll.world",
   "s3LocationNote": "S3 URIs are mapped from the repository CloudFront origin bucket and public paths; object version IDs were not available through public HTTP and the AWS role could not list this bucket.",
@@ -994,6 +994,17 @@
       "observedAtUtc": "2026-10-15T14:27:13.744937+00:00"
     },
     {
+      "path": "/images/oleniy-ostrov-elk-tooth-rattles/video-1.thumb.jpg",
+      "kind": "artifact-thumbnail",
+      "sourcePath": "/images/oleniy-ostrov-elk-tooth-rattles/video-1.jpg",
+      "url": "https://drumroll.world/images/oleniy-ostrov-elk-tooth-rattles/video-1.thumb.jpg",
+      "s3Uri": "s3://drumrollworld-web/images/oleniy-ostrov-elk-tooth-rattles/video-1.thumb.jpg",
+      "sha256": "351efa5bf4ac6dede0fec8ca6987a9668dd0c5c0d146c9056861a10af5490b5d",
+      "bytes": 9456,
+      "contentType": "image/jpeg",
+      "observedAtUtc": "2026-10-15T15:02:52.073816+00:00"
+    },
+    {
       "path": "/images/oleniy-ostrov-elk-tooth-rattles/video-2.jpg",
       "kind": "artifact-video-poster",
       "sourcePath": "/images/oleniy-ostrov-elk-tooth-rattles/video-2.mp4",
@@ -1018,6 +1029,17 @@
       "bytes": 2522807,
       "contentType": "video/mp4",
       "observedAtUtc": "2026-10-15T14:27:13.744937+00:00"
+    },
+    {
+      "path": "/images/oleniy-ostrov-elk-tooth-rattles/video-2.thumb.jpg",
+      "kind": "artifact-thumbnail",
+      "sourcePath": "/images/oleniy-ostrov-elk-tooth-rattles/video-2.jpg",
+      "url": "https://drumroll.world/images/oleniy-ostrov-elk-tooth-rattles/video-2.thumb.jpg",
+      "s3Uri": "s3://drumrollworld-web/images/oleniy-ostrov-elk-tooth-rattles/video-2.thumb.jpg",
+      "sha256": "95ed5e8e7eda09238cadc2fe057f99320998af62130ad0cbbe6e99db1ecdbba4",
+      "bytes": 10482,
+      "contentType": "image/jpeg",
+      "observedAtUtc": "2026-10-15T15:02:52.073816+00:00"
     },
     {
       "path": "/images/paracas-drum/1.jpg",

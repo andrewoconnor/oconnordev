@@ -69,6 +69,18 @@ class Element {
   setAttribute(name, value) {
     this.attributes[name] = value;
   }
+  removeAttribute(name) {
+    delete this.attributes[name];
+    if (name === "src") this.src = "";
+  }
+  pause() {
+    this.paused = true;
+  }
+  play() {
+    this.paused = false;
+    return Promise.resolve();
+  }
+  load() {}
   getBoundingClientRect() {
     return { height: 300 };
   }
@@ -285,22 +297,50 @@ test("WebGL constructor failure retains selected searchable list and gallery", a
   assert.match(notice.textContent, /3D unavailable/);
 });
 
-test("entry videos render click-to-load players with credit and original link", async () => {
+test("videos share the gallery carousel and expand into the same lightbox", async () => {
   const h = harness({ throwing: true });
   await flush();
   assert.equal(h.get("activeTitle").textContent, "Drum 2");
-  const videos = h.get("entryList").querySelector(".entry-videos");
-  assert.equal(videos.children.length, 1);
-  const [player, caption, credit] = videos.children[0].children;
+  const body = h.get("entryList").querySelector(".entry-body");
+  const thumbs = body.querySelector(".entry-thumbs").children;
+  assert.equal(thumbs.length, 3);
+  assert.ok(thumbs[2].classes.has("entry-thumb-video"));
+  assert.equal(thumbs[2].children[0].src, "/2-poster.thumb.jpg");
+  assert.ok(body.querySelector(".entry-main-video").classList.contains("hidden"));
+  thumbs[2].onclick();
+  const player = body.querySelector(".entry-main-video-player");
+  assert.ok(body.querySelector(".entry-main-img").classList.contains("hidden"));
+  assert.ok(!body.querySelector(".entry-main-video").classList.contains("hidden"));
   assert.equal(player.src, "/2.mp4");
   assert.equal(player.poster, "/2-poster.jpg");
-  assert.equal(player.preload, "none");
-  assert.equal(player.controls, true);
-  assert.equal(caption.textContent, "Rattle");
-  assert.equal(credit.children.at(-1).href, "https://youtu.be/example");
-  h.get("prevBtn").dispatch("click");
-  const first = h.get("entryList").children.find((c) => c.querySelector(".entry-body"));
-  assert.equal(first.querySelector(".entry-videos").children.length, 0);
+  assert.equal(body.querySelector(".entry-caption").textContent, "Rattle");
+  assert.equal(
+    body.querySelector(".entry-credit").children.at(-1).href,
+    "https://youtu.be/example",
+  );
+  player.currentTime = 12;
+  player.paused = false;
+  player.muted = true;
+  body.querySelector(".entry-expand").onclick();
+  assert.equal(player.paused, true);
+  assert.ok(h.get("lightbox").classList.contains("open"));
+  assert.ok(h.get("lightboxImg").classList.contains("hidden"));
+  assert.equal(h.get("lightboxVideo").src, "/2.mp4");
+  assert.equal(h.get("lightboxVideo").currentTime, 12);
+  assert.equal(h.get("lightboxVideo").paused, false);
+  assert.equal(h.get("lightboxVideo").muted, true);
+  assert.equal(h.get("lbCounter").textContent, "3 / 3");
+  h.get("lbNext").dispatch("click", { stopPropagation() {} });
+  assert.equal(h.get("lbCounter").textContent, "1 / 3");
+  assert.equal(h.get("lightboxImg").src, "/2.jpg");
+  assert.ok(h.get("lightboxVideo").classList.contains("hidden"));
+  assert.equal(h.get("lightboxVideo").src, "");
+  h.get("lbPrev").dispatch("click", { stopPropagation() {} });
+  assert.equal(h.get("lightboxVideo").src, "/2.mp4");
+  h.get("lbClose").dispatch("click", { stopPropagation() {} });
+  assert.ok(!h.get("lightbox").classList.contains("open"));
+  assert.equal(h.get("lightboxVideo").paused, true);
+  assert.equal(h.get("lightboxVideo").src, "");
 });
 
 test("stalled first-paint textures leave navigation usable and loading bounded", async () => {
