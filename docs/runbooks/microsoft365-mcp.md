@@ -147,12 +147,10 @@ claimed; this runbook does not itself change shared observability or enable mail
    Capture the actual `repository@sha256:...` from job summary; never use `latest`
    or the synthetic fixture digest. No Lambda deployment occurs in workflow.
 4. Separately authorize owner app/consumer consent and **new** serialized cache
-   bootstrap directly into the empty secret using the runtime's documented cache
-   envelope. Do not read/copy the current local Outlook token/cache/key. Verify the
-   sole consumer account's homeAccountId without publishing tokens or mailbox data.
-   Set only this immutable nonsecret pin and the actual published digest in the
-   TOOLS inputs. Pause every competing writer before bootstrap. Do not test by
-   printing secret values or token claims outside an allowlisted identity check.
+   bootstrap using the [reviewed owner-only helper](#owner-only-consumer-consent-step-1).
+   Do not read/copy the current local Outlook token/cache/key. Keep runtime disabled;
+   stop all competing writers. Set only its verified nonsecret identity/client pins
+   and the separately verified published image digest in TOOLS inputs.
 5. Owner sets `microsoft365_runtime_enabled=true`,
    `microsoft365_image_digest=<actual manifest digest>` and
    `microsoft365_owner_home_account_id=<verified uid.9188040d-6c67-4c5b-b112-36a304b66dad>`
@@ -199,6 +197,126 @@ claimed; this runbook does not itself change shared observability or enable mail
    client cutover. Keep the local Outlook connector unchanged throughout these
    stages. Removing old config/cache or restarting Hermes requires separate explicit
    approval; disabling a config reference does not revoke an upstream credential.
+
+## Owner-only consumer consent (step 1)
+
+**Preparation only until this helper is reviewed and merged to master, and the
+owner explicitly approves running it.** No device flow was started in development.
+This is the same *permission boundary* as the local read-only Outlook setup, but a
+fresh consent/session: it never imports the old connector's cache or key. It uses
+public client **084a3e9f-a9f4-43f7-89f9-d229cf97853e**, consumers authority
+`https://login.microsoftonline.com/consumers`, and only:
+
+| Scope | Purpose |
+| --- | --- |
+| `Mail.Read` | Delegated reading of the signed-in owner's mail |
+| `User.Read` | Basic own identity/profile |
+| `openid` | Sign-in identity |
+| `profile` | Basic identity claims |
+| `offline_access` | Refresh token for later unattended read-only calls |
+
+MSAL includes the last three OIDC scopes; the helper's synthetic endpoint test
+checks the exact outgoing scope set. No application permissions, mail writes,
+Graph `/me` call, mailbox request, token export, client secret, local cache
+persistence, or scope-broadening fallback. A different public app requires separate
+review and explicit `--client-id <UUID>` selection; it is disclosed before consent.
+The client ID's availability/consent eligibility is not proven by offline tests.
+
+Use **the owner's AWS CloudShell**, opened in **TOOLS account `421680664125`**,
+region **`us-east-1`**. This is **not Google Cloud Shell**, not a Hermes terminal,
+not SECURITY, and not a request to provide AWS keys to Hermes. Verify the console
+account and actual shell Node version. Use Node **22 or newer**; if unavailable,
+stop and arrange an owner-approved Node installation rather than running curl/bash
+or unpinned npx. Do not enable shell tracing, terminal recording, debug logging or
+paste console output containing device codes/credentials into chat.
+
+After merge, from an owner-controlled checkout (fresh clone shown; if it already
+exists use a clean reviewed master worktree instead):
+
+```sh
+git clone https://github.com/andrewoconnor/oconnordev.git
+cd oconnordev
+git switch master
+git pull --ff-only origin master
+git status --short
+git rev-parse HEAD
+node --version
+npm --version
+```
+
+Compare the checkout HEAD and helper/lockfiles with the reviewed merged version
+before proceeding; do not run the draft branch or an unexpected changed tree.
+From that repository root install **both** locked dependency scopes (the helper
+imports the production envelope validator from the runtime, whose relative imports
+resolve against runtime dependencies):
+
+```sh
+npm ci --prefix infra/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund
+npm ci --prefix scripts/bootstrap/microsoft365 --ignore-scripts --no-audit --no-fund
+npm test --prefix scripts/bootstrap/microsoft365
+node scripts/bootstrap/microsoft365/cli.mjs --help
+```
+
+Only after explicit owner authorization, start the interactive operation:
+
+```sh
+node scripts/bootstrap/microsoft365/cli.mjs
+```
+
+The helper uses **one shared AWS SDK credential-provider chain** for STS, Secrets
+Manager and Lambda, all pinned to `us-east-1`; it does not mix an AWS CLI profile
+check with a different SDK identity. Required owner privileges are STS
+`GetCallerIdentity`, `lambda:GetFunction` on `hermes-microsoft365-mcp`, and
+`secretsmanager:DescribeSecret`, `PutSecretValue`, `GetSecretValue` on exactly
+`arn:aws:secretsmanager:us-east-1:421680664125:secret:/hermes/microsoft365/msal-cache-CnJLNM`.
+No role/policy modification is performed; if denied, stop for a separately reviewed
+owner permission decision. Do not give these privileges to the publisher/gateway.
+
+1. It verifies TOOLS via STS and displays the IAM ARN, fixed region, client,
+   scopes and exact destination. Metadata must show **no secret versions at all**
+   (even an empty-string value is occupied), the secret must already exist, and
+   Lambda `GetFunction` must return `ResourceNotFoundException`. A deployed but
+   inactive/stopped function is rejected; denied/ambiguous checks fail closed.
+2. Read the disclosure and type `YES` only if you approve consent plus the one
+   secret write and have stopped **all** competing writers. Checks are repeated
+   just before writing, but Secrets Manager has **no atomic empty-secret CAS**:
+   exclusive-writer discipline remains an owner prerequisite.
+3. Enter the displayed code directly at **https://microsoft.com/devicelogin**,
+   choosing the intended personal Microsoft account. Never send the code, password
+   or MFA response to Hermes/chat. Only the exact allowlisted HTTPS verification
+   URI and code are printed, not Microsoft's arbitrary callback message. Stop if
+   the consent screen requests anything beyond the disclosed scopes/client.
+4. The helper creates a fresh in-memory MSAL 5.6.0 cache. It validates the sole
+   consumer account, approved grants, refresh-token presence and token client/owner
+   using the production `validateEnvelope`. It displays username, **MSAL
+   homeAccountId** (not a locally inferred `oid`) and client. Type `YES` again only
+   if it is your intended identity. No `YES` flags/noninteractive bypass exist.
+5. It rechecks the metadata/runtime guards, writes a version-1 envelope once, and
+   reads back **that exact returned version** for in-memory equality and validation.
+   It prints only the nonsecret `microsoft365_owner_home_account_id` and
+   `microsoft365_client_id` TOOLS inputs. Choose the latest separately verified
+   published image manifest digest; the helper neither deploys nor enables runtime.
+
+On failure no raw provider errors/stacks/token bodies are printed. A failed
+write/readback can leave a version present; do not rerun to overwrite it or print
+its value. Stop for owner recovery using metadata only. On cancellation after
+Microsoft consent, no cache write occurs, but consent may already exist at Microsoft;
+revocation is a separate owner action. Cache account removal and result-reference
+clearing run on normal completion/failure, then the CLI exits; JavaScript garbage
+collection is **not cryptographic memory zeroization**. No credentials are written
+to the filesystem by this helper. AWS CloudShell/browser/platform security remains
+the owner's trust boundary.
+
+The helper lives outside the Lambda build context under
+`scripts/bootstrap/microsoft365/`, so the runtime Dockerfile's `COPY *.mjs` cannot
+ship the device-login CLI. No runtime code or deployment switches are changed.
+Offline tests use mocked AWS clients and real pinned MSAL with a synthetic token
+endpoint; they prove envelope interoperability, not live app eligibility, AWS
+permissions, consent, stored identity or end-to-end runtime activation.
+The dedicated `microsoft365-bootstrap.yml` PR/push workflow tests the helper with
+Node 22 and both locked dependency scopes, without AWS credentials/OIDC, Docker,
+or running the owner CLI. `mise run test:microsoft365-bootstrap` runs the same
+secretless suite and is also included in the existing `mise run test` aggregate.
 
 ## Rollback and recovery
 

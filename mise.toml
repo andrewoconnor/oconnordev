@@ -122,6 +122,14 @@ tofu -chdir=infra/gcp/google-auth init -backend=false -input=false -no-color -lo
 python3 scripts/ci/verify_gcp_discovery_plan.py
 """
 
+[tasks."test:microsoft365-bootstrap"]
+description = "Run owner bootstrap tests with mocked AWS and synthetic MSAL, no owner CLI"
+run = [
+  "npm ci --prefix infra/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund",
+  "npm ci --prefix scripts/bootstrap/microsoft365 --ignore-scripts --no-audit --no-fund",
+  "npm test --prefix scripts/bootstrap/microsoft365",
+]
+
 [tasks.test]
-description = "Run Python unit tests and OpenTofu boundary, delivery, and discovery tests"
-depends = ["test:python", "test:opentofu-boundary", "test:opentofu-delivery", "test:opentofu-gcp"]
+description = "Run Python, owner bootstrap, and OpenTofu boundary, delivery, and discovery tests"
+depends = ["test:python", "test:microsoft365-bootstrap", "test:opentofu-boundary", "test:opentofu-delivery", "test:opentofu-gcp"]
