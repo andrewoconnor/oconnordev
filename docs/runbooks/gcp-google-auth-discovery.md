@@ -1,161 +1,200 @@
-# Native GCP project discovery and preservation-only adoption
+# Native GCP discovery and preservation-only auth-bootstrap adoption
 
-## Ownership and boundaries
+## Ownership and scope
 
-`infra/spacelift` (administrative `oconnordev` stack) owns the separate native
-`oconnordev-gcp-google-auth` stack and Spacelift-managed service account.
-The stack stays outside AWS `local.managed_stacks` and integration loops.
-Both stacks disable autodeploy and have Spacelift deletion protection.
+`infra/spacelift` (administrative `oconnordev` stack) owns the protected,
+autodeploy-disabled `oconnordev-gcp-google-auth` stack and native Spacelift-managed
+service account, outside AWS integration loops. Neither is cloud-imported here.
+Native auth continues using `GOOGLE_OAUTH_ACCESS_TOKEN`: no key, credentials
+mount, manual WIF JSON or `GOOGLE_APPLICATION_CREDENTIALS`. Cloud-platform is a
+token scope, not an IAM grant. Existing Gmail OAuth/MCP stays unchanged.
 
-Stage-two code in `infra/gcp/google-auth` adds exactly one `google_project`
-resource and one declarative import. Independent project discovery remains.
-**This is not a completed import or a claim of an executed stage-two plan.**
-Only the owner approves merge/apply. Hermes may prepare a draft, but does not
-apply, import state locally, change Google IAM or publish without authorization.
-No OAuth client/consent screen, secrets, Gmail MCP/scopes, manual WIF resources,
-APIs, billing association or networks are adopted or modified here.
+The project was already adopted. Keep its import block as idempotent history:
+**zero project imports** this stage. Adopt exactly five existing objects:
 
-## Evidence carried forward from stage one
-
-The preceding native run `01M4XYWS3DPJ5B2ZFPSXCG4FMV` FINISHED with exact
-outputs below. This is supplied prior live evidence, not a new local cloud read.
-It demonstrates native integration/token issuance and project discovery on the
-existing free Spacelift account; paid generic OIDC is not needed.
-
-| Field | Observation and source |
+| Address | Existing identity |
 | --- | --- |
-| Project ID | `adept-presence-510022-p7`, native run and owner Cloud Shell |
-| Project number | `693193037198`, native run and owner Cloud Shell |
-| Display name | `oconnordev-tools`, native run and owner Cloud Shell |
-| Lifecycle | `ACTIVE`, owner `gcloud projects describe` |
-| Labels | None, owner project describe |
-| Organization/folder parent | None, owner project describe |
-| Billing | `billingEnabled: false`, owner billing describe; `billingAccountName` omitted |
+| `google_iam_workload_identity_pool.spacelift` | Pool `spacelift` in project `adept-presence-510022-p7` |
+| `google_iam_workload_identity_pool_provider.spacelift` | Provider `spacelift` in that pool |
+| `google_service_account.bootstrap` | `spacelift-google-auth@adept-presence-510022-p7.iam.gserviceaccount.com` |
+| `google_project_iam_member.browser_manual` | Manual account above, `roles/browser` |
+| `google_project_iam_member.browser_native` | `gcp-01m4xs8mrej8cdgz286edc0ab2@spacelift.iam.gserviceaccount.com`, `roles/browser` |
 
-Billing is **known disabled from the owner's supplied read**, not unknown and
-not a request to attach billing. The omitted account name supplies no account ID
-to configure. This does not prove universal billing visibility or that future
-provider billing reads can never fail. Do not infer billing from an empty
-data-source field alone: the provider tolerates API-not-enabled responses.
+Exact import IDs are in `infra/gcp/google-auth/imports.tf`. Pool/provider importer
+paths use project **ID** to preserve their configured project field; computed
+resource names use project **number**. Member import IDs use space-separated
+project ID, role and `serviceAccount:EMAIL`.
 
-The native integration injects `GOOGLE_OAUTH_ACCESS_TOKEN`; no credentials mount,
-service-account key, `GOOGLE_APPLICATION_CREDENTIALS` or manual WIF JSON is
-used. Do not print tokens/environment or enable token-bearing debug logs.
-Cloud-platform is a token scope, not an IAM grant. Existing project
-`roles/browser` is the metadata read boundary, not broad resource inventory.
-No new IAM roles, Owner/Editor, billing writes or API enablement are required by
-state adoption. Any read failure must be diagnosed and owner-reviewed, not
-worked around with elevated permissions.
+Only additive single-member IAM resources are declared. No authoritative project
+or service-account policy/binding, API resources or impersonation grant. Preserve
+the owner's policy and unrelated members; never clear a policy. New permissions
+below are pending and **not** among the five imports. If granted later, inventory
+and adopt those grants separately rather than expanding this stage silently.
 
-## Pinned-provider preservation behavior
+## Supplied owner evidence, not a new local cloud read
 
-Google provider **8.7.0** and all existing locks remain unchanged. Its installed
-schema and pinned source support `deletion_policy = "ABANDON"`. Together with
-`lifecycle { prevent_destroy = true }`, this blocks configured destroys and
-makes provider-level removal forget state rather than delete the Google project.
-This is not permission to remove the configuration or state casually.
+The mandatory private inventory attachment was read; its source dump, owner
+email and etags are deliberately not committed. It shows:
 
-The provider's resource read defaults deletion policy to PREVENT unless the
-provider default is supplied. Set ABANDON explicitly on both resource and
-provider so import read does not produce a PREVENT-to-ABANDON update. These are
-client/state policies, not Google metadata writes. Do not accept a plan update
-merely because it appears client-side: the adoption gate requires zero changes.
+- Project ID `adept-presence-510022-p7`, number `693193037198`, name
+  `oconnordev-tools`, ACTIVE. Prior owner evidence has no labels or parent and
+  `billingEnabled: false`, billingAccountName omitted. Do not link billing.
+- Pool `spacelift`, display name **Spacelift**, ACTIVE, no description returned.
+- Provider `spacelift`, display name **spacelift**, ACTIVE. Issuer
+  `https://andrewoconnor.app.spacelift.io`, audience `andrewoconnor.app.spacelift.io`.
+  Mapping exactly `google.subject = assertion.sub` and
+  `attribute.stack = assertion.callerId`; condition exactly
+  `assertion.callerType == 'stack' && assertion.callerId == 'oconnordev-gcp-google-auth'`.
+- Manual `spacelift-google-auth` account has **no displayName** (unlike earlier
+  intended bootstrap settings), no description and **no IAM bindings**. Preserve
+  absence; do not add a name or `roles/iam.workloadIdentityUser` binding.
+- `109396950295423788712` is the manual account's unique ID and reported
+  service-account oauth2ClientId, **not an ordinary Gmail OAuth client ID**.
+- Project `roles/browser` contains exactly the manual and native accounts above;
+  the existing owner binding is outside managed scope.
+- `iam.googleapis.com`, `iamcredentials.googleapis.com`, `sts.googleapis.com`
+  and `cloudresourcemanager.googleapis.com` are **all absent from the supplied
+  enabled-services list**. Do not enable/import them or declare
+  `google_project_service`. This bounded observation does not prove that every
+  API request must fail.
 
-`auto_create_network` defaults true; the importer sets true without inspecting
-the current default network. False is dangerous on project creation: the
-provider enables Compute and deletes the default network/firewalls. This root
-omits that setting and narrowly ignores **only** `auto_create_network`, a
-creation-only flag, not a network inventory assertion. Current default-network
-existence is unknown; no network is managed, created or deleted by import/read.
-The live gate rejects project creation regardless of this default.
+This is an incomplete/unused manual WIF bootstrap, **not an auth repair** or
+proof WIF impersonation works. Native auth already worked: supplied preceding
+run `01M4XYWS3DPJ5B2ZFPSXCG4FMV` FINISHED with exact project identity. That
+proves neither permission for new WIF/SA reads nor successful bootstrap adoption.
 
-Provider attribution labels default true in the pinned source; explicitly set
-`add_terraform_attribution_label = false` and `default_labels = {}`. Do not add
-labels. Billing account, organization and folder settings remain omitted; no
-parent migration, billing link/unlink, or broad lifecycle ignore is introduced.
-A live difference in these fields blocks adoption, not an invitation to update.
+## Owner-operated read permissions (pending)
 
-The independent data source rejects non-ACTIVE reads and ID/number/name mismatch.
-A resource precondition depends on those exact reads, preventing configured name
-from masking actual name drift. Resource postconditions and outputs verify the
-same identity after adoption. Provider resource import normalizes state ID to
-`projects/adept-presence-510022-p7`; the declarative import ID is the exact
-project ID, **not** its numeric identifier.
+Native `roles/browser` already includes `resourcemanager.projects.getIamPolicy`,
+sufficient for the two project member reads. The native account lacks WIF and
+manual-SA metadata reads; a live adoption plan will fail until owner grants.
+Do not request Owner, Editor, impersonation permissions or Service Usage Viewer:
+there are no API resources in this adoption.
 
-Both data and managed-resource reads call Resource Manager projects.get and
-Cloud Billing projects.getBillingInfo. The documented billing read permission
-is `resourcemanager.projects.get`, consistent with `roles/browser` and the prior
-successful metadata read. The stage-two resource path still needs real proposed
-run proof; do not claim broad billing permissions from stage-one success.
+These generated commands are **instructions only, not executed**. They are
+explicit IAM writes for the owner to review/run in their authenticated Cloud
+Shell, not an automatic prerequisite repair. They add a project-scoped WIF
+reader and a reader on **only the manual account**; no policies are replaced.
 
-## Stage two: owner-reviewed live gate
+```sh
+PROJECT_ID='adept-presence-510022-p7'
+MANUAL_SA="spacelift-google-auth@${PROJECT_ID}.iam.gserviceaccount.com"
+NATIVE_SA='gcp-01m4xs8mrej8cdgz286edc0ab2@spacelift.iam.gserviceaccount.com'
+MEMBER="serviceAccount:${NATIVE_SA}"
 
-1. Review the draft, independent review and exact-head CI. Keep autodeploy off.
-   Obtain a **real Spacelift proposed plan** on the stage-two head using the
-   existing native integration. Local mock fixtures are not acceptable evidence.
-2. Require **1 import, 0 adds, 0 changes, 0 destroys**, no resource drift, only
-   `google_project.google_auth` imported with ID `adept-presence-510022-p7`.
-   Identity must be exactly the ID/number/name above. No IAM, billing, labels,
-   parent, API or network deltas may be accepted. Stop on any discrepancy,
-   incomplete checks, permission failure, changed billing/parent/labels or count.
-3. Obtain the saved plan's actual `tofu show -json` output through the approved
-   Spacelift workflow and run the read-only gate from the repository root:
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="$MEMBER" --role=roles/iam.workloadIdentityPoolViewer --condition=None
+
+gcloud iam service-accounts add-iam-policy-binding "$MANUAL_SA" \
+  --project="$PROJECT_ID" --member="$MEMBER" \
+  --role=roles/iam.serviceAccountViewer --condition=None
+```
+
+WIF viewer covers pool/provider get. The pinned service-account resource read
+requires `iam.serviceAccounts.get`. The predefined SA Viewer role additionally
+bundles getIamPolicy and **key-metadata reads** (`iam.serviceAccountKeys.get`
+and `iam.serviceAccountKeys.list`), scoped here to only the manual account.
+Those additional reads are not required by this resource. The role grants no
+key creation, signing, token minting or impersonation. Review this bundled
+access before granting; a separately reviewed custom get-only role can be used
+if the bundled metadata access is unacceptable.
+Read back the exact project/account policies and verify scope after granting.
+Capture new non-secret bindings for separate adoption. Retry via native
+integration; stop on unexpected denials/API errors. Do not enable services or
+broaden grants to silence provider failures.
+
+## Pinned-provider preservation
+
+Google **8.7.0**, OpenTofu **1.13.1** and all nine root lockfiles stay unchanged.
+Installed schema and tagged source were inspected: pool, provider and service
+account support `deletion_policy = "ABANDON"`; their import/read default uses
+provider deletion policy if set, otherwise DELETE. Project read otherwise defaults
+PREVENT. Explicit ABANDON on provider and those resources avoids client-policy
+updates at import. All six managed objects have `prevent_destroy = true`; IAM
+members have no deletion_policy field. ABANDON forgets state rather than deleting
+cloud objects; it is not authorization to remove configuration/state casually.
+
+ACTIVE pool/provider omit disabled in owner JSON: preserve false. Missing
+descriptions read as empty strings. The manual SA's omitted disabled is false;
+absent displayName/description read as empty strings, so omit them. Do not invent
+metadata or ignore drift. A different live plan blocks adoption.
+
+Existing project protections remain: independent discovery, exact identity
+pre/postconditions, provider attribution labels disabled/default labels empty,
+billing/parent/labels omitted, narrowly ignored creation-only
+`auto_create_network`. Never set it false to satisfy a scanner: creation would
+enable Compute and delete the default network. Default-network existence and
+audit configuration remain unknown; the two existing project-local Checkov skips
+explain preservation scope, not hardening guarantees. No new security skips are
+needed for these bootstrap resources (checked with the pinned scanner).
+
+Project data/resource reads use projects.get and projects.getBillingInfo; the
+billing read permission is `resourcemanager.projects.get`, within roles/browser.
+Omitted billingAccountName supplies no account ID to configure and is not proof
+of universal billing visibility. An empty provider billing field alone does not
+prove billing disabled: API-not-enabled is tolerated by the provider.
+
+## Real-plan gates and owner apply
+
+1. Keep autodeploy off. Owner permissions, independent review, exact-head CI and
+   a **real native Spacelift proposed plan** remain pending. No invented local
+   credentials, generated plan JSON or synthetic totals substitute for it.
+2. Require **5 imports, 0 adds, 0 changes, 0 destroys**, only the five objects
+   above, existing project a no-op, exact identity/trust and no drift. Do not
+   require the historical project import again to make six. Stop on read denial,
+   failed/unknown checks, unexpected API request, metadata drift or any delta.
+3. Obtain actual saved-plan `tofu show -json` through the approved workflow:
 
    ```sh
    python3 scripts/ci/verify_gcp_discovery_plan.py \
-     --plan-json /path/to/actual-proposed-plan.json --expected-imports 1
+     --plan-json /path/to/actual-proposed-plan.json --expected-imports 5
    ```
 
-   The gate validates configuration addresses, every resource change/import,
-   exact import ID and known identity, rejects create/update/delete/replacement,
-   failed/unknown checks and non-no-op `resource_drift`. The original stage-one
-   data-only `verify_plan` utility remains for historical discovery unit tests.
-   Record real run ID, exact head, identity and counts. Never manufacture JSON
-   or report a synthetic import count as a provider result.
-4. Only the owner approves the reviewed import apply. This adopts project state,
-   not cloud-write permissions. After apply, owner obtains another real plan
-   requiring **0 imports, 0 adds, 0 changes, 0 destroys**, using the same gate
-   with `--expected-imports 0`, and verifies identity outputs. Keep the import
-   block as declarative history; it is idempotent once state is adopted.
+   The gate checks exact configuration/change/import sets; known project,
+   pool/provider names and ACTIVE state; display names; issuer, audience, mapping,
+   stack condition; manual SA identity/absent metadata; unconditional browser
+   members. It rejects other addresses, all create/update/replace/delete actions,
+   duplicate/missing/wrong imports, unknown values, deferred/incomplete/errored
+   plans, failed/unknown checks and non-no-op resource drift. Record real run ID,
+   exact head and actual totals. The project-only unit utility is historical;
+   the CLI now gates bootstrap with only **5 or 0**, never 1 or 6.
+4. Only the owner approves merge/apply after fresh tracked-plan review. Require
+   a subsequent real plan with **0 imports, 0 adds, 0 changes, 0 destroys**, same
+   gate with `--expected-imports 0`. Keep all imports as idempotent history.
 
-No stage-two live plan/apply has been executed from this checkout. There are no
-local Google credentials; draft publication and real proposed-run proof are
-separate delivery gates, not replaced by offline tests.
+No bootstrap-stage live plan/import/apply ran from this checkout. There are no
+local Google credentials. Publication, owner grants, real plan proof and apply
+approval are separate gates, not replaced by offline tests.
 
-## Offline verification
+## Offline verification, rollback and OAuth boundary
 
-Run `mise run test:opentofu-gcp` for production-configuration identity tests.
-OpenTofu 1.13.1's testing provider cannot perform imports (direct testing of the
-importing root crashes). The runner copies the actual configuration and lock to
-an isolated temporary fixture, omits **only `imports.tf`**, and runs real mock
-provider tests. Managed-resource mocks are separate from data-source mocks;
-wrong discovered number/name and wrong managed number must fail. The fixture
-plans a **mock creation**, not a no-change/import plan, and says so explicitly.
-Synthetic import JSON exists only in clearly labeled Python unit fixtures.
-It is never generated as live-plan evidence.
-
+`mise run test:opentofu-gcp` copies actual config/lock to an isolated fixture and
+omits **only `imports.tf`**, containing old and new imports. OpenTofu 1.13.1
+mocks panic on imports. The fixture plans six **mock creates**, not a live
+import/no-change plan. Synthetic plan JSON exists only in labeled unit tests.
 Run `mise run test`, `mise run validate`, `mise run fmt`, `mise run lint`,
-`mise run lint:python`, and `mise run workflow-lint`. Initialization/validation
-use `-backend=false -lockfile=readonly`; no cloud credentials are needed.
-Python contracts verify deletion/network protections and plan gates reject
-mutations, wrong imports and drift. These checks establish neither a successful
-live stage-two import nor new billing/IAM visibility.
+`mise run lint:python`, `mise run workflow-lint`, and `mise run checkov`.
+Initialization uses `-backend=false -lockfile=readonly`; no cloud writes needed.
 
-## Rollback and stop conditions
+Before apply, stop/revert if preservation is not exact. After adoption do not
+remove resources or destroy the stack: owner-reviewed state-only detachment,
+backups and identity readback are separate operations. Keep project/stack
+deletion protection. No WIF cleanup, policy clearing or unrelated IAM rollback.
 
-Before import apply, stop/revert the draft if preservation is not exact; no state
-or Google change has occurred. After adoption, do not blindly remove the resource
-or destroy the stack. Have the owner review state-only detachment separately,
-back up state and verify the project remains ACTIVE with unchanged identity.
-ABANDON is a fail-safe, not an automated rollback procedure. Keep project and
-Spacelift deletion protection intact. No IAM rollback, OAuth migration or manual
-WIF cleanup is part of this stage.
+Google 8.7.0 does not support ordinary Google Auth Platform consent, Audience,
+Data Access, agentic settings or Gmail OAuth-client adoption. Its
+`google_iam_oauth_client` is Workforce Identity Federation, not that product.
+Do not add fake resources/imports, collect secrets, rotate auth or request a new
+user authorization flow. Later owner-supplied **non-secret** manual inventory
+may record client type, audience/publishing status, scopes and redirect URIs;
+that remains manual scope, and secrets stay outside repository/state.
 
 ## Primary sources
 
 - [Native GCP integration](https://docs.spacelift.io/integrations/cloud-providers/gcp)
-- [Billing read permission/scope](https://cloud.google.com/billing/docs/reference/rest/v1/projects/getBillingInfo)
-- [Pinned project resource/import/deletion/network implementation](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/services/resourcemanager/resource_google_project.go)
-- [Pinned provider attribution-label and deletion-policy defaults](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/provider/provider.go)
-- [Pinned data-source implementation and ACTIVE rejection](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/services/resourcemanager/data_source_google_project.go)
-- [Project resource/import documentation](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/website/docs/r/google_project.html.markdown)
+- [Pinned pool implementation](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/services/iambeta/resource_iam_workload_identity_pool.go)
+- [Pinned provider implementation](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/services/iambeta/resource_iam_workload_identity_pool_provider.go)
+- [Pinned service-account implementation](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/services/resourcemanager/resource_google_service_account.go)
+- [Pinned project/import behavior](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/services/resourcemanager/resource_google_project.go)
+- [Pinned project IAM member import format](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/website/docs/r/google_project_iam.html.markdown)
+- [Pinned provider defaults](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/google/provider/provider.go)

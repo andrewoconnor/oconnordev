@@ -1,6 +1,24 @@
 # Offline fixture only: runner copies production configuration except imports.tf.
 # OpenTofu 1.13 mocks cannot import. This is NOT a live/no-change import plan.
 mock_provider "google" {
+  mock_resource "google_iam_workload_identity_pool" {
+    defaults = {
+      name  = "projects/693193037198/locations/global/workloadIdentityPools/spacelift"
+      state = "ACTIVE"
+    }
+  }
+  mock_resource "google_iam_workload_identity_pool_provider" {
+    defaults = {
+      name  = "projects/693193037198/locations/global/workloadIdentityPools/spacelift/providers/spacelift"
+      state = "ACTIVE"
+    }
+  }
+  mock_resource "google_service_account" {
+    defaults = {
+      email     = "spacelift-google-auth@adept-presence-510022-p7.iam.gserviceaccount.com"
+      unique_id = "109396950295423788712"
+    }
+  }
   mock_resource "google_project" {
     defaults = {
       number = "693193037198"
@@ -20,6 +38,26 @@ mock_provider "google" {
 run "exact_project_succeeds" {
   command = plan
 
+  assert {
+    condition     = google_iam_workload_identity_pool.spacelift.disabled == false && google_iam_workload_identity_pool.spacelift.display_name == "Spacelift" && google_iam_workload_identity_pool.spacelift.deletion_policy == "ABANDON"
+    error_message = "Preserve the active pool, display name and deletion policy."
+  }
+  assert {
+    condition     = google_iam_workload_identity_pool_provider.spacelift.display_name == "spacelift" && google_iam_workload_identity_pool_provider.spacelift.attribute_condition == "assertion.callerType == 'stack' && assertion.callerId == 'oconnordev-gcp-google-auth'" && google_iam_workload_identity_pool_provider.spacelift.attribute_mapping == tomap({ "attribute.stack" = "assertion.callerId", "google.subject" = "assertion.sub" })
+    error_message = "Preserve the exact provider name and stack trust."
+  }
+  assert {
+    condition     = google_iam_workload_identity_pool_provider.spacelift.oidc[0].issuer_uri == "https://andrewoconnor.app.spacelift.io" && google_iam_workload_identity_pool_provider.spacelift.oidc[0].allowed_audiences == tolist(["andrewoconnor.app.spacelift.io"]) && google_iam_workload_identity_pool_provider.spacelift.disabled == false && google_iam_workload_identity_pool_provider.spacelift.deletion_policy == "ABANDON"
+    error_message = "Preserve exact issuer, audience and provider policies."
+  }
+  assert {
+    condition     = coalesce(google_service_account.bootstrap.display_name, "absent") == "absent" && google_service_account.bootstrap.disabled == false && google_service_account.bootstrap.deletion_policy == "ABANDON"
+    error_message = "Do not add missing service-account metadata or disable it."
+  }
+  assert {
+    condition     = google_project_iam_member.browser_manual.member == "serviceAccount:spacelift-google-auth@adept-presence-510022-p7.iam.gserviceaccount.com" && google_project_iam_member.browser_native.member == "serviceAccount:gcp-01m4xs8mrej8cdgz286edc0ab2@spacelift.iam.gserviceaccount.com" && google_project_iam_member.browser_manual.role == "roles/browser" && google_project_iam_member.browser_native.role == "roles/browser"
+    error_message = "Adopt only the two existing browser members."
+  }
   assert {
     condition     = google_project.google_auth.deletion_policy == "ABANDON"
     error_message = "State removal must never delete the existing project."
@@ -52,6 +90,33 @@ run "wrong_name_fails" {
     }
   }
   expect_failures = [data.google_project.google_auth]
+}
+
+run "wrong_pool_state_fails" {
+  command = plan
+  override_resource {
+    target = google_iam_workload_identity_pool.spacelift
+    values = { state = "DELETED" }
+  }
+  expect_failures = [google_iam_workload_identity_pool.spacelift]
+}
+
+run "wrong_provider_name_fails" {
+  command = plan
+  override_resource {
+    target = google_iam_workload_identity_pool_provider.spacelift
+    values = { name = "projects/693193037198/locations/global/workloadIdentityPools/spacelift/providers/wrong" }
+  }
+  expect_failures = [google_iam_workload_identity_pool_provider.spacelift]
+}
+
+run "wrong_service_account_identity_fails" {
+  command = plan
+  override_resource {
+    target = google_service_account.bootstrap
+    values = { unique_id = "109396950295423788713" }
+  }
+  expect_failures = [google_service_account.bootstrap]
 }
 
 run "wrong_managed_number_fails" {
