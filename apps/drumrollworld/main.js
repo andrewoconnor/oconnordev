@@ -455,20 +455,62 @@ function applyCameraOffset() {
 }
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
-function openLightbox(idx) {
-  const imgs = currentEntry?.images;
-  if (!imgs?.length) return;
-  currentImageIdx = ((idx % imgs.length) + imgs.length) % imgs.length;
-  lightboxImg.src = imgs[currentImageIdx].src;
-  const hasMultiple = imgs.length > 1;
-  lbCounter.textContent = hasMultiple ? `${currentImageIdx + 1} / ${imgs.length}` : "";
+const lightboxVideo = document.createElement("video");
+lightboxVideo.id = "lightboxVideo";
+lightboxVideo.className = "hidden";
+lightboxVideo.controls = true;
+lightboxVideo.preload = "none";
+lightboxVideo.playsInline = true;
+lightboxVideo.disablePictureInPicture = true;
+lightboxVideo.setAttribute("controlslist", "nofullscreen noremoteplayback");
+lightboxVideo.setAttribute("aria-label", "Selected percussion video");
+lightbox.appendChild(lightboxVideo);
+
+function entryMedia(entry) {
+  return [...(entry?.images || []), ...(entry?.videos || []).map((v) => ({ ...v, video: true }))];
+}
+
+function mediaThumb(item) {
+  return (item.video ? item.poster || "" : item.src).replace(/\.(jpe?g|png)$/i, ".thumb.jpg");
+}
+
+function unloadVideo(player) {
+  player.pause();
+  player.removeAttribute("src");
+  player.load();
+}
+
+function openLightbox(idx, resume) {
+  const media = entryMedia(currentEntry);
+  if (!media.length) return;
+  currentImageIdx = ((idx % media.length) + media.length) % media.length;
+  const item = media[currentImageIdx];
+  unloadVideo(lightboxVideo);
+  lightboxImg.classList.toggle("hidden", Boolean(item.video));
+  lightboxVideo.classList.toggle("hidden", !item.video);
+  if (item.video) {
+    lightboxVideo.poster = item.poster || "";
+    lightboxVideo.src = item.src;
+    if (resume) {
+      lightboxVideo.muted = resume.muted;
+      lightboxVideo.currentTime = resume.time;
+      if (resume.playing) lightboxVideo.play().catch(() => {});
+    }
+  } else lightboxImg.src = item.src;
+  const hasMultiple = media.length > 1;
+  lbCounter.textContent = hasMultiple ? `${currentImageIdx + 1} / ${media.length}` : "";
   lbPrev.classList.toggle("hidden", !hasMultiple);
   lbNext.classList.toggle("hidden", !hasMultiple);
   lightbox.classList.add("open");
 }
 
+function closeLightbox() {
+  unloadVideo(lightboxVideo);
+  lightbox.classList.remove("open");
+}
+
 function navigateLightbox(dir) {
-  if (currentEntry?.images) openLightbox(currentImageIdx + dir);
+  if (currentEntry) openLightbox(currentImageIdx + dir);
 }
 
 lbPrev.addEventListener("click", (e) => {
@@ -481,15 +523,16 @@ lbNext.addEventListener("click", (e) => {
 });
 lbClose.addEventListener("click", (e) => {
   e.stopPropagation();
-  lightbox.classList.remove("open");
+  closeLightbox();
 });
-lightbox.addEventListener("click", () => lightbox.classList.remove("open"));
+lightbox.addEventListener("click", closeLightbox);
+lightboxVideo.addEventListener("click", (e) => e.stopPropagation());
 
 let touchStartX = null;
 lightbox.addEventListener(
   "touchstart",
   (e) => {
-    touchStartX = e.touches[0].clientX;
+    touchStartX = e.target === lightboxVideo ? null : e.touches[0].clientX;
   },
   { passive: true },
 );
@@ -498,12 +541,12 @@ lightbox.addEventListener("touchend", (e) => {
   const dx = e.changedTouches[0].clientX - touchStartX;
   touchStartX = null;
   if (Math.abs(dx) > SWIPE_THRESHOLD_PX) navigateLightbox(dx < 0 ? 1 : -1);
-  else lightbox.classList.remove("open");
+  else closeLightbox();
 });
 
 document.addEventListener("keydown", (e) => {
   if (!lightbox.classList.contains("open")) return;
-  if (e.key === "Escape") lightbox.classList.remove("open");
+  if (e.key === "Escape") closeLightbox();
   else if (e.key === "ArrowLeft") navigateLightbox(-1);
   else if (e.key === "ArrowRight") navigateLightbox(1);
 });
@@ -520,6 +563,15 @@ function renderImageCredit(el, image) {
   if (image.license && image.licenseUrl)
     parts.push(`Licensed under <a href="${image.licenseUrl}" target="_blank">${image.license}</a>`);
   el.innerHTML = parts.join(" ");
+  if (image.url) {
+    const link = document.createElement("a");
+    link.className = "entry-media-link";
+    link.href = image.url;
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.textContent = image.video ? "Original video" : "Original";
+    el.appendChild(link);
+  }
 }
 
 function renderSource(el, entry) {
@@ -537,70 +589,48 @@ function renderSource(el, entry) {
 }
 
 function renderGallery(body, entry, idx = 0) {
-  const imgs = entry?.images || [
-    {
-      src: "/assets/question-image.svg",
-    },
-  ];
-  currentImageIdx = Math.max(0, Math.min(idx, imgs.length - 1));
-  const cur = imgs[currentImageIdx];
+  const found = entryMedia(entry);
+  const media = found.length ? found : [{ src: "/assets/question-image.svg" }];
+  currentImageIdx = Math.max(0, Math.min(idx, media.length - 1));
+  const cur = media[currentImageIdx];
   const imgEl = body.querySelector(".entry-main-img");
-  imgEl.classList.remove("portrait");
-  imgEl.src = cur.src;
-  imgEl.onload = () => {
-    const { naturalWidth, naturalHeight } = imgEl;
-    imgEl.classList.toggle("portrait", naturalHeight > naturalWidth);
-  };
+  const videoWrap = body.querySelector(".entry-main-video");
+  const player = body.querySelector(".entry-main-video-player");
+  unloadVideo(player);
+  imgEl.classList.toggle("hidden", Boolean(cur.video));
+  videoWrap.classList.toggle("hidden", !cur.video);
+  if (cur.video) {
+    player.poster = cur.poster || "";
+    player.src = cur.src;
+  } else {
+    imgEl.classList.remove("portrait");
+    imgEl.src = cur.src;
+    imgEl.onload = () => {
+      const { naturalWidth, naturalHeight } = imgEl;
+      imgEl.classList.toggle("portrait", naturalHeight > naturalWidth);
+    };
+  }
   body.querySelector(".entry-caption").textContent = cur.caption || "";
   renderImageCredit(body.querySelector(".entry-credit"), cur);
   const thumbs = body.querySelector(".entry-thumbs");
   thumbs.innerHTML = "";
-  if (imgs.length > 1) {
-    imgs.forEach((img, i) => {
-      const t = document.createElement("img");
-      t.src = img.src.replace(/\.(jpe?g|png)$/i, ".thumb.jpg");
-      t.loading = "lazy";
-      t.className = `entry-thumb${i === currentImageIdx ? " active" : ""}`;
-      t.draggable = false;
+  if (media.length > 1) {
+    media.forEach((item, i) => {
+      const img = document.createElement("img");
+      img.src = mediaThumb(item);
+      img.loading = "lazy";
+      img.draggable = false;
+      let t = img;
+      if (item.video) {
+        t = document.createElement("button");
+        t.type = "button";
+        t.setAttribute("aria-label", `Play video: ${item.caption || ""}`);
+        t.appendChild(img);
+      }
+      t.className = `entry-thumb${item.video ? " entry-thumb-video" : ""}${i === currentImageIdx ? " active" : ""}`;
       t.onclick = () => renderGallery(body, entry, i);
       thumbs.appendChild(t);
     });
-  }
-}
-
-function renderVideos(el, entry) {
-  el.textContent = "";
-  for (const video of entry?.videos || []) {
-    const figure = document.createElement("figure");
-    figure.className = "entry-video";
-    const player = document.createElement("video");
-    player.className = "entry-video-player";
-    player.controls = true;
-    player.preload = "none";
-    player.playsInline = true;
-    player.disablePictureInPicture = true;
-    player.setAttribute("controlslist", "nofullscreen noremoteplayback");
-    if (video.poster) player.poster = video.poster;
-    player.src = video.src;
-    const caption = document.createElement("figcaption");
-    caption.className = "entry-video-caption";
-    caption.textContent = video.caption || "";
-    const credit = document.createElement("div");
-    credit.className = "entry-video-credit";
-    renderImageCredit(credit, video);
-    if (video.url) {
-      const link = document.createElement("a");
-      link.className = "entry-video-link";
-      link.href = video.url;
-      link.target = "_blank";
-      link.rel = "noopener";
-      link.textContent = "Original video";
-      credit.appendChild(link);
-    }
-    figure.appendChild(player);
-    figure.appendChild(caption);
-    figure.appendChild(credit);
-    el.appendChild(figure);
   }
 }
 
@@ -610,12 +640,21 @@ function buildEntryBody(entry) {
   wrapper.className = "entry-body-wrapper";
   const body = document.createElement("div");
   body.className = "entry-body";
-  body.innerHTML = `<div class="entry-meta"></div><img class="entry-main-img" src="" /><div class="entry-caption"></div><div class="entry-credit"></div><div class="entry-thumbs"></div><div class="entry-videos"></div><p class="entry-desc"></p><div class="entry-source"></div>`;
+  body.innerHTML = `<div class="entry-meta"></div><img class="entry-main-img" src="" /><div class="entry-main-video hidden"><video class="entry-main-video-player" controls preload="none" playsinline disablepictureinpicture controlslist="nofullscreen noremoteplayback"></video><button type="button" class="entry-expand" title="Expand" aria-label="Expand video">&#x2922;</button></div><div class="entry-caption"></div><div class="entry-credit"></div><div class="entry-thumbs"></div><p class="entry-desc"></p><div class="entry-source"></div>`;
   body.querySelector(".entry-meta").textContent =
     `${entry.region} • ${entry._displayDate} • ${entry.type}`;
   body.querySelector(".entry-desc").textContent = entry.description;
+  const player = body.querySelector(".entry-main-video-player");
+  body.querySelector(".entry-expand").onclick = () => {
+    const resume = {
+      time: player.currentTime || 0,
+      playing: !player.paused,
+      muted: Boolean(player.muted),
+    };
+    player.pause();
+    openLightbox(currentImageIdx, resume);
+  };
   renderGallery(body, entry, 0);
-  renderVideos(body.querySelector(".entry-videos"), entry);
   renderSource(body.querySelector(".entry-source"), entry);
   wrapper.appendChild(body);
   entry._cachedBody = wrapper;
@@ -631,6 +670,7 @@ function activateEntry(entry, item) {
   requestAnimationFrame(() => {
     panelBody.scrollTop = 0;
   });
+  currentEntry?._cachedBody?.querySelector(".entry-main-video-player")?.pause();
   item.appendChild(buildEntryBody(entry)); // no-op if already appended (cached)
   if (currentEntry?.__borderMat) currentEntry.__borderMat.color.set(MARKER_COLOR_IDLE);
   currentEntry = entry;
