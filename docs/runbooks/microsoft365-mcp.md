@@ -2,9 +2,17 @@
 
 ## Status and boundary
 
-This change is **prepared, not deployed**. No apply, image publication, consent,
-secret value read/write/migration, mailbox request, Hermes config change, reload,
-or legacy Outlook cutover is part of implementation. TOOLS is on `master` with
+**Bootstrap applied; image published; runtime still disabled.** The shared
+`oconnordev-tools` ECR repository, publisher role and empty cache metadata bootstrap
+are applied. Verified image workflow run
+[38794178377](https://github.com/andrewoconnor/oconnordev/actions/runs/38794178377)
+published the tested image with manifest digest
+`sha256:816f7d989bc581299bd6b35b204da02e57a42b748aa7fb7a8d64525f3810743c`.
+This is an image publication, not a Lambda deployment or mailbox/runtime proof.
+OAuth consent and serialized consumer-cache bootstrap remain outstanding;
+`microsoft365_runtime_enabled=false` and adapter rollout stays disabled. No secret
+value read/write/migration, mailbox request, Hermes config change, reload or legacy
+Outlook cutover is authorized by this cleanup. TOOLS remains on `master` with
 `autodeploy=false`; only the owner may approve/apply reviewed plans. Existing live
 AWS SDK reachability through the SECURITY gateway does not grant TOOLS access.
 
@@ -47,11 +55,15 @@ batch, write, arbitrary URL/header, auth, profile, calendar or users endpoints.
 ## Independent trust and persistence
 
 **Activation privacy gate:** the owner explicitly approved disabling the shared
-Gateway APPLICATION_LOGS delivery through a separate IaC PR. The change is
-**pending owner apply and live verification**; see
-[Gateway log privacy](gateway-log-privacy.md) for the exact one-delivery removal,
-metadata-only verification and retained historical seven-day expiry. Keep this
-mail runtime disabled until that gate passes. Runtime log suppression does **not**
+Gateway APPLICATION_LOGS delivery through separate IaC PR #118, now merged and
+applied. TOOLS run `01M50PH738EP65ZF66HKX7CZMT0` finished `FINISHED` with
+**0 add, 0 change, 1 destroy** and the managed delivery removed from state.
+The privacy apply gate is cleared on that state/apply evidence, not a claim of
+independent direct AWS enumeration or end-to-end logging proof. See
+[Gateway log privacy](gateway-log-privacy.md) for retained historical seven-day
+expiry and remaining metadata-only checks. Keep this mail runtime disabled:
+OAuth/cache bootstrap and the separate activation proofs are not complete.
+Runtime log suppression does **not**
 suppress Gateway logs, and disabling Gateway delivery does not suppress runtime
 or other logs. No end-to-end no-mailbox-logging guarantee or retroactive purge is
 claimed; this runbook does not itself change shared observability or enable mail.
@@ -94,27 +106,34 @@ claimed; this runbook does not itself change shared observability or enable mail
 
 ## Staged owner procedure (no automatic applies)
 
-1. Review the exact proposed head and secretless checks. Inspect the TOOLS and
-   administrative Spacelift plans; provider locks remain AWS **6.66.0**. Keep
-   runtime disabled and image digest/home-account ID empty. Owner applies bootstrap
-   ECR, repository policy, roles, empty cache metadata, and the TOOLS additional
-   project globs. No secret-version resource exists; no secret values may enter
+1. Bootstrap is already applied: shared ECR, repository policy, roles, empty
+   cache metadata and TOOLS additional project globs. Review the exact proposed
+   head and secretless checks for subsequent changes; provider locks remain AWS
+   **6.66.0**. Keep runtime disabled; OAuth identity/cache is not bootstrapped.
+   No secret-version resource exists; no secret values may enter
    tfvars, Spacelift variables, state, outputs, plans, CI or docs.
 2. Review `microsoft365_bootstrap` output (only repository URL, publisher-role ARN,
    secret ARN). The shared repository is `oconnordev-tools`
    (`aws_ecr_repository.tools_images`), with URL
    `421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools`.
    The repository and role are in TOOLS, us-east-1, not SECURITY.
-   Workflow publication remains disabled until the owner sets repository variable
-   `MICROSOFT365_IMAGE_PUBLISH_ENABLED=true`. No GitHub Environment is required by
-   this role's trust. The trust pins aud=sts.amazonaws.com and exact
+   The obsolete bootstrap publication-variable dependency is removed. Publication
+   is allowed only for `master` push or `workflow_dispatch`, after the check job
+   succeeds; PRs and feature-branch manual dispatch cannot acquire credentials.
+   The old repository variable is unused and may optionally be removed by the
+   owner in GitHub settings; this cleanup does not change repository settings.
+   No GitHub Environment is required by this role's trust. The trust pins
+   aud=sts.amazonaws.com and exact
    `repo:andrewoconnor/oconnordev:ref:refs/heads/master`. This proves repo/master,
    **not the workflow filename**: AWS does not support a job_workflow_ref condition
    here. Protect master and review all workflows able to request OIDC. A custom
    GitHub OIDC subject template can be a separate future trust change, not an
    invented workflow-identity guarantee or an uncreated environment gate.
-3. On reviewed master, run the image workflow. PR/feature jobs have no AWS/OIDC
-   credentials. The native arm64 build creates a single image without provenance
+3. On reviewed master, the image workflow publishes on matching push events or
+   manual dispatch. **Merging this cleanup changes the workflow path and will
+   publish another tested image; it will not deploy/update Lambda.** The verified
+   prior run/digest is recorded above. PR/feature jobs have no AWS/OIDC credentials.
+   The native arm64 build creates a single image without provenance
    indexes/attestations, runs secretless runtime tests (including real synthetic
    HTTP) inside that image (tests bind-mounted read-only; runtime modules and
    dependencies are the image bytes), saves it once and hashes its archive. Master publication
@@ -187,8 +206,10 @@ First disable Microsoft365 on the adapter (unset rollout env or `false`) and ret
 clients to unchanged legacy Outlook; verify its existing catalog before removing
 the remote target. Owner sets runtime_enabled=false and reviews/applies removal of
 five permits, target, URL/function and runtime/invoke grants. Bootstrap ECR/roles
-and recoverable secret metadata remain. Disable the publication repository variable
-if image push should stop. Retain the last verified digest for a reviewed rollback;
+and recoverable secret metadata remain. To stop image publication, use an
+owner-reviewed workflow change or disable the workflow in GitHub Actions; the old
+bootstrap variable no longer controls it. Retain the last verified digest for a
+reviewed rollback;
 no mutable tags and no auto-pruning policy that could delete a needed rollback
 image. Monitor retained ECR size and explicitly remove unused images only after
 owner review across **all** targets using the shared repository; do not delete
@@ -236,4 +257,6 @@ remote account. Mock root tests prove both activation gates and exact Cedar outp
 not live SigV4 interoperability or mailbox authorization. Local Docker CLI exists
 but daemon is unavailable: no local arm64 image/HTTP container proof is claimed.
 The workflow requires that real image test before publication; owner must review
-its successful result before activation. No live tests have been executed here.
+its successful result before activation. The published image run above is CI
+container/publication evidence, not live OAuth, Lambda or mailbox verification;
+none of those activation tests has been executed by this cleanup.

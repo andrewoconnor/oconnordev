@@ -54,7 +54,11 @@ class GatewayLogPrivacyTests(unittest.TestCase):
         privacy = (ROOT / "docs/runbooks/gateway-log-privacy.md").read_text()
         for phrase in (
             "explicitly approved",
-            "pending owner apply",
+            "now merged and applied",
+            "01M50PH738EP65ZF66HKX7CZMT0",
+            "FINISHED",
+            "0 add, 0 change, 1 destroy",
+            "not independent direct AWS enumeration",
             "seven days",
             "not a retroactive purge",
             "runtime",
@@ -64,5 +68,9 @@ class GatewayLogPrivacyTests(unittest.TestCase):
             self.assertIn(phrase, privacy)
         mail = (ROOT / "docs/runbooks/microsoft365-mcp.md").read_text()
         self.assertIn("gateway-log-privacy.md", mail)
-        self.assertIn("pending owner apply", mail)
-        self.assertIn("live verification", mail)
+        self.assertNotIn("pending owner apply", mail)
+        self.assertIn("privacy apply gate is cleared", mail)
+        self.assertIn("microsoft365_runtime_enabled=false", mail)
+        self.assertIn("OAuth consent", mail)
+        self.assertIn("not a claim of", mail)
+        self.assertIn("independent direct AWS enumeration", mail)
