@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -149,3 +150,17 @@ TARGETS = (
     _load_target("aws", "aws-mcp-tools.json"),
     _load_target("spacelift", "spacelift-mcp-tools.json"),
 )
+
+
+def load_targets() -> tuple[Target, ...]:
+    """Opt in only after the owner verifies target/policies/catalog rollout.
+
+    Merely shipping a new manifest must not make old clients fail their exact
+    tools/list assertion against a gateway not yet containing the target.
+    """
+    enabled = os.environ.get("HERMES_AGENTCORE_MICROSOFT365_ENABLED", "false")
+    if enabled not in {"true", "false"}:
+        raise AdapterError("invalid_microsoft365_rollout_configuration")
+    if enabled == "false":
+        return TARGETS
+    return (*TARGETS, _load_target("microsoft365", "microsoft365-mcp-tools.json"))

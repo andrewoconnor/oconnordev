@@ -1,0 +1,119 @@
+name: Microsoft365 tested arm64 image
+
+on:
+  push:
+    branches: [master, 'hermes/**']
+    paths:
+      - 'infra/tools/lambdas/microsoft365_mcp/**'
+      - 'agents/hermes/adapter/microsoft365-mcp-tools.json'
+      - 'scripts/ci/microsoft365_image.py'
+      - '.github/workflows/microsoft365-image.yml'
+  pull_request:
+    branches: [master]
+    paths:
+      - 'infra/tools/lambdas/microsoft365_mcp/**'
+      - 'agents/hermes/adapter/microsoft365-mcp-tools.json'
+      - 'scripts/ci/microsoft365_image.py'
+      - '.github/workflows/microsoft365-image.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: microsoft365-image-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    outputs:
+      archive_sha256: ${{ steps.package.outputs.sha256 }}
+      image_id: ${{ steps.package.outputs.image_id }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+      - name: Build single architecture, without credentials or manifest attestations
+        run: >-
+          docker buildx build --platform linux/arm64 --provenance=false --sbom=false
+          --load --tag microsoft365-tested:local infra/tools/lambdas/microsoft365_mcp
+      - name: Run secretless runtime tests including synthetic HTTP against exact image
+        run: >-
+          docker run --rm --network none
+          --mount type=bind,source="$PWD/infra/tools/lambdas/microsoft365_mcp/test",target=/app/test,readonly
+          --entrypoint npm microsoft365-tested:local test
+      - name: Package tested image once
+        id: package
+        run: |
+          mkdir release
+          docker save microsoft365-tested:local --output release/image.tar
+          DIGEST=$(sha256sum release/image.tar | cut -d ' ' -f 1)
+          IMAGE_ID=$(docker image inspect --format '{{.Id}}' microsoft365-tested:local)
+          printf 'sha256=%s\nimage_id=%s\n' "$DIGEST" "$IMAGE_ID" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: microsoft365-${{ github.sha }}
+          path: release/image.tar
+          if-no-files-found: error
+          retention-days: 2
+
+  publish:
+    # Owner must bootstrap ECR/role and explicitly opt in with repository variable.
+    # No PR credentials, no Lambda update, no apply; only exact tested bytes to ECR.
+    if: vars.MICROSOFT365_IMAGE_PUBLISH_ENABLED == 'true' && github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: check
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      IMAGE_REPOSITORY: '421680664125.dkr.ecr.us-east-1.amazonaws.com/hermes-microsoft365-mcp'
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: microsoft365-${{ github.sha }}
+          path: release
+      - name: Verify archive and exact image before AWS credentials
+        env:
+          EXPECTED_ARCHIVE: ${{ needs.check.outputs.archive_sha256 }}
+          EXPECTED_IMAGE: ${{ needs.check.outputs.image_id }}
+        run: |
+          printf '%s  release/image.tar\n' "$EXPECTED_ARCHIVE" | sha256sum --check --strict
+          docker load --input release/image.tar
+          test "$(docker image inspect --format '{{.Id}}' microsoft365-tested:local)" = "$EXPECTED_IMAGE"
+      - name: Compare application inputs to fresh master before AWS credentials
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: python3 scripts/ci/microsoft365_image.py "$EXPECTED_SHA" microsoft365-tested:local
+      - name: Assume dedicated ECR-only publisher using master OIDC identity
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: arn:aws:iam::421680664125:role/hermes-microsoft365-image-publisher
+          aws-region: us-east-1
+          role-session-name: microsoft365-image-${{ github.run_id }}
+          role-duration-seconds: 900
+          allowed-account-ids: '421680664125'
+      - name: Push exact tested image, read back digest, never deploy
+        env:
+          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${IMAGE_REPOSITORY%%/*}"
+          trap 'docker logout "${IMAGE_REPOSITORY%%/*}"' EXIT
+          docker tag microsoft365-tested:local "$IMAGE_REPOSITORY:$IMAGE_TAG"
+          docker push "$IMAGE_REPOSITORY:$IMAGE_TAG" | tee release/push.txt
+          DIGEST=$(aws ecr describe-images --region us-east-1 --repository-name hermes-microsoft365-mcp --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
+          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
+          # Readback must agree with the actual push, not merely a successful API call.
+          PUSH_DIGEST=$(python3 -c 'import re; from pathlib import Path; print(re.findall(r"digest: (sha256:[0-9a-f]{64})", Path("release/push.txt").read_text())[-1])')
+          test "$DIGEST" = "$PUSH_DIGEST"
+          printf 'Owner-reviewed image (not deployed): `%s@%s`\n' "$IMAGE_REPOSITORY" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
