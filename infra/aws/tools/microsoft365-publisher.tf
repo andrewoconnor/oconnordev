@@ -1,4 +1,6 @@
 # Independent image publisher: no Lambda update, role pass, secret access or apply.
+# Repository-scoped, not tag-scoped: this role can push any tag in the shared repo.
+# microsoft365- is a collision-avoidance convention; ECR IAM cannot enforce it.
 resource "aws_iam_role" "microsoft365_image_publisher" {
   name = "hermes-microsoft365-image-publisher"
   assume_role_policy = jsonencode({
@@ -29,7 +31,7 @@ resource "aws_iam_role_policy" "microsoft365_image_publisher" {
       {
         Effect   = "Allow"
         Action   = ["ecr:BatchCheckLayerAvailability", "ecr:InitiateLayerUpload", "ecr:UploadLayerPart", "ecr:CompleteLayerUpload", "ecr:PutImage", "ecr:DescribeImages", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
-        Resource = aws_ecr_repository.microsoft365.arn
+        Resource = aws_ecr_repository.tools_images.arn
       }
     ]
   })

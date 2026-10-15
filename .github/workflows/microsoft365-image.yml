@@ -72,7 +72,7 @@ jobs:
       contents: read
       id-token: write
     env:
-      IMAGE_REPOSITORY: '421680664125.dkr.ecr.us-east-1.amazonaws.com/hermes-microsoft365-mcp'
+      IMAGE_REPOSITORY: '421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools'
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
@@ -105,14 +105,14 @@ jobs:
           allowed-account-ids: '421680664125'
       - name: Push exact tested image, read back digest, never deploy
         env:
-          IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+          IMAGE_TAG: microsoft365-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${IMAGE_REPOSITORY%%/*}"
           docker_logout() { docker logout "${IMAGE_REPOSITORY%%/*}"; }
           trap docker_logout EXIT
           docker tag microsoft365-tested:local "$IMAGE_REPOSITORY:$IMAGE_TAG"
           docker push "$IMAGE_REPOSITORY:$IMAGE_TAG" | tee release/push.txt
-          DIGEST=$(aws ecr describe-images --region us-east-1 --repository-name hermes-microsoft365-mcp --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
+          DIGEST=$(aws ecr describe-images --region us-east-1 --repository-name oconnordev-tools --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
           [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
           # Readback must agree with the actual push, not merely a successful API call.
           PUSH_DIGEST=$(python3 -c 'import re; from pathlib import Path; print(re.findall(r"digest: (sha256:[0-9a-f]{64})", Path("release/push.txt").read_text())[-1])')

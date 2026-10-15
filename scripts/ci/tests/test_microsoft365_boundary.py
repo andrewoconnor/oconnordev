@@ -46,6 +46,27 @@ class Microsoft365BoundaryTests(unittest.TestCase):
             self.assertIn(fragment, target)
         self.assertNotIn("lambda {", target)
 
+    def test_shared_repository_name_and_references(self):
+        runtime = (ROOT / "infra/aws/tools/microsoft365-runtime.tf").read_text()
+        self.assertIn('resource "aws_ecr_repository" "tools_images"', runtime)
+        self.assertIn('name                 = "oconnordev-tools"', runtime)
+        self.assertIn("aws_ecr_repository.tools_images.repository_url", runtime)
+        publisher = (ROOT / "infra/aws/tools/microsoft365-publisher.tf").read_text()
+        self.assertIn("aws_ecr_repository.tools_images.arn", publisher)
+        workflow = (ROOT / ".github/workflows/microsoft365-image.yml").read_text()
+        self.assertIn(
+            "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools", workflow
+        )
+        self.assertIn("--repository-name oconnordev-tools", workflow)
+
+    def test_shared_image_tag_namespaces_target_commit_run_and_attempt(self):
+        workflow = (ROOT / ".github/workflows/microsoft365-image.yml").read_text()
+        self.assertIn(
+            "IMAGE_TAG: microsoft365-${{ github.sha }}-"
+            "${{ github.run_id }}-${{ github.run_attempt }}",
+            workflow,
+        )
+
     def test_lwa_readiness_uses_pinned_release_supported_threshold(self):
         runtime = ROOT / "infra/tools/lambdas/microsoft365_mcp"
         dockerfile = (runtime / "Dockerfile").read_text()
