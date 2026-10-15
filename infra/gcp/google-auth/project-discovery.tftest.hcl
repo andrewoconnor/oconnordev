@@ -39,6 +39,15 @@ run "exact_project_succeeds" {
   command = plan
 
   assert {
+    condition     = google_project_iam_member.wif_viewer_native.project == "adept-presence-510022-p7" && google_project_iam_member.wif_viewer_native.role == "roles/iam.workloadIdentityPoolViewer" && google_project_iam_member.wif_viewer_native.member == "serviceAccount:gcp-01m4xs8mrej8cdgz286edc0ab2@spacelift.iam.gserviceaccount.com" && length(google_project_iam_member.wif_viewer_native.condition) == 0
+    error_message = "Only the existing unconditional project WIF reader is allowed."
+  }
+  assert {
+    condition     = google_service_account_iam_member.viewer_native.service_account_id == "projects/adept-presence-510022-p7/serviceAccounts/spacelift-google-auth@adept-presence-510022-p7.iam.gserviceaccount.com" && google_service_account_iam_member.viewer_native.role == "roles/iam.serviceAccountViewer" && google_service_account_iam_member.viewer_native.member == "serviceAccount:gcp-01m4xs8mrej8cdgz286edc0ab2@spacelift.iam.gserviceaccount.com" && length(google_service_account_iam_member.viewer_native.condition) == 0
+    error_message = "SA Viewer is restricted to only the manual account and native member."
+  }
+
+  assert {
     condition     = google_iam_workload_identity_pool.spacelift.disabled == false && google_iam_workload_identity_pool.spacelift.display_name == "Spacelift" && google_iam_workload_identity_pool.spacelift.deletion_policy == "ABANDON"
     error_message = "Preserve the active pool, display name and deletion policy."
   }
