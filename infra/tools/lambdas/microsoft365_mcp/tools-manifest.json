@@ -1,0 +1,172 @@
+[
+  {
+    "name": "list-mail-messages",
+    "description": "Read one bounded page of owner mail data. No automatic pagination.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "skip": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "search": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9 @._,+-]+$"
+        },
+        "orderby": {
+          "type": "string",
+          "enum": [
+            "receivedDateTime asc",
+            "receivedDateTime desc"
+          ]
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "get-mail-message",
+    "description": "Read one owner message, including body.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "messageId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9_=-]+$"
+        }
+      },
+      "required": [
+        "messageId"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "list-mail-folders",
+    "description": "Read one bounded page of owner mail data. No automatic pagination.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "top": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "skip": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        }
+      },
+      "required": [],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "list-mail-child-folders",
+    "description": "Read one bounded page of owner mail data. No automatic pagination.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mailFolderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9_=-]+$"
+        },
+        "top": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "skip": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        }
+      },
+      "required": [
+        "mailFolderId"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": true
+    }
+  },
+  {
+    "name": "list-mail-folder-messages",
+    "description": "Read one bounded page of owner mail data. No automatic pagination.",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "mailFolderId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "pattern": "^[A-Za-z0-9_=-]+$"
+        },
+        "top": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 50
+        },
+        "skip": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 500
+        },
+        "search": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[A-Za-z0-9 @._,+-]+$"
+        },
+        "orderby": {
+          "type": "string",
+          "enum": [
+            "receivedDateTime asc",
+            "receivedDateTime desc"
+          ]
+        }
+      },
+      "required": [
+        "mailFolderId"
+      ],
+      "additionalProperties": false
+    },
+    "annotations": {
+      "readOnlyHint": true,
+      "destructiveHint": false,
+      "openWorldHint": true
+    }
+  }
+]

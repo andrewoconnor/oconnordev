@@ -65,6 +65,7 @@ from adapter_config import (
 from adapter_config import (
     _validate_https_endpoint as _validate_https_endpoint,
 )
+from adapter_config import load_targets
 from adapter_forwarder import AgentCoreForwarder as AgentCoreForwarder
 from adapter_transport import (
     HttpResponse as HttpResponse,
@@ -83,6 +84,7 @@ def _load_forwarder() -> AgentCoreForwarder:
         token_url=os.environ.get("HERMES_AGENTCORE_COGNITO_TOKEN_URL", ""),
         client_id=os.environ.get("HERMES_AGENTCORE_COGNITO_CLIENT_ID", ""),
         client_secret=os.environ.get("HERMES_AGENTCORE_COGNITO_CLIENT_SECRET", ""),
+        targets=load_targets(),
     )
 
 

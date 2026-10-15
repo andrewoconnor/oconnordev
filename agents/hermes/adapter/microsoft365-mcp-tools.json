@@ -1,0 +1,10 @@
+{
+  "gateway_action_prefix": "microsoft365___",
+  "tools": [
+    "get-mail-message",
+    "list-mail-child-folders",
+    "list-mail-folder-messages",
+    "list-mail-folders",
+    "list-mail-messages"
+  ]
+}
