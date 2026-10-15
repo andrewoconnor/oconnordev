@@ -131,8 +131,18 @@ run "microsoft365_disabled_by_default" {
     error_message = "Runtime, target, permissions and permits must all be absent before owner activation."
   }
   assert {
-    condition     = aws_ecr_repository.microsoft365.image_tag_mutability == "IMMUTABLE" && aws_secretsmanager_secret.microsoft365_cache.recovery_window_in_days == 30
-    error_message = "Bootstrap must provision an immutable repository and only recoverable secret metadata."
+    condition     = aws_ecr_repository.tools_images.name == "oconnordev-tools" && aws_ecr_repository.tools_images.force_delete == false && aws_ecr_repository.tools_images.image_tag_mutability == "IMMUTABLE" && aws_secretsmanager_secret.microsoft365_cache.recovery_window_in_days == 30
+    error_message = "Bootstrap must provision the shared immutable tools repository without force deletion and only recoverable secret metadata."
+  }
+  assert {
+    condition = (
+      length(jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement) == 1 &&
+      jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Principal.Service == "lambda.amazonaws.com" &&
+      jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Effect == "Allow" &&
+      toset(jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Action) == toset(["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]) &&
+      jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Condition.ArnLike["aws:SourceArn"] == "arn:aws:lambda:us-east-1:421680664125:function:hermes-microsoft365-mcp"
+    )
+    error_message = "Shared ECR must still grant service pull to only the exact Microsoft365 function."
   }
 }
 run "microsoft365_requires_owner_inputs" {

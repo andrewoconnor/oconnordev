@@ -40,17 +40,21 @@ locals {
 }
 
 # Bootstrap resources intentionally exist while runtime activation is false.
-resource "aws_ecr_repository" "microsoft365" {
+# Shared tools images; tag prefixes are a naming convention, not IAM isolation.
+# No lifecycle cleanup: retained digests may be active/rollback images for any target.
+resource "aws_ecr_repository" "tools_images" {
   # checkov:skip=CKV_AWS_136:AWS-managed ECR encryption avoids a new paid customer-managed KMS key for this low-duty personal workload.
-  name                 = "hermes-microsoft365-mcp"
+  name                 = "oconnordev-tools"
   image_tag_mutability = "IMMUTABLE"
   force_delete         = false
   encryption_configuration { encryption_type = "AES256" }
   image_scanning_configuration { scan_on_push = true }
 }
 
+# Shared repository does not imply shared invocation/pull authorization.
+# Explicitly review each future function SourceArn before extending this policy.
 resource "aws_ecr_repository_policy" "microsoft365_lambda_pull" {
-  repository = aws_ecr_repository.microsoft365.name
+  repository = aws_ecr_repository.tools_images.name
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -119,7 +123,7 @@ resource "aws_lambda_function" "microsoft365" {
   function_name                  = local.microsoft365_function_name
   role                           = aws_iam_role.microsoft365_runtime.arn
   package_type                   = "Image"
-  image_uri                      = "${aws_ecr_repository.microsoft365.repository_url}@${var.microsoft365_image_digest}"
+  image_uri                      = "${aws_ecr_repository.tools_images.repository_url}@${var.microsoft365_image_digest}"
   architectures                  = ["arm64"]
   memory_size                    = 512
   timeout                        = 25
@@ -192,7 +196,7 @@ resource "aws_iam_role_policy" "microsoft365_gateway_invoke" {
 output "microsoft365_bootstrap" {
   description = "Nonsecret owner bootstrap references; no cache values."
   value = {
-    repository_url     = aws_ecr_repository.microsoft365.repository_url
+    repository_url     = aws_ecr_repository.tools_images.repository_url
     publisher_role_arn = aws_iam_role.microsoft365_image_publisher.arn
     cache_secret_arn   = aws_secretsmanager_secret.microsoft365_cache.arn
   }

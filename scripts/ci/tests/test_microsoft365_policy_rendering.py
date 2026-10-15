@@ -15,7 +15,7 @@ SECRET = (
     "arn:aws:secretsmanager:us-east-1:421680664125:secret:"
     "/hermes/microsoft365/msal-cache-test12"
 )
-REPO = "arn:aws:ecr:us-east-1:421680664125:repository/hermes-microsoft365-mcp"
+REPO = "arn:aws:ecr:us-east-1:421680664125:repository/oconnordev-tools"
 
 
 class Microsoft365PolicyRenderingTests(unittest.TestCase):
@@ -73,7 +73,7 @@ provider "aws" {
                 re.M | re.S,
             ).group(1)
             expr = expr.replace(
-                "aws_ecr_repository.microsoft365.arn", json.dumps(REPO)
+                "aws_ecr_repository.tools_images.arn", json.dumps(REPO)
             ).replace(
                 "aws_iam_openid_connect_provider.github_actions.arn",
                 json.dumps(

@@ -61,9 +61,14 @@ not silently change shared gateway observability.
   secret-read deny excludes this cache from its approved credentials.
 * Runtime role: GetSecretValue and PutSecretValue for **one** fixed cache secret,
   plus CreateLogStream/PutLogEvents for its own finite-retention log group only.
-* Publisher role: ECR push/readback on only `hermes-microsoft365-mcp`;
+* Publisher role: ECR push/readback on only the shared `oconnordev-tools` repository;
   GetAuthorizationToken requires Resource `*`. No Lambda update, PassRole, secret
-  access, infrastructure apply or gateway privilege.
+  access, infrastructure apply or gateway privilege. The role can publish **any
+  tag** in this repository, including future targets' tags. The `microsoft365-`
+  prefix is a collision-avoidance convention, **not an authorization boundary**:
+  ECR IAM cannot enforce an image-tag prefix for these push permissions. Sharing
+  the repository shares the publisher content-trust boundary; review that risk
+  explicitly before adding other publishers or targets.
 * Function URL uses AWS_IAM. No public resource allow, wildcard public principal,
   CORS, unauthenticated alternative or forwarded Graph bearer authority. In the
   same account, these identity allows suffice. They are **not absolute exclusive
@@ -72,6 +77,10 @@ not silently change shared gateway observability.
   Review existing IAM/SCP permissions before live proof; do not present an allow
   as a restrictive deny boundary.
 * ECR Lambda service pull policy is limited to this exact function SourceArn.
+  Sharing the repository does not authorize future functions: extend the single
+  repository policy explicitly with reviewed exact SourceArns for future targets,
+  never a function-name wildcard. Function, runtime/publisher role, cache secret
+  and gateway target names remain Microsoft365-specific.
   Repo and roles and secret metadata bootstrap regardless of activation; function,
   URL, runtime grants/logs, invoke grant, target/catalog and Cedar permits are
   gated together by `microsoft365_runtime_enabled=false` by default.
@@ -91,7 +100,10 @@ not silently change shared gateway observability.
    project globs. No secret-version resource exists; no secret values may enter
    tfvars, Spacelift variables, state, outputs, plans, CI or docs.
 2. Review `microsoft365_bootstrap` output (only repository URL, publisher-role ARN,
-   secret ARN). The repository and role are in TOOLS, us-east-1, not SECURITY.
+   secret ARN). The shared repository is `oconnordev-tools`
+   (`aws_ecr_repository.tools_images`), with URL
+   `421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools`.
+   The repository and role are in TOOLS, us-east-1, not SECURITY.
    Workflow publication remains disabled until the owner sets repository variable
    `MICROSOFT365_IMAGE_PUBLISH_ENABLED=true`. No GitHub Environment is required by
    this role's trust. The trust pins aud=sts.amazonaws.com and exact
@@ -108,7 +120,10 @@ not silently change shared gateway observability.
    downloads and verifies the same archive/image ID and compares **fresh master
    application inputs before credentials**. It loads/pushes those tested bytes,
    never rebuilds them. Dedicated ECR-only OIDC credentials are acquired only in
-   publish. Digest is read back from ECR and compared with docker push output.
+   publish. Tags use `microsoft365-<commit>-<run-id>-<run-attempt>` so different
+   targets and reruns do not collide in the immutable shared repository. Future
+   targets must choose their own prefix; prefixes are not IAM isolation. Digest
+   is read back from `oconnordev-tools` and compared with docker push output.
    Capture the actual `repository@sha256:...` from job summary; never use `latest`
    or the synthetic fixture digest. No Lambda deployment occurs in workflow.
 4. Separately authorize owner app/consumer consent and **new** serialized cache
@@ -175,7 +190,9 @@ and recoverable secret metadata remain. Disable the publication repository varia
 if image push should stop. Retain the last verified digest for a reviewed rollback;
 no mutable tags and no auto-pruning policy that could delete a needed rollback
 image. Monitor retained ECR size and explicitly remove unused images only after
-owner review. Cache corruption/consent revocation is fail closed: stop writers,
+owner review across **all** targets using the shared repository; do not delete
+active or rollback images for another target. No lifecycle/automatic tag cleanup
+is configured. Cache corruption/consent revocation is fail closed: stop writers,
 re-consent/rebootstrap separately, never fallback to another cached account or
 force repeated refresh retries. Never restore an obsolete refresh-token cache over
 new rotated state. Removing Lambda does not revoke Microsoft consent.
