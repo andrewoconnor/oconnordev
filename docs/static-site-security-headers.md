@@ -40,6 +40,8 @@ Other Drumroll allowances remain narrow:
 - `connect-src 'self'` for local texture, JS and WASM downloads.
 - `img-src 'self' data: blob:` for artwork, CSS's embedded close-icon SVG, and
   Three image/blob capability. Browser tests actually decode data/blob images.
+- `media-src 'self'` for self-hosted entry videos. Browser tests check that
+  same-origin media loads and that third-party media is blocked.
 - `style-src-attr 'unsafe-inline'` for dynamic scene/panel/tooltip/search styles;
   executable script attributes remain denied.
 - `style-src 'self'` plus byte-exact style-element hashes, rather than blanket

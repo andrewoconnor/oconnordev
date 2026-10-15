@@ -553,4 +553,111 @@ export const DRUMS = [
       },
     ],
   },
+  {
+    id: "oleniy-ostrov-elk-tooth-rattles",
+    title: "Elk-tooth rattles of Yuzhniy Oleniy Ostrov",
+    region: "Yuzhniy Oleniy Ostrov, Lake Onega, Karelia, Russia",
+    year: -6200,
+    dateLabel: "Late Mesolithic (c. 8200 cal. BP, c. 6200 BCE)",
+    lat: 62.0436,
+    lng: 35.3639,
+    description:
+      "In the Late Mesolithic cemetery on Yuzhniy Oleniy Ostrov, an island in Lake Onega, thousands of elk incisors were buried with the dead. People had cut a groove into the root tip of each tooth, tied it with sinew, and sewn it onto clothing in rows and bunches; one man in grave 76a wore about 140 teeth on his chest, waist, hips and thighs. Under the microscope, many crowns show clusters of small pits and craters on their edges, a wear pattern that no study had reported before. To find the cause, researchers sewed fresh elk teeth onto an apron and danced and jumped in it for six hours. The same pits formed only where the swinging teeth hit each other. This is direct physical evidence that the pendants rattled as their wearers moved: even three or four teeth make a rattle, and many teeth make a field of sound that follows each step, stamp or jump. The finds give rare insight into the sounds of Mesolithic hunter-gatherers and into the early history of the rattle as an instrument.",
+    type: "rattle / sounding ornament",
+    source: {
+      title:
+        "Prehistoric Pendants as Instigators of Sound and Body Movements: A Traceological Case Study from Northeast Europe, c. 8200 cal. BP",
+      authors: ["Riitta Rainio", "Dmitry V. Gerasimov", "Evgeny Yu. Girya", "Kristiina Mannermaa"],
+      publicationTitle: "Cambridge Archaeological Journal",
+      year: 2021,
+      volume: "31",
+      issue: "4",
+      pages: "639–660",
+      doi: "10.1017/S0959774321000275",
+      url: "https://doi.org/10.1017/S0959774321000275",
+      license: "CC BY-NC-ND 4.0",
+      licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      note: 'The open-access accepted manuscript is in the University of Helsinki repository: <a href="https://hdl.handle.net/10138/341023" target="_blank" rel="noopener">hdl.handle.net/10138/341023</a>. The finds are in the Peter the Great Museum of Anthropology and Ethnography (Kunstkamera), St Petersburg.',
+    },
+    images: [
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/1.jpg",
+        caption:
+          "A hypothetical reconstruction of the Yuzhniy Oleniy Ostrov tooth ornaments: two rows of elk incisors sewn onto a leather apron over a reindeer-skin robe.",
+        credit:
+          "Still from “Stone Age Rattle Reconstructed”, video by Julia Shpinitskaya, Riitta Rainio and Kristiina Mannermaa; apron by Riitta Rainio, robe by Johanna Seppä. Acoustics of Sacred Sites, University of Helsinki, via YouTube.",
+        license: "CC BY-NC-ND",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      },
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/2.jpg",
+        caption:
+          "Clusters of pits and craters (arrows) on the crown edges of Mesolithic elk incisors from graves 102, 76a and 127. No study had reported this wear pattern before.",
+        credit:
+          "Fig. 15, photos by the authors, in Rainio, Gerasimov, Girya & Mannermaa 2021, Cambridge Archaeological Journal 31(4): 639–660 (accepted manuscript).",
+        license: "CC BY-NC-ND 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      },
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/3.jpg",
+        caption:
+          "The same wear on old and new teeth: an experimental incisor after six hours of dancing in the “Stone Ageish Disco” (a–b), and a Mesolithic incisor from grave 127 (c–d).",
+        credit:
+          "Fig. 18, photos by the authors, in Rainio, Gerasimov, Girya & Mannermaa 2021, Cambridge Archaeological Journal 31(4): 639–660 (accepted manuscript).",
+        license: "CC BY-NC-ND 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      },
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/4.jpg",
+        caption:
+          "Grooves cut into the root tips of Mesolithic incisors from graves 127 and 13. A string tied into the groove held each pendant.",
+        credit:
+          "Fig. 11, photos by the authors, in Rainio, Gerasimov, Girya & Mannermaa 2021, Cambridge Archaeological Journal 31(4): 639–660 (accepted manuscript).",
+        license: "CC BY-NC-ND 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      },
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/5.jpg",
+        caption:
+          "The suspension method in the experiments: the root tip is grooved (a), a sinew string is twisted around it and knotted (b), and the string is tied to the backing (c).",
+        credit:
+          "Fig. 4, photos by the authors, in Rainio, Gerasimov, Girya & Mannermaa 2021, Cambridge Archaeological Journal 31(4): 639–660 (accepted manuscript).",
+        license: "CC BY-NC-ND 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      },
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/6.jpg",
+        caption:
+          "Modern reference material: the eight incisors of an elk's lower jaw (a), and sixteen incisors made into pendants and hung from a leather patch (b).",
+        credit:
+          "Fig. 3, photos by the authors, in Rainio, Gerasimov, Girya & Mannermaa 2021, Cambridge Archaeological Journal 31(4): 639–660 (accepted manuscript).",
+        license: "CC BY-NC-ND 4.0",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      },
+    ],
+    videos: [
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/video-1.mp4",
+        poster: "images/oleniy-ostrov-elk-tooth-rattles/video-1.jpg",
+        caption:
+          "Ninety-four elk teeth sewn on an apron hit and bounce off the leather and each other as the wearer moves, first at real speed and then in slow motion.",
+        credit:
+          "“Stone Age Rattle Reconstructed”, video by Julia Shpinitskaya, Riitta Rainio and Kristiina Mannermaa, Acoustics of Sacred Sites, University of Helsinki. Re-encoded for the web.",
+        license: "CC BY-NC-ND",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+        url: "https://youtu.be/K-EE9YY6pHY",
+      },
+      {
+        src: "images/oleniy-ostrov-elk-tooth-rattles/video-2.mp4",
+        poster: "images/oleniy-ostrov-elk-tooth-rattles/video-2.jpg",
+        caption:
+          "Sound sample: 160 animal-tooth pendants, copies of prehistoric burial finds, rattle on the arms, hips and thighs of a dancer in the installation “Bone Garden”, Turku, 2015.",
+        credit:
+          "“Stone Ageish Disco”, recording and performance by Juha Valkeapää and Riitta Rainio, Acoustics of Sacred Sites, University of Helsinki. Re-encoded for the web.",
+        license: "CC BY-NC-ND",
+        licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+        url: "https://youtu.be/gRpxQOx9ugs",
+      },
+    ],
+  },
 ];

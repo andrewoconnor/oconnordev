@@ -213,6 +213,19 @@ function harness({
       type: "Drum",
       description: "Artifact",
       images: [{ src: `/${n}.jpg` }, { src: `/${n}-b.jpg` }],
+      ...(n === 2 && {
+        videos: [
+          {
+            src: "/2.mp4",
+            poster: "/2-poster.jpg",
+            caption: "Rattle",
+            credit: "Video by someone",
+            license: "CC BY-NC-ND",
+            licenseUrl: "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+            url: "https://youtu.be/example",
+          },
+        ],
+      }),
     })),
     document,
     window: {
@@ -270,6 +283,24 @@ test("WebGL constructor failure retains selected searchable list and gallery", a
   const notice = h.get("globeUnavailable");
   assert.equal(notice.attributes.role, "status");
   assert.match(notice.textContent, /3D unavailable/);
+});
+
+test("entry videos render click-to-load players with credit and original link", async () => {
+  const h = harness({ throwing: true });
+  await flush();
+  assert.equal(h.get("activeTitle").textContent, "Drum 2");
+  const videos = h.get("entryList").querySelector(".entry-videos");
+  assert.equal(videos.children.length, 1);
+  const [player, caption, credit] = videos.children[0].children;
+  assert.equal(player.src, "/2.mp4");
+  assert.equal(player.poster, "/2-poster.jpg");
+  assert.equal(player.preload, "none");
+  assert.equal(player.controls, true);
+  assert.equal(caption.textContent, "Rattle");
+  assert.equal(credit.children.at(-1).href, "https://youtu.be/example");
+  h.get("prevBtn").dispatch("click");
+  const first = h.get("entryList").children.find((c) => c.querySelector(".entry-body"));
+  assert.equal(first.querySelector(".entry-videos").children.length, 0);
 });
 
 test("stalled first-paint textures leave navigation usable and loading bounded", async () => {
