@@ -109,6 +109,203 @@ def verify_import_plan(plan: dict[str, Any], expected_imports: int = 1) -> None:
         )
 
 
+PROJECT = "adept-presence-510022-p7"
+POOL = "projects/693193037198/locations/global/workloadIdentityPools/spacelift"
+MANUAL_SA = f"spacelift-google-auth@{PROJECT}.iam.gserviceaccount.com"
+NATIVE_SA = "gcp-01m4xs8mrej8cdgz286edc0ab2@spacelift.iam.gserviceaccount.com"
+BOOTSTRAP_IMPORTS = {
+    "google_iam_workload_identity_pool.spacelift": POOL.replace(
+        "693193037198", PROJECT
+    ),
+    "google_iam_workload_identity_pool_provider.spacelift": (
+        POOL + "/providers/spacelift"
+    ).replace("693193037198", PROJECT),
+    "google_service_account.bootstrap": (
+        f"projects/{PROJECT}/serviceAccounts/{MANUAL_SA}"
+    ),
+    "google_project_iam_member.browser_manual": (
+        f"{PROJECT} roles/browser serviceAccount:{MANUAL_SA}"
+    ),
+    "google_project_iam_member.browser_native": (
+        f"{PROJECT} roles/browser serviceAccount:{NATIVE_SA}"
+    ),
+}
+
+
+def verify_bootstrap_plan(plan: dict[str, Any], expected_imports: int = 5) -> None:
+    """Gate actual show-json, never infer live totals from offline mocks."""
+    if expected_imports not in (0, 5):
+        raise ValueError("Require five new imports initially or zero after adoption")
+    expected = {address: "managed" for address in BOOTSTRAP_IMPORTS}
+    expected.update(
+        {
+            "google_project.google_auth": "managed",
+            "data.google_project.google_auth": "data",
+        }
+    )
+    module = plan["configuration"]["root_module"]
+    configured = module.get("resources", [])
+    if (
+        module.get("module_calls")
+        or len(configured) != len(expected)
+        or {r.get("address"): r.get("mode") for r in configured} != expected
+    ):
+        raise ValueError(
+            "Only the existing project/discovery and five adopted objects are allowed"
+        )
+    if (
+        plan.get("errored")
+        or plan.get("complete") is False
+        or plan.get("deferred_changes")
+    ):
+        raise ValueError("Plan must be complete and successful")
+    for check in plan.get("checks", []):
+        if check.get("status") != "pass" or any(
+            i.get("status") != "pass" for i in check.get("instances", [])
+        ):
+            raise ValueError("Unresolved or failed checks")
+    for drift in plan.get("resource_drift", []):
+        if drift.get("change", {}).get("actions") != ["no-op"]:
+            raise ValueError("Resource drift blocks preservation-only adoption")
+    seen = set()
+    imported = set()
+    for resource in plan.get("resource_changes", []):
+        address = resource.get("address")
+        if (
+            address not in expected
+            or address in seen
+            or resource.get("mode") != expected[address]
+        ):
+            raise ValueError("Unexpected or duplicate address")
+        seen.add(address)
+        change = resource["change"]
+        if change.get("actions") != ["no-op"]:
+            raise ValueError("Require zero cloud changes and resolved discovery")
+        # Reuse the project-only identity, parent/billing/labels and unknown gates.
+        if address == "google_project.google_auth":
+            project_plan = {
+                **plan,
+                "configuration": {
+                    "root_module": {
+                        "resources": [
+                            {
+                                "address": "data.google_project.google_auth",
+                                "mode": "data",
+                            },
+                            {"address": address, "mode": "managed"},
+                        ]
+                    }
+                },
+                "resource_changes": [resource],
+            }
+            verify_import_plan(project_plan, expected_imports=0)
+            if change.get("after", {}).get("deletion_policy") != "ABANDON":
+                raise ValueError("Project deletion policy must remain ABANDON")
+            continue
+        if change.get("after_unknown"):
+            raise ValueError("Preserved values must be fully known")
+        importing = change.get("importing")
+        if importing is not None:
+            if (
+                address not in BOOTSTRAP_IMPORTS
+                or importing.get("id") != BOOTSTRAP_IMPORTS[address]
+            ):
+                raise ValueError("Wrong import identity")
+            imported.add(address)
+        if address.startswith("data."):
+            if importing is not None:
+                raise ValueError("Discovery cannot import")
+            after = change.get("after") or {}
+            if any(
+                after.get(k) != v
+                for k, v in {
+                    "project_id": PROJECT,
+                    "name": "oconnordev-tools",
+                    "number": "693193037198",
+                }.items()
+            ):
+                raise ValueError("Discovery identity changed")
+            continue
+        after = change.get("after") or {}
+        fields: dict[str, Any] = {"project": PROJECT}
+        if address.startswith("google_iam_workload_identity_pool"):
+            provider = address.startswith("google_iam_workload_identity_pool_provider.")
+            fields.update(
+                {
+                    "workload_identity_pool_id": "spacelift",
+                    "name": POOL + ("/providers/spacelift" if provider else ""),
+                    "state": "ACTIVE",
+                    "disabled": False,
+                    "display_name": "spacelift" if provider else "Spacelift",
+                    "deletion_policy": "ABANDON",
+                }
+            )
+            if after.get("description") not in (None, ""):
+                raise ValueError("Uninventoried description")
+            if provider:
+                fields.update(
+                    {
+                        "workload_identity_pool_provider_id": "spacelift",
+                        "attribute_condition": (
+                            "assertion.callerType == 'stack' && "
+                            "assertion.callerId == 'oconnordev-gcp-google-auth'"
+                        ),
+                        "attribute_mapping": {
+                            "attribute.stack": "assertion.callerId",
+                            "google.subject": "assertion.sub",
+                        },
+                    }
+                )
+                oidc = after.get("oidc") or []
+                if (
+                    len(oidc) != 1
+                    or oidc[0].get("issuer_uri")
+                    != "https://andrewoconnor.app.spacelift.io"
+                    or oidc[0].get("allowed_audiences")
+                    != ["andrewoconnor.app.spacelift.io"]
+                    or oidc[0].get("jwks_json") not in (None, "")
+                    or any(after.get(k) for k in ("aws", "saml", "x509"))
+                ):
+                    raise ValueError("OIDC trust mismatch")
+        elif address == "google_service_account.bootstrap":
+            fields.update(
+                {
+                    "account_id": "spacelift-google-auth",
+                    "email": MANUAL_SA,
+                    "name": f"projects/{PROJECT}/serviceAccounts/{MANUAL_SA}",
+                    "unique_id": "109396950295423788712",
+                    "disabled": False,
+                    "deletion_policy": "ABANDON",
+                }
+            )
+            if any(
+                after.get(k) not in (None, "") for k in ("display_name", "description")
+            ):
+                raise ValueError("Do not add service-account metadata")
+        else:
+            fields.update(
+                {
+                    "role": "roles/browser",
+                    "member": "serviceAccount:"
+                    + (MANUAL_SA if address.endswith("_manual") else NATIVE_SA),
+                }
+            )
+            if after.get("condition") not in (None, []):
+                raise ValueError("Unexpected IAM condition")
+        if any(after.get(key) != value for key, value in fields.items()):
+            raise ValueError(f"Preserved identity/configuration mismatch: {address}")
+    if seen - {"data.google_project.google_auth"} != set(expected) - {
+        "data.google_project.google_auth"
+    }:
+        raise ValueError(
+            "Every managed object, including the existing project no-op, is required"
+        )
+    if imported != (set(BOOTSTRAP_IMPORTS) if expected_imports else set()):
+        raise ValueError(
+            "Wrong exact new import set; existing project must never re-import"
+        )
+
+
 def run_offline_tests() -> None:
     """Copy actual configuration, omitting only unsupported mock import blocks."""
     import os
@@ -168,13 +365,17 @@ def run_offline_tests() -> None:
             if r.get("mode") == "managed"
         ]
         if (
-            len(managed) != 1
-            or managed[0].get("address") != "google_project.google_auth"
-            or managed[0]["change"]["actions"] != ["create"]
-            or managed[0]["change"].get("importing") is not None
+            {r.get("address") for r in managed}
+            != set(BOOTSTRAP_IMPORTS) | {"google_project.google_auth"}
+            or len(managed) != 6
+            or any(
+                r["change"]["actions"] != ["create"]
+                or r["change"].get("importing") is not None
+                for r in managed
+            )
         ):
             raise ValueError(
-                "Offline fixture must create only the mocked project; no import"
+                "Offline fixture must create only six mocked objects; no import"
             )
         print(
             "Verified offline fixture: mocked creation/identity; imports omitted. "
@@ -191,10 +392,10 @@ def main() -> None:
         type=Path,
         help="Real tofu show -json plan; no generated/mocked import evidence",
     )
-    parser.add_argument("--expected-imports", type=int, choices=(0, 1), default=1)
+    parser.add_argument("--expected-imports", type=int, choices=(0, 5), default=5)
     args = parser.parse_args()
     if args.plan_json:
-        verify_import_plan(
+        verify_bootstrap_plan(
             json.loads(args.plan_json.read_text()), args.expected_imports
         )
         print(
