@@ -108,7 +108,8 @@ jobs:
           IMAGE_TAG: ${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${IMAGE_REPOSITORY%%/*}"
-          trap 'docker logout "${IMAGE_REPOSITORY%%/*}"' EXIT
+          docker_logout() { docker logout "${IMAGE_REPOSITORY%%/*}"; }
+          trap docker_logout EXIT
           docker tag microsoft365-tested:local "$IMAGE_REPOSITORY:$IMAGE_TAG"
           docker push "$IMAGE_REPOSITORY:$IMAGE_TAG" | tee release/push.txt
           DIGEST=$(aws ecr describe-images --region us-east-1 --repository-name hermes-microsoft365-mcp --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
