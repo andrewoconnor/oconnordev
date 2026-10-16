@@ -6,7 +6,7 @@ SECURITY (`482921124454`) is the monitoring account. TOOLS (`421680664125`)
 and PRODUCTION (`767397796791`) each create a logs-only OAM link to SECURITY's
 `oconnordev-security-logs` sink in **us-east-1**, matching all three AWS roots'
 provider region. All existing and future log groups in those source accounts
-and that region are shared. Other regions are not configured by this change.
+and that region are shared. Other regions are not configured here.
 
 OAM shares visibility without copying log records, changing source retention,
 or enabling log delivery for services that currently do not emit logs. Metrics,
@@ -18,26 +18,13 @@ The sink policy permits only TOOLS and PRODUCTION, only `CreateLink` and
 `UpdateLink`, and only `AWS::Logs::LogGroup`. The source deploy roles already
 have AdministratorAccess; the SECURITY AWS MCP role keeps its existing
 ReadOnlyAccess plus explicit secret, KMS-decrypt, and assume-role denies.
-Live IAM simulation confirmed `logs:StartQuery`, `logs:GetQueryResults`,
-`logs:DescribeLogGroups`, and `oam:ListSinks` are already allowed. No broader
-MCP IAM permissions are introduced. Log messages may contain sensitive payloads:
+The required query actions are `logs:StartQuery`, `logs:GetQueryResults`,
+`logs:DescribeLogGroups`, and `oam:ListSinks` under the existing read boundary; verify effective live access before use. Log messages may contain sensitive payloads:
 sharing all source groups is intentional, so redact credentials at emission.
 
-`aws_athena_workgroup.hermes_analytics` moves to generic `athena.tf` without
-changing its resource address or configuration. Athena remains the billing
-query engine; CloudWatch Logs Insights queries logs directly, not via Athena.
-
-## Verified renewal observation
-
-On 2026-10-08, queries from SECURITY successfully read TOOLS's
-`/aws/lambda/hermes-spacelift-session-token-rotation` log group. The sampled
-24-hour poll query returned 1,439 successful checks, 13 expiry-advancing
-publications, and 1,426 same-expiry checks without publication. Observed lifetime
-was 10 hours; minimum remaining lifetime was about 7.62 hours. This verifies
-TOOLS log-query access, not the existence of PRODUCTION log emitters or a
-provider guarantee about renewal timing. See the
-[session-token runbook](runbooks/spacelift-session-token.md) for query evidence,
-caveats, the 15-minute default cadence, alarm windows, and post-apply checks.
+Athena is the billing query engine; CloudWatch Logs Insights queries logs
+directly. See the [session-token runbook](runbooks/spacelift-session-token.md)
+for rotation diagnostics.
 
 ## Cost
 
@@ -55,7 +42,7 @@ References:
 - https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_DescribeLogGroups.html
 - https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_StartQuery.html
 
-## Rollout after merge
+## Provisioning and verification
 
 1. Apply the Spacelift root (`oconnordev`) to add sink output references and the
    production-to-security dependency. TOOLS reuses its existing security edge.
@@ -86,7 +73,7 @@ first. Destroying a link does not delete source logs.
 
 ```json
 {
-  "logGroupIdentifiers": ["arn:aws:logs:us-east-1:421680664125:log-group:/aws/vendedlogs/bedrock-agentcore/gateway/hermes"],
+  "logGroupIdentifiers": ["arn:aws:logs:us-east-1:421680664125:log-group:/aws/lambda/hermes-spacelift-session-token-rotation"],
   "startTime": 0,
   "endTime": 1,
   "queryString": "fields @timestamp, @message, @log | sort @timestamp desc | limit 20",

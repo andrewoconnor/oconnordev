@@ -8,7 +8,7 @@ Use this runbook for new stack bootstraps and state-sensitive AWS changes. The c
 2. Apply `infra/aws/general` before `infra/aws/security`. For a fresh General stack with none of the gated audit resources in state, follow the audit enablement procedure below.
 3. Apply `infra/aws/security` and verify the CloudTrail and Config destination buckets and policies before enabling the General audit writers.
 4. Apply `infra/aws/tools` after Security; its AWS target consumes the Security gateway URL and ARN through Spacelift references. Apply `infra/aws/production` after TOOLS because the production CloudFront endpoint consumes the TOOLS output. Keep PRODUCTION's `TF_VAR_hermes_gateway_origin_hostname` wired from TOOLS's `tools_gateway_origin_hostname`; if that dependency is missing, gated CloudFront resources can plan for deletion.
-5. For refactor changes, inspect every speculative plan. Require only intended address moves, in-place changes, or no-ops; a merge does not itself apply infrastructure.
+5. Inspect every speculative plan for intended changes and no unexpected replacements; a merge does not itself apply infrastructure.
 
 ## Organization audit enablement and state safety
 
@@ -24,15 +24,15 @@ The live account is `OCONNORDEV-TOOLS` (`421680664125`); `infra/aws/accounts.jso
 
 The deployment role chain is GitHub OIDC → `oconnordev-github-actions-broker` in TOOLS → the existing `oconnordev-site-deploy` role in PRODUCTION. The broker's trust is limited to `repo:andrewoconnor/oconnordev:environment:oconnordev-production` and `sts.amazonaws.com` audience, and its only permission is to assume that exact PRODUCTION role. Before applying TOOLS in a new environment, inspect account `421680664125` for the `https://token.actions.githubusercontent.com` provider and the broker role. If either already exists outside TOOLS state, import/reconcile it at `aws_iam_openid_connect_provider.github_actions` or `aws_iam_role.github_actions_broker` rather than attempting a duplicate create.
 
-The GitHub repository-configuration stack gets `OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` from the TOOLS output. Before its first apply in a new environment, check whether that Actions variable already exists outside OpenTofu state; if so, import it as `github_actions_variable.tools_github_actions_broker_role_arn` with provider ID `oconnordev:OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` before applying. After a deployment-workflow change, run the site workflow on `master` and verify both role assumptions, S3 sync, and CloudFront invalidation; both workflows now include their own workflow path in master-push triggers.
+The GitHub repository-configuration stack gets `OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` from the TOOLS output. Before its first apply in a new environment, check whether that Actions variable already exists outside OpenTofu state; if so, import it as `github_actions_variable.tools_github_actions_broker_role_arn` with provider ID `oconnordev:OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` before applying. After a deployment-workflow change, run the site workflow on `master` and verify both role assumptions, S3 sync, and CloudFront invalidation; both workflows include their own workflow path in master-push triggers.
 
 
-## Tested-artifact environment cutover
+## Tested-artifact environment bootstrap
 
-The user must review/apply infrastructure from the reviewed change **before
-merging the auto-deploy workflow cutover**, or explicitly pause both workflows
-until the cutover is complete. These agents do not apply or deploy. Staging the
-new trust temporarily stops old ref-subject workflows; schedule that pause.
+For a new environment, pause both deployment workflows until the owner has
+completed and verified these gates. Environment protection must precede IAM
+trust; workflow pause alone is not a security boundary. Inspect existing objects
+and reconcile state instead of duplicating resources.
 
 1. **Stage both GitHub environments before any IAM environment trust.** Use a
    separate, user-owned GitHub UI bootstrap in `andrewoconnor/oconnordev`:
@@ -41,10 +41,9 @@ new trust temporarily stops old ref-subject workflows; schedule that pause.
    ("Selected branches and tags"), allow exactly branch `master`, and require
    no tag policy or other branch pattern. Do not rely on workflow jobs to
    auto-create environments: an unprotected environment can issue an environment
-   subject from a non-master ref. Keep IAM on its existing trust during this
-   bootstrap, including the interval between environment creation and protection.
+   subject from a non-master ref. Do not enable environment IAM trust during the interval between creation and protection.
    Do not run the dependent repository stack yet: it consumes TOOLS and DrumrollWorld
-   outputs, including the new broker ARN. This separate bootstrap needs neither
+   outputs, including the broker ARN. This separate bootstrap needs neither
    producer apply nor that ARN, so it avoids the dependency cycle. Record both
    environment names and master deployment-policy IDs for later state imports;
    do not create a replacement stack/state.
@@ -54,7 +53,7 @@ new trust temporarily stops old ref-subject workflows; schedule that pause.
    branch policy named `master`, with no tags. For each environment, the user must
    test a non-master environment job with no AWS credentials or AssumeRole step:
    GitHub must reject it **before starting** a runner and obtaining an environment
-   OIDC token. Also confirm a master job can pass the environment gate. Stop the cutover
+   OIDC token. Also confirm a master job can pass the environment gate. Stop bootstrap
    if either readback or enforcement check fails; leave IAM unchanged. Offline
    locked-provider tests prove configuration, not live enforcement. AWS sees
    environment subjects, not the original ref. If environment trust is already
@@ -63,16 +62,13 @@ new trust temporarily stops old ref-subject workflows; schedule that pause.
 3. **Activate IAM environment trust only after both gates pass.** Review/apply
    `infra/spacelift` to wire `drumrollworld_tools_github_actions_broker_role_arn`
    into the existing repository configuration stack; keep its full run held until
-   the producer applies below complete. Use a user-approved staged change/run when
-   the infrastructure branch is not yet on master. Then review/apply TOOLS: retain
+   the producer applies below complete. Use only owner-reviewed revisions and plans. Then review/apply TOOLS: retain
    the existing OIDC provider and OConnorDev broker, restrict that broker to only
-   `oconnordev-production` and OConnorDev's deploy role, and create the dedicated
+   `oconnordev-production` and OConnorDev's deploy role, and configure the dedicated
    DrumrollWorld environment broker with only its own AssumeRole target.
    Inspect/import existing out-of-state resources first. Next review/apply
-   `drumrollworld`: trust only the dedicated DrumrollWorld broker and remove the
-   obsolete repair GetObject grant. Review PRODUCTION's role: its exact existing
-   OConnorDev broker principal stays unchanged. No hosting resources/runtime/CSP/
-   compiler changes belong in this cutover.
+   `drumrollworld`: trust only the dedicated DrumrollWorld broker with no repair GetObject grant. Review PRODUCTION's role: its exact existing
+   OConnorDev broker principal stays unchanged. Keep hosting/runtime/CSP changes separate from identity bootstrap.
 4. **Apply the full repository-configuration stack** only after producer outputs
    are available. Before applying, reconcile/import both bootstrapped environments
    at `github_repository_environment.site["oconnordev-production"]` and
@@ -81,8 +77,8 @@ new trust temporarily stops old ref-subject workflows; schedule that pause.
    `github_repository_environment_deployment_policy.master["<environment>"]`
    addresses, using the locked provider's documented import IDs. Require a plan
    preserving both environments and their master-only policies, not replacing or
-   temporarily removing protection. Create
-   `DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` from the new output; retain
+   temporarily removing protection. Configure
+   `DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` from the dedicated output; retain
    all five existing variables and their state addresses. Inspect/import any
    out-of-state variable rather than replace. Dedicated provider App permissions
    must be approved by the user; environment management requires its repository
@@ -100,6 +96,12 @@ apply them as a user-owned operation, then merge a compatible workflow. Revertin
 only IAM or only workflow subjects strands deployments. Application rollback is
 a reviewed revert committed to master, not a rebuild of a stale queued run.
 
-## Static-site root/module split
+## Static-site ownership and recovery
 
-Before applying the new resume root or refactored production configuration, follow [the mandatory owner-operated state handoff](../static-site-state-migration.md). The existing administrative stack is `oconnordev`; the new resume stack is **`oconnordev-resume`**, root `infra/aws/oconnordev`. Do not reuse or relocate the administrative stack. Production keeps the shared zone, certificate and DNSSEC resources used by the Hermes endpoint. Both workloads consume explicit production outputs. Default-false guards intentionally block ordinary plans until the handoff is complete.
+`oconnordev-resume` uses `infra/aws/oconnordev`; the administrative stack is
+`oconnordev`, not the resume workload. Both sites use the local
+`infra/modules/static-site` module. PRODUCTION retains the shared zone,
+certificate and DNSSEC resources used by the Hermes endpoint. Preserve state
+ownership and inspect fresh plans before any owner-approved infrastructure change.
+See [image recovery](drumrollworld-image-recovery.md) for external assets and
+retention limits; versioning is not an independent backup.

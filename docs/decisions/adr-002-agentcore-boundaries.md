@@ -1,6 +1,6 @@
-# ADR: explicit AgentCore security boundaries
+# Architecture: explicit AgentCore security boundaries
 
-## Decision
+## Contract
 
 Keep shared Hermes Gateway, Cognito authentication, policy-engine authorization, and generic gateway IAM separate from target-specific credentials, upstream targets, and Cedar actions. Keep security-account AWS_IAM Gateway/trust policies and the S3 policies for CloudTrail and Config directly visible in OpenTofu configuration.
 
@@ -10,4 +10,4 @@ The OAuth Gateway and the AWS_IAM security Gateway have different authentication
 
 ## Constraints
 
-This is a file-layout and deduplication decision only. Do not change Gateway names, target names, resource addresses, authentication mode, IAM grants, Cedar conditions, or bucket-policy principals as part of the move. There are no new modules.
+Gateway/target identities, resource addresses, authentication, IAM grants, Cedar conditions and bucket-policy principals are explicit security contracts. Review changes to these boundaries independently of source-file organization.

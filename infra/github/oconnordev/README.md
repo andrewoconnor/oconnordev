@@ -1,87 +1,56 @@
-# Dedicated GitHub App authentication bootstrap
+# GitHub repository configuration
 
-Create a separate GitHub App for OpenTofu repository-settings management (suggested name: `oconnordev-repo-settings`). Do not use, broaden, or reuse the Hermes GitHub App or Spacelift's managed VCS integration credentials.
+Root `infra/github/oconnordev` runs as `oconnordev-github-repository-config`.
+Use a dedicated GitHub App installed only on `andrewoconnor/oconnordev`; never
+reuse Hermes/MCP PAT/App or Spacelift VCS credentials. Required repository
+permissions are Metadata read, Variables read/write, Administration read/write,
+Issues read/write, and Environments read/write. The owner alone approves App
+creation, installation and permission updates. Do not add Contents, Secrets or
+Workflows permissions for this root.
 
-The original Actions-variable bootstrap uses `Variables`: read and write and
-`Metadata`: read-only. Preservation-only settings adoption additionally requires
-user-approved `Administration`: read and write (ruleset, default branch, topics)
-and `Issues`: read and write (labels). These are required permissions, not a
-verified statement about the App's current live grants. Only the user may change
-this dedicated App's permissions and approve its installation update; this change
-does not broaden any App automatically.
+## Authentication bootstrap
 
-Install it only on `andrewoconnor/oconnordev`, selecting only that repository.
-It must not be installed on any other repository. App creation/installation and
-permission changes are GitHub UI bootstrap steps. Do not add Contents, Secrets,
-Workflows, or permissions for the unsupported settings families below.
+1. Apply administrative `infra/spacelift` with
+   `enable_github_repository_config=false` to create the dedicated empty context.
+2. Owner creates/installs the dedicated App and populates
+   `oconnordev-github-provider-auth`: `TF_VAR_github_app_id`,
+   `TF_VAR_github_app_installation_id`, and secret/write-only
+   `TF_VAR_github_app_private_key`. The key is an ephemeral provider input;
+   never put it in code, plan/state, output or chat. Attach this context only to
+   the repository-configuration stack.
+3. Owner enables `TF_VAR_enable_github_repository_config=true`, reviews/applies
+   the administrative stack and waits for producer dependency inputs. Reconcile
+   existing resources at their exact state addresses rather than creating duplicates.
 
-After creating and installing the dedicated App, add these values to the dedicated Spacelift context `oconnordev-github-provider-auth`:
+## Managed inputs and settings
 
-- `TF_VAR_github_app_id` — App ID (plain value)
-- `TF_VAR_github_app_installation_id` — installation ID for `andrewoconnor/oconnordev` (plain value)
-- `TF_VAR_github_app_private_key` — private key contents (secret/write-only)
+Six repository Actions variables come from three producer stacks:
 
-The private key is an ephemeral provider input and is not written to OpenTofu plan/state or outputs. It is stored once in the dedicated Spacelift context for centralized rotation. The context is attached only to `oconnordev-github-repository-config`.
+| Producer | Variables |
+| --- | --- |
+| `oconnordev-resume` | `OCONNORDEV_SITE_DEPLOY_ROLE_ARN`, `OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID` |
+| TOOLS | `OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN`, `DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` |
+| DrumrollWorld | `DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN`, `DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID` |
 
-## Provisioning order
-
-1. Apply the administrative `infra/spacelift` stack with `enable_github_repository_config = false`. This creates the dedicated, empty auth context without creating the child stack.
-2. Create the dedicated GitHub App with the permissions and single-repository installation above, then populate its App ID, installation ID, and private key in the context as described. Do not put the key in OpenTofu, a repo variable, or chat.
-3. Set the administrative stack variable `TF_VAR_enable_github_repository_config=true` and apply again. This creates the GitHub configuration stack, attaches the auth context, and wires its inputs to outputs from PRODUCTION, TOOLS, and DRUMROLLWORLD. If its first run starts before dependency references are visible, rerun it after the administrative apply completes.
-
-## Managed Actions variables and dependencies
-
-The child stack has six managed repository Actions variables after this cutover (the two
-DrumrollWorld resources are gated until both deployment inputs are populated):
-
-- `OCONNORDEV_SITE_DEPLOY_ROLE_ARN` — from the PRODUCTION stack.
-- `OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID` — from the PRODUCTION stack.
-- `OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` — from the TOOLS stack's `tools_github_actions_broker_role_arn` output.
-
-- `DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN` — from the DRUMROLLWORLD stack.
-- `DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID` — from the DRUMROLLWORLD stack.
-- `DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN` — the dedicated TOOLS broker output.
-
-Accordingly, `oconnordev-github-repository-config` has three producer dependencies:
-PRODUCTION, TOOLS, and DRUMROLLWORLD. The broker ARN has no OpenTofu default or
-validation literal; Spacelift supplies it only through the TOOLS dependency
-reference. The two DrumrollWorld variables are created only when both producer
-inputs are non-empty.
-
-The five variables are already managed in the existing Spacelift state; do not
-reimport them. Their addresses, counts, input variables, and producer wiring are
-unchanged. `settings-adoption.tf` declares **11 new imports**, not a completed
-state import: one existing `master` ruleset, eight individually managed labels,
-the existing default branch, and the empty topics set. Each new resource has
-`prevent_destroy = true`. The locked `integrations/github` **6.13.0** supports
-`allowed_merge_methods = ["squash"]`; no provider or lockfile upgrade is needed.
-
-See the [settings-adoption runbook](../../../docs/runbooks/github-settings-adoption.md)
-for exact import addresses/IDs, [observed evidence](../../../docs/assets/github-settings-observed.json),
-permission bootstrap and unsupported families. Preserve the settings-adoption
-addresses with an imports-only, zero-update/delete gate. The tested-artifact
-cutover separately adds explicitly reviewed environment/branch-policy resources
-and one variable; a combined full-root plan is therefore not literally zero-create.
-Do not treat those approved additions as authorization to mutate adopted settings.
-Offline schema/mock tests do not prove the live gate. The two new production environments are managed separately in `site-environments.tf`,
-with exactly master branch deployment rules and no tags. No `github_repository`, collaborator grants,
-merge flags, hooks, Pages, Actions policy/secrets, workflows, or AWS resources are
-adopted here. The owner is inherent, not an importable collaborator grant.
-
-The [native MCP settings-read prerequisite](../../../docs/runbooks/github-settings-read.md)
-provides deliberately incomplete authenticated read coverage. Its machine-user
-PAT remains separate from this dedicated provider App and must never be borrowed
-for provider authentication. Repository description/homepage null values and
-unknown omitted administration fields are left externally owned.
-
+Dependency references, not literal/default broker ARNs, supply these values.
+DrumrollWorld site variables are gated until both site inputs are populated.
+The root additionally declares one master ruleset, eight singular labels,
+default branch and topics with preservation protections. See
+[settings operations](../../../docs/runbooks/github-settings-adoption.md)
+for exact identities, provider limitations and fresh owner plan gates.
 
 ## Production environments
 
-These environments are new declarative resources, not part of the preservation-only
-settings adoption/import gate. Environment management requires user approval of
-repository Environments write permission for the dedicated provider App. Retain
-all existing permissions/boundaries; do not reuse Hermes credentials. Both custom
-branch policies must allow only branch master before environment OIDC trust is
-operational. See [the cutover sequence](../../../docs/runbooks/infrastructure-bootstrap.md#tested-artifact-environment-cutover)
-for user-owned applies before merging auto-deploy workflows. Offline mock plans
-are not live environment enforcement evidence.
+`site-environments.tf` owns `oconnordev-production` and
+`drumrollworld-production`, each with exactly branch master and no tag policy.
+Follow [environment bootstrap](../../../docs/runbooks/infrastructure-bootstrap.md#tested-artifact-environment-bootstrap):
+protect and test both environment gates before IAM environment trust, reconcile
+objects into the existing stack, then read back protection before enabling
+workflows. Offline mocks are not live enforcement proof.
+
+Unsupported settings remain externally owned: no broad `github_repository`,
+collaborator set, merge defaults, hooks, Pages, Actions policy/secrets or workflow
+resources. Inherent owner access is not an importable collaborator grant.
+The [native settings reads](../../../docs/runbooks/github-settings-read.md)
+are partial; unknown/null fields are not guessed defaults. Preserve import blocks,
+provider locks and state addresses; only the owner approves live plans/applies.

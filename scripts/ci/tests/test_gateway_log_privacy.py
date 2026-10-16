@@ -32,7 +32,7 @@ class GatewayLogPrivacyTests(unittest.TestCase):
             [],
         )
 
-    def test_historical_retention_metadata_and_native_alarm_remain(self):
+    def test_retention_metadata_and_native_alarm_remain(self):
         text = (TOOLS / "gateway-observability.tf").read_text()
         types = resource_types(text)
         for kind in (
@@ -50,27 +50,30 @@ class GatewayLogPrivacyTests(unittest.TestCase):
         self.assertRegex(text, r'metric_name\s*=\s*"UserErrors"')
         self.assertNotIn("aws_cloudwatch_log_metric_filter", types)
 
-    def test_runbooks_keep_activation_gate_and_retention_limits_explicit(self):
+    def test_runbooks_keep_privacy_retention_and_consent_invariants_explicit(self):
         privacy = (ROOT / "docs/runbooks/gateway-log-privacy.md").read_text()
         for phrase in (
-            "explicitly approved",
-            "now merged and applied",
-            "01M50PH738EP65ZF66HKX7CZMT0",
-            "FINISHED",
-            "0 add, 0 change, 1 destroy",
-            "not independent direct AWS enumeration",
+            "No APPLICATION_LOGS delivery",
+            "all pages",
             "seven days",
             "not a retroactive purge",
             "runtime",
             "other logs",
             "UserErrors",
+            "explicit owner privacy approval",
+            "Do not read log events",
         ):
             self.assertIn(phrase, privacy)
         mail = (ROOT / "docs/runbooks/microsoft365-mcp.md").read_text()
-        self.assertIn("gateway-log-privacy.md", mail)
-        self.assertNotIn("pending owner apply", mail)
-        self.assertIn("privacy apply gate is cleared", mail)
-        self.assertIn("microsoft365_runtime_enabled=false", mail)
-        self.assertIn("OAuth consent", mail)
-        self.assertIn("not a claim of", mail)
-        self.assertIn("independent direct AWS enumeration", mail)
+        for phrase in (
+            "gateway-log-privacy.md",
+            "microsoft365_runtime_enabled=false",
+            "OAuth consent",
+            "Mail.Read",
+            "User.Read",
+            "offline_access",
+            "No end-to-end no-mailbox-logging guarantee",
+            "separate owner approval",
+            "stop all competing writers",
+        ):
+            self.assertIn(phrase, mail)

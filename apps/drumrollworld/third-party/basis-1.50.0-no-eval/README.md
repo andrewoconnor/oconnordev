@@ -5,12 +5,9 @@ Binomial Basis Universal v1.50.0 source, commit
 `051ad6d8a64bb95a79e8601c317055fd1782ad3e`:
 https://github.com/BinomialLLC/basis_universal/tree/051ad6d8a64bb95a79e8601c317055fd1782ad3e
 
-Three's shipped runtime was upgraded to Basis v1.50 in commit
-`302240259d4ae8ae54557f7be6f0515a662f256d`:
-https://github.com/mrdoob/three.js/commit/302240259d4ae8ae54557f7be6f0515a662f256d
-This retains that Basis release family, not current upstream master. We do not
-claim the rebuilt WASM is interchangeable with Three's shipped JS or vice versa.
-Three and other npm package versions and lockfiles are unchanged.
+This pair is pinned to the Basis release family expected by the application.
+Do not mix this WASM with Three's shipped JS or vice versa. The npm lockfile
+separately pins the browser libraries.
 
 ## Rebuild
 

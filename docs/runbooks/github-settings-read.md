@@ -1,19 +1,16 @@
-# Native GitHub settings-read prerequisite
+# Native GitHub settings reads
 
-## Scope and status
+## Scope and contract
 
-This change adds four existing native tools to the existing hosted GitHub MCP
-manifest and AWS Cedar read allowlist. It is a **partial inventory prerequisite**,
-not complete repository adoption: no repository settings were imported, no new
-settings HCL was created, and no live inventory, current token permissions, or
-GitHub App permissions were verified by this change. The five existing managed
-Actions variables must not be reimported; see the [provider root](../../infra/github/oconnordev/README.md).
-The next inventory/adoption stage starts only after user merge and apply.
+The hosted GitHub MCP manifest and Cedar allowlist expose four bounded settings
+reads. This is partial administrative coverage, not proof of complete inventory
+or live token permissions. Declarative settings management uses a separate
+[provider App](../../infra/github/oconnordev/README.md).
 
 The source contract is pinned to
 [`github/github-mcp-server@85598ba6e1256f7ebf4867b95d63b833c4549264`](https://github.com/github/github-mcp-server/tree/85598ba6e1256f7ebf4867b95d63b833c4549264).
 The hosted endpoint itself is not an immutable checkout: read back its actual
-schemas and behavior after rollout rather than assuming the public source pin
+schemas and behavior after catalog changes rather than assuming the public source pin
 proves today's hosted implementation.
 
 | Tool | Obtainable coverage and limits |
@@ -99,40 +96,25 @@ through the existing AgentCore role chain and read back its non-secret result.
 Do not reuse or broaden the dedicated OpenTofu provider App or Spacelift VCS
 integration credentials for MCP.
 
-## User-controlled rollout and rollback
+## Catalog and adapter changes
 
-1. Review and merge this prerequisite; inspect the TOOLS speculative plan.
-   The existing manifest hash trigger **replaces the GitHub gateway target** to
-   refresh its DEFAULT catalog. This is a target-specific replacement, with
-   dependent GitHub Cedar policy updates and possible temporary GitHub MCP
-   unavailability. It is not a gateway/authorizer replacement, but review the
-   real plan for unrelated cascades before confirming.
-2. User confirms/applies TOOLS **before** deploying/reloading the new adapter.
-   During mixed revisions exact-manifest discovery can fail closed. Read back
-   the full catalog and policy status; offline tests do not establish AgentCore
-   semantic acceptance or live credential health.
-3. User deploys/reloads the adapter using the existing deployment procedure.
-   Run existing read-only smoke checks, then individually probe these four
-   reads and repository/owner/ruleset deny cases. The existing general smoke
-   command only probes its representative GitHub file read; it does not certify
-   settings coverage or bypass completeness.
-4. Record partial inventory, errors, pagination and missing fields without
-   secrets. Review token changes only if those actual readbacks require them.
-   Complete adoption/import is a separate approved stage after this merge/apply.
+1. Review the exact revision and TOOLS plan. A manifest hash change replaces
+   the GitHub target/catalog and dependent Cedar policies, with possible temporary
+   unavailability. Stop on unexpected gateway/authorizer replacement or cascades.
+2. Owner applies TOOLS before adapter deployment/reload. Mixed revisions can fail
+   closed. Read back all catalog pages and policy status; offline tests do not
+   prove live schema acceptance or credential health.
+3. After approved adapter reload, individually test these four reads and
+   owner/repository/ruleset denies. The general smoke test's representative file
+   read does not certify settings coverage or bypass completeness.
+4. Record errors, pagination and omitted fields without secrets. Change token
+   permissions only after actual readback and user approval. Rollback manifest,
+   permits and adapter coherently; review/revoke excess token grants separately.
 
-To roll back, revert the four manifest/read-permit additions together, review
-and apply TOOLS (another catalog target replacement), then roll back/reload the
-adapter. Revoke any separately approved excess token permissions in the secure
-UI and re-probe remaining reads. No automatic deployment or credential change
-is part of this prerequisite.
+## Ruleset enum schema binding
 
-## Observed ruleset enum schema repair
-
-The ruleset permit compares enum **EntityUIDs**, not JSON strings. AWS's apply
-error from run `01M4H6XG6W5CRMKAFTG7DEC7A0` supplied the exact full `AgentCore::`
-entity types for gateway
-`arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-rfltsq6ysk`.
-Those names and their provenance are recorded in
+The ruleset permit compares enum EntityUIDs, not strings. Exact gateway-bound
+type names and provenance live in
 [`github-ruleset-observed-schema.json`](../../scripts/ci/tests/fixtures/github-ruleset-observed-schema.json).
 The `github_ruleset_cedar_schema` object explicitly supplies `gateway_arn`,
 `level_entity_type`, and `method_entity_type`; its defaults are the observed
@@ -150,19 +132,13 @@ namespaces and policy syntax are rejected. This is syntax validation, not proof
 that a supplied type exists in AWS's schema. For a replaced gateway or changed
 catalog schema, independently observe and review the new type names, then
 supply the complete object bound to that gateway. Do not compute replacement
-names or silently discard the restrictions. There is no autonomous schema
-regeneration in this change.
+names or silently discard the restrictions. Type observation and review are owner-controlled, not autonomous regeneration.
 
-Owner/repository checks, every optional-field `has` guard, repository-only
-level, list/get methods and explicit boolean `includes_parents=false` are
-unchanged. The tests reconstruct a **minimal** Cedar schema around the observed
-types; no live full schema was exported. The old string comparisons reproduce
-four validation errors, while the rendered EntityUID policy validates offline.
-Neither this regression nor a mocked plan proves live AgentCore acceptance.
-After user-reviewed apply, read back policy status and perform approved allow
-and deny probes before claiming live success. No credential change is needed
-for this type repair; do not loosen policy validation or permissions to bypass
-an error.
+Keep owner/repository checks, optional-field `has` guards, repository-only level,
+list/get methods and explicit boolean `includes_parents=false`. Synthetic minimal
+Cedar schemas prove offline policy contracts, not live full-schema acceptance.
+Read back policy status and approved allow/deny probes after owner apply.
+Do not loosen validation or permissions to bypass type errors.
 
 ## Offline verification
 
@@ -171,8 +147,7 @@ an error.
 actual checked-in Terraform locals and the read-policy heredoc in an isolated
 provider-free OpenTofu fixture and evaluates Cedar authorization (schema-aware
 for rulesets, standard string contexts for other reads). The tests validate the
-rendered ruleset policy against the observed-type minimal schema, reproduce the
-old four schema findings, and exercise malformed inputs, injection rejection,
+rendered ruleset policy against the observed-type minimal schema, exercise malformed inputs, injection rejection,
 gateway binding, all four exact action names, owner/repository isolation,
 ruleset restrictions, default deny and secret/Lambda guardrails. No live AWS,
 GitHub, backend, or secret reads occur. Adapter tests prove exact listing,

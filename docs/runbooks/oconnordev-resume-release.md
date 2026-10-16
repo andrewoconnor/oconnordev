@@ -1,6 +1,5 @@
 # oconnor.dev resume release
 
-Hosting now lives in `infra/aws/oconnordev` / Spacelift `oconnordev-resume`, using the shared local static-site module. Before any infrastructure apply, complete the [mandatory state handoff](../static-site-state-migration.md). Production retains the shared wildcard certificate and hosted zone for Hermes MCP.
 
 ## Build and validate
 
@@ -31,8 +30,7 @@ The generated release in `apps/oconnordev/dist/` contains only `index.html`, `40
 
 Tests open a local HTTP server, block foreign browser requests, check semantic
 headings/lists, metadata, keyboard focus, contrast and mobile overflow, and
-compare every resume section against `resume-content.json` captured from baseline
-`6aaf603`. Update that fixture only for separately approved resume-content changes.
+compare every resume section against the approved `resume-content.json` fixture. Update that fixture only for separately approved resume-content changes.
 PDF.js parses the actual PDF to check one page, every section, identity, link
 annotations, readable font sizes and text coordinates within page margins.
 A browser download is byte-compared with the generated PDF; the preview's PNG
@@ -43,12 +41,13 @@ signature and 1200×630 dimensions are checked.
 Pull requests validate without AWS credentials. The check job builds/lints/tests
 `github.sha` once and uploads the tested dist as a pinned same-run artifact.
 Deployment downloads it without rebuilding, verifies SHA256 before credentials,
-and rejects a tested SHA that no longer equals remote master. The
+and compares app-scoped release inputs against fetched master before credentials.
+Relevant changes reject stale runs; docs/infrastructure-only successors may
+reuse the tested artifact. The
 `oconnordev-production` environment restricts deployments to branch master;
 its exact environment subject can assume only the OConnorDev broker/site-role
-chain. [User-owned IAM/environment bootstrap](infrastructure-bootstrap.md#tested-artifact-environment-cutover)
-must finish before merging the auto-deploy cutover. No runtime or hosting changes
-are required, but the trust/environment configuration **does require apply**.
+chain. [User-owned IAM/environment bootstrap](infrastructure-bootstrap.md#tested-artifact-environment-bootstrap)
+must protect and test both environments before enabling IAM trust or workflows.
 
 After deployment, verify the canonical page, contact links, `/resume.pdf` download
 and `/assets/resume-preview.png` plus a real missing-path HTTP 404 at `https://oconnor.dev/`; verify the PDF opens
@@ -57,13 +56,6 @@ cached previews. For rollback, revert the approved change on master and use the
 same gated release workflow; do not upload development sources manually.
 
 ## Mobile icons and stylesheet cache consistency
-
-Serving the pre-icon CSS from baseline `6aaf603` with the newer inline SVG HTML
-reproduces oversized icons in Chromium: at a 390px viewport they measure about
-375.61×375.61px instead of 12×12px. Fresh CSS does not reproduce the failure.
-This demonstrates a stale-stylesheet failure mode matching the reported screenshot;
-it does not confirm the user's device cache state or a Safari engine defect.
-Safari/iPhone rendering has not been tested here.
 
 All six decorative SVGs carry `width="1em"` and `height="1em"` presentation
 attributes as a fallback alongside CSS sizing. Browser tests intercept the CSS
