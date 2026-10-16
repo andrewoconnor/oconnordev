@@ -4,14 +4,14 @@ on:
   push:
     branches: [master, 'hermes/**']
     paths:
-      - 'infra/tools/lambdas/microsoft365_mcp/**'
+      - 'infra/aws/tools/lambdas/microsoft365_mcp/**'
       - 'agents/hermes/adapter/microsoft365-mcp-tools.json'
       - 'scripts/ci/microsoft365_image.py'
       - '.github/workflows/microsoft365-image.yml'
   pull_request:
     branches: [master]
     paths:
-      - 'infra/tools/lambdas/microsoft365_mcp/**'
+      - 'infra/aws/tools/lambdas/microsoft365_mcp/**'
       - 'agents/hermes/adapter/microsoft365-mcp-tools.json'
       - 'scripts/ci/microsoft365_image.py'
       - '.github/workflows/microsoft365-image.yml'
@@ -40,11 +40,11 @@ jobs:
       - name: Build single architecture, without credentials or manifest attestations
         run: >-
           docker buildx build --platform linux/arm64 --provenance=false --sbom=false
-          --load --tag microsoft365-tested:local infra/tools/lambdas/microsoft365_mcp
+          --load --tag microsoft365-tested:local infra/aws/tools/lambdas/microsoft365_mcp
       - name: Run secretless runtime tests including synthetic HTTP against exact image
         run: >-
           docker run --rm --network none
-          --mount type=bind,source="$PWD/infra/tools/lambdas/microsoft365_mcp/test",target=/app/test,readonly
+          --mount type=bind,source="$PWD/infra/aws/tools/lambdas/microsoft365_mcp/test",target=/app/test,readonly
           --entrypoint npm microsoft365-tested:local test
       - name: Package tested image once
         id: package

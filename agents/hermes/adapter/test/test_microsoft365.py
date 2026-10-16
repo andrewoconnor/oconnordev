@@ -65,7 +65,7 @@ class Microsoft365RolloutTests(unittest.TestCase):
         root = Path(__file__).resolve().parents[4]
         catalog = json.loads(
             (
-                root / "infra/tools/lambdas/microsoft365_mcp/tools-manifest.json"
+                root / "infra/aws/tools/lambdas/microsoft365_mcp/tools-manifest.json"
             ).read_text()
         )
         with mock.patch.dict(

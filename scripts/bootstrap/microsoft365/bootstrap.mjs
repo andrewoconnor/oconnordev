@@ -3,7 +3,7 @@ import {randomUUID} from 'node:crypto';
 import {GetCallerIdentityCommand} from '@aws-sdk/client-sts';
 import {DescribeSecretCommand,PutSecretValueCommand,GetSecretValueCommand} from '@aws-sdk/client-secrets-manager';
 import {GetFunctionCommand} from '@aws-sdk/client-lambda';
-import {validateEnvelope,tenant,scopes} from '../../../infra/tools/lambdas/microsoft365_mcp/owner-auth.mjs';
+import {validateEnvelope,tenant,scopes} from '../../../infra/aws/tools/lambdas/microsoft365_mcp/owner-auth.mjs';
 export const ACCOUNT='421680664125';
 export const REGION='us-east-1';
 export const SECRET_ARN='arn:aws:secretsmanager:us-east-1:421680664125:secret:/hermes/microsoft365/msal-cache-CnJLNM';

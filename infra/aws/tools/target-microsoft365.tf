@@ -1,6 +1,6 @@
 locals {
   microsoft365_manifest        = jsondecode(file("${local.adapter_root}/microsoft365-mcp-tools.json"))
-  microsoft365_runtime_catalog = jsondecode(file("${local.repo_root}/infra/tools/lambdas/microsoft365_mcp/tools-manifest.json"))
+  microsoft365_runtime_catalog = jsondecode(file("${local.repo_root}/infra/aws/tools/lambdas/microsoft365_mcp/tools-manifest.json"))
   microsoft365_tools           = toset(local.microsoft365_manifest.tools)
   microsoft365_action_prefix   = "microsoft365___"
 }
