@@ -1,11 +1,11 @@
 variable "hermes_spacelift_rotation_interval_minutes" {
-  description = "Poll for an observed JWT expiry advance every 15 minutes by default; use a shorter interval for diagnosis. The function derives lifetime from exp and never waits inside Lambda."
+  description = "Poll for an observed JWT expiry advance every 60 minutes by default; use a shorter interval for diagnosis. The function derives lifetime from exp and never waits inside Lambda."
   type        = number
-  default     = 15
+  default     = 60
 
   validation {
-    condition     = var.hermes_spacelift_rotation_interval_minutes >= 1 && var.hermes_spacelift_rotation_interval_minutes <= 15 && floor(var.hermes_spacelift_rotation_interval_minutes) == var.hermes_spacelift_rotation_interval_minutes
-    error_message = "hermes_spacelift_rotation_interval_minutes must be a whole number of minutes between 1 and 15."
+    condition     = var.hermes_spacelift_rotation_interval_minutes >= 1 && var.hermes_spacelift_rotation_interval_minutes <= 60 && floor(var.hermes_spacelift_rotation_interval_minutes) == var.hermes_spacelift_rotation_interval_minutes
+    error_message = "hermes_spacelift_rotation_interval_minutes must be a whole number of minutes between 1 and 60."
   }
 }
 

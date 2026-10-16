@@ -36,7 +36,7 @@ resource "aws_cognito_user_pool_client" "hermes" {
   allowed_oauth_flows                  = ["client_credentials"]
   allowed_oauth_scopes                 = [aws_cognito_resource_server.hermes.scope_identifiers[0]]
   supported_identity_providers         = ["COGNITO"]
-  access_token_validity                = 5
+  access_token_validity                = 60
 
   token_validity_units {
     access_token = "minutes"

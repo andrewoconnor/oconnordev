@@ -28,16 +28,19 @@ The publication safeguards are mandatory:
 
 ## Cadence and alarms
 
-The default `hermes_spacelift_rotation_interval_minutes` is **15**, producing
-`rate(15 minutes)`. Whole-number overrides from **1 through 15** are allowed;
+The default `hermes_spacelift_rotation_interval_minutes` is **60**, producing
+`rate(60 minutes)`. Whole-number overrides from **1 through 60** are allowed;
 use 1 for diagnosis/rollback rather than adding sleeps or expiry-driven scheduling.
 Scheduling does not guarantee invocation counts or provider renewal timing.
 
-Alarm periods follow the interval: **900 seconds** by default. Preserve the
+Alarm periods follow the interval: **3,600 seconds** by default. Preserve the
 **7,200-second (two-hour)** remaining-lifetime threshold and missing-data handling.
-The stale alarm evaluates two consecutive periods (a nominal **30-minute**
-evaluation window rather than two minutes); it treats missing metric data as
-breaching. The Lambda Errors alarm evaluates one period (15 minutes by default).
+The stale alarm evaluates two consecutive periods: **2 × 3,600 = 7,200 seconds
+(two hours)**, not three hours. It treats missing metric data as breaching.
+The Lambda Errors alarm evaluates one period (**one hour** by default) and treats
+missing data as not breaching. Poll spacing, metric arrival and CloudWatch's
+retrieval of older datapoints can affect when an alarm changes state; do not
+add a poll interval to the nominal window and call it a detection guarantee.
 These are evaluation windows, not guaranteed detection/delivery deadlines.
 Inspect alarm notification wiring separately; alarm evaluation does not guarantee delivery.
 
@@ -46,8 +49,8 @@ Inspect alarm notification wiring separately; alarm evaluation does not guarante
 1. Review the actual TOOLS plan and inspect any
    `TF_VAR_hermes_spacelift_rotation_interval_minutes` override. Only the owner
    applies the existing `oconnordev-tools` stack; defaults do not override inputs.
-2. Verify the rule is enabled with `rate(15 minutes)`, both alarm periods are
-   900 seconds, and the stale threshold remains 7,200 seconds. Confirm a new
+2. Verify the rule is enabled with `rate(60 minutes)`, both alarm periods are
+   3,600 seconds, and the stale threshold remains 7,200 seconds. Confirm a new
    `rotation_checked` event after Lambda deployment.
 3. Query several hours of logs through SECURITY and inspect check spacing,
    actual expiry advances, failures, and remaining lifetime. Continue through
