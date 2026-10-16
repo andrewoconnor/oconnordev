@@ -23,7 +23,7 @@ class RotationConfigTests(unittest.TestCase):
         cls.config = CONFIG_PATH.read_text()
         cls.lambda_config = LAMBDA_PATH.read_text()
 
-    def test_rotation_poll_defaults_to_fifteen_minutes_with_bounded_overrides(self):
+    def test_rotation_poll_defaults_to_sixty_minutes_with_bounded_overrides(self):
         block = variable_block(
             self.config, "hermes_spacelift_rotation_interval_minutes"
         )
@@ -31,9 +31,9 @@ class RotationConfigTests(unittest.TestCase):
 
         if default is None:
             self.fail("rotation interval default is missing")
-        self.assertEqual(default.group(1), "15")
+        self.assertEqual(default.group(1), "60")
         self.assertIn("var.hermes_spacelift_rotation_interval_minutes >= 1", block)
-        self.assertIn("var.hermes_spacelift_rotation_interval_minutes <= 15", block)
+        self.assertIn("var.hermes_spacelift_rotation_interval_minutes <= 60", block)
         self.assertIn(
             "floor(var.hermes_spacelift_rotation_interval_minutes) "
             "== var.hermes_spacelift_rotation_interval_minutes",
@@ -51,8 +51,8 @@ class RotationConfigTests(unittest.TestCase):
         source = variable_block(self.config, interval)
         source += "\nlocals {\n" + "\n".join(assignments) + "\n}\n"
         tests = []
-        for minutes in (None, 1, 5, 15):
-            value = 15 if minutes is None else minutes
+        for minutes in (None, 1, 15, 60):
+            value = 60 if minutes is None else minutes
             schedule = f"rate({value} {'minute' if value == 1 else 'minutes'})"
             variables = (
                 "" if minutes is None else f"variables {{ {interval} = {value} }}"
@@ -71,7 +71,7 @@ run "accept_{"default" if minutes is None else minutes}" {{
   }}
 }}
 ''')
-        for index, value in enumerate((-1, 0, 1.5, 15.5, 16)):
+        for index, value in enumerate((-1, 0, 1.5, 60.5, 61)):
             tests.append(f"""
 run "reject_{index}" {{
   command = plan
@@ -108,6 +108,26 @@ run "reject_{index}" {{
         self.assertRegex(stale, r'treat_missing_data\s*=\s*"breaching"')
         self.assertIn("var.hermes_spacelift_token_remaining_floor_seconds", stale)
         self.assertIn("local.spacelift_rotation_alarm_period", stale)
+        errors = self.lambda_config.split(
+            'resource "aws_cloudwatch_metric_alarm" "spacelift_rotation_errors"', 1
+        )[1]
+        self.assertRegex(errors, r"evaluation_periods\s*=\s*1")
+        self.assertRegex(errors, r'treat_missing_data\s*=\s*"notBreaching"')
+        self.assertIn("local.spacelift_rotation_alarm_period", errors)
+        # Preserve the current notification boundary: neither alarm has actions.
+        self.assertNotRegex(
+            stale + errors, r"\b(?:alarm|ok|insufficient_data)_actions\b"
+        )
+
+    def test_gateway_m2m_access_token_lasts_one_hour_in_explicit_minutes(self):
+        gateway = (CONFIG_PATH.parent / "gateway-auth.tf").read_text()
+        client = gateway.split('resource "aws_cognito_user_pool_client" "hermes"', 1)[1]
+        self.assertRegex(client, r"access_token_validity\s*=\s*60\b")
+        self.assertRegex(
+            client, r'token_validity_units\s*\{\s*access_token\s*=\s*"minutes"\s*\}'
+        )
+        self.assertIn('["client_credentials"]', client)
+        self.assertNotRegex(client, r"\b(?:id|refresh)_token_validity\b")
 
     def test_http_timeout_validation_rejects_fractional_seconds(self):
         block = variable_block(

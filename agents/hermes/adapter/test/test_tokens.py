@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from adapter_forwarder import TokenCache
@@ -32,6 +33,25 @@ class TokenTests(unittest.TestCase):
         first = cache.get()
         now[0] = 241.0
         self.assertNotEqual(first, cache.get())
+        self.assertEqual(transport.token_calls, 2)
+
+    def test_one_hour_token_uses_response_expiry_and_existing_refresh_skew(self):
+        transport = FakeTransport()
+        transport.token_raw = json.dumps(
+            {
+                "access_token": "synthetic-hour-token",
+                "expires_in": 3600,
+                "token_type": "Bearer",
+            }
+        ).encode()
+        now = [0.0]
+        cache = TokenCache(TOKEN_URL, "id", "secret", transport, clock=lambda: now[0])
+        first = cache.get()
+        now[0] = 3539.0
+        self.assertEqual(first, cache.get())
+        self.assertEqual(transport.token_calls, 1)
+        now[0] = 3540.0
+        cache.get()
         self.assertEqual(transport.token_calls, 2)
 
     def test_401_refreshes_once_and_retries_once(self):
