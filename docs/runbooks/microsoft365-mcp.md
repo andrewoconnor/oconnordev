@@ -1,70 +1,37 @@
-# Microsoft365 personal-mail MCP: operation, local retirement and recovery
+# Microsoft365 personal-mail MCP operations
 
-## Status and boundary
+## Architecture and identity
 
-**Microsoft365 through AgentCore is live and verified; the legacy local
-`outlook_readonly` connector has been retired locally.** Gateway setup was verified with native
-`list-mail-folders` and `get-mail-message` calls returning HTTP 200. This is live
-read-only mailbox proof, not just image publication or tools/list evidence; it
-is not proof that every denial/timing/privacy gate below was independently rerun.
-The owner explicitly authorized removal of the legacy local connector and its
-credential directories. Execution removed the legacy config entry, schema cache,
-Node process and the four local directories recorded below. The final reload
-registered 74 tools from four servers without `outlook_readonly`; a subsequent
-native AgentCore folder read returned HTTP 200. No upstream revocation was performed.
-See [local retirement](#local-connector-retirement) for the completion checks.
+Microsoft365 mail access runs through AgentCore, not a local mail connector.
+Source and Docker build context: `infra/aws/tools/lambdas/microsoft365_mcp/`.
+The wrapper uses pinned `@softeria/ms-365-mcp-server@0.166.0`, upstream
+`675b82198701b9565ab3cdd836d1a2c7aac4f8c9`, rather than a second Graph client.
+See the [runtime contract](../../infra/aws/tools/lambdas/microsoft365_mcp/INTEGRATION.md)
+for exact package/base-image pins, deadlines, envelope and argument schemas.
 
-The shared `oconnordev-tools` repository, publisher role and cache metadata bootstrap
-are applied. OAuth consent/cache bootstrap used the owner's independent helper;
-the cloud Lambda now owns silent authentication and MSAL refresh/persistence in
-Secrets Manager. Do not import a legacy local token, cache or encryption key.
-The recorded nonsecret inputs are the TOOLS variable defaults:
+Path: Cognito JWT `hermes-mcp/invoke` → shared ENFORCE Cedar engine →
+`microsoft365` MCP-server target → gateway SigV4 (`lambda`, `us-east-1`) →
+AWS_IAM Function URL `/mcp` → arm64 Lambda/Web Adapter → filtered upstream Graph.
+This is not the native Lambda event-dispatch target. Function URL IAM is not an
+absolute exclusive-access deny: other same-account identities may have invoke
+grants. Inspect effective IAM/SCPs before claiming caller exclusivity.
 
-* `microsoft365_runtime_enabled = true` (configuration pin; live proof is recorded above)
+TOOLS nonsecret configuration pins:
+
+* `microsoft365_runtime_enabled = true`
 * `microsoft365_owner_home_account_id = "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad"`
 * `microsoft365_client_id = "084a3e9f-a9f4-43f7-89f9-d229cf97853e"`
 * `microsoft365_image_digest = "sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1"`
 
-Preserve the MSAL homeAccountId exactly, including its zero-prefixed UID; it is not
-an email, inferred object ID or placeholder to repair. The published image is
-`421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools@sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1`.
-Verified master image workflow
-[38816865741](https://github.com/andrewoconnor/oconnordev/actions/runs/38816865741),
-publish job [116703905646](https://github.com/andrewoconnor/oconnordev/actions/runs/38816865741/job/116703905646),
-succeeded with an actual push and matching ECR manifest readback for tag
-`microsoft365-d00b116d0703403ee46e7db862d10cb47a0504c6-38816865741-1`.
-That is publication evidence, not deployed Lambda or mailbox/runtime proof.
-Runtime source bytes and image pins are unchanged since publication; the source
-package now lives at `infra/aws/tools/lambdas/microsoft365_mcp/`, beside the other
-TOOLS-account Lambda. This layout-only move does not require rebuilding or
-replacing the pinned deployed image. Future image workflow builds use that exact
-directory as their Docker context and bind its `test/` directory into the test
-container. The workflow freshness check follows the new location and still binds
-publication to the tested commit SHA; moving paths does not waive that guard.
-This documentation update authorizes no additional secret access, mailbox request,
-Hermes config change, reload or infrastructure apply. Local retirement is handled
-separately under the owner's explicit cleanup authorization. TOOLS remains on `master` with
-`autodeploy=false`; only the owner may approve/apply reviewed plans. Existing live
-AWS SDK reachability through the SECURITY gateway does not grant TOOLS access.
+Preserve the homeAccountId byte-for-byte, including the zero-prefixed UID.
+The shared ECR repository is
+`421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools`.
+Configuration pins are not a fresh live deployment or mailbox proof.
+Only the owner reviews/applies TOOLS plans; `autodeploy=false`.
 
-The package is `@softeria/ms-365-mcp-server@0.166.0`, upstream commit
-`675b82198701b9565ab3cdd836d1a2c7aac4f8c9` (not an Entra organization connector).
-The runtime wraps that upstream rather than implementing a second Graph client.
-One delegated **personal consumer** identity is pinned by nonsecret MSAL
-`homeAccountId`. Consent, app registration and initial cache bootstrap are a
-separately authorized owner operation, using the consumers authority; never
-client-credentials Graph access, organizational tenant fallback or first-account
-selection. Owner should approve the actual scopes: Mail.Read, basic own identity
-(User.Read plus MSAL OIDC defaults), offline_access. No auth/profile tools exposed.
+## Catalog and authorization
 
-Path: existing Cognito JWT `hermes-mcp/invoke` → existing shared Cedar engine in
-ENFORCE mode → target **microsoft365** → `GATEWAY_IAM_ROLE` SigV4 (`service=lambda`,
-`region=us-east-1`) → AWS_IAM Function URL `/mcp` → arm64 container, Lambda Web
-Adapter, filtered upstream. This is an MCP-server target with listing_mode DEFAULT,
-**not** AgentCore's native Lambda event-dispatch target. No gateway, authorizer,
-client, OAuth scope or shared engine replacement.
-
-Exactly these native tool names (no hyphen/camelCase normalization):
+Exactly five native names, routed as `microsoft365___<native-name>`:
 
 * `list-mail-messages`
 * `get-mail-message` (`messageId`)
@@ -72,237 +39,54 @@ Exactly these native tool names (no hyphen/camelCase normalization):
 * `list-mail-child-folders` (`mailFolderId`)
 * `list-mail-folder-messages` (`mailFolderId`)
 
-The wire action is `microsoft365___<native-name>`. No current adapter name collides,
-so native names remain client-visible (no extra client namespace). Keep
-`HERMES_AGENTCORE_MICROSOFT365_ENABLED=true` in the approved AgentCore adapter
-registration for mail access; its code default remains disabled, and the flag
-adds the five mail tools to the baseline catalog. Do not restore a local mail MCP registration.
-Cedar grants only those exact actions to AgentCore::OAuthUser with the
-existing scope-tag check, following Spacelift's established principal model. Exact
-scope admission remains the existing JWT authorizer's responsibility. Argument
-bounds/unknown-key rejection, collection paths, one pinned consumer identity,
-pagination and request/response limits are enforced by the runtime's strict
-schemas and wrapper, not claimed as Cedar semantic guarantees. No generic get,
-batch, write, arbitrary URL/header, auth, profile, calendar or users endpoints.
+The adapter rollout flag is `HERMES_AGENTCORE_MICROSOFT365_ENABLED=true`;
+its code default is disabled. Only exact lowercase true/false is accepted.
+Do not restore a local mail registration or place the cache in the adapter.
+Cedar authorizes these exact actions for the existing OAuth principal/scope-tag
+model. The JWT authorizer admits scope; runtime schemas enforce owner identity,
+strict arguments, bounded collections and request/response limits. No arbitrary
+URL/header, generic get/batch, write, attachment, auth/profile/calendar/user tools
+or automatic pagination is exposed. Tool listing is not mailbox access proof.
 
-## Independent trust and persistence
+## Privacy and persistence
 
-**Activation privacy gate:** the owner explicitly approved disabling the shared
-Gateway APPLICATION_LOGS delivery through separate IaC PR #118, now merged and
-applied. TOOLS run `01M50PH738EP65ZF66HKX7CZMT0` finished `FINISHED` with
-**0 add, 0 change, 1 destroy** and the managed delivery removed from state.
-The privacy apply gate is cleared on that state/apply evidence, not a claim of
-independent direct AWS enumeration or end-to-end logging proof. See
-[Gateway log privacy](gateway-log-privacy.md) for retained historical seven-day
-expiry and remaining metadata-only checks. OAuth/cache bootstrap and live runtime
-activation have since completed, with the bounded native mail proofs recorded
-above. These proofs do not establish every negative authorization or logging check.
-Runtime log suppression does **not**
-suppress Gateway logs, and disabling Gateway delivery does not suppress runtime
-or other logs. No end-to-end no-mailbox-logging guarantee or retroactive purge is
-claimed; this runbook does not itself change shared observability or enable mail.
+Keep the [Gateway privacy boundary](gateway-log-privacy.md): no shared
+APPLICATION_LOGS delivery, retained finite log-group expiry and native metrics.
+Runtime suppression does not suppress Gateway or other logs.
+No end-to-end no-mailbox-logging guarantee is made; delivery control is not a purge.
 
-* Gateway role: only InvokeFunctionUrl conditioned on FunctionUrlAuthType=AWS_IAM
-  and InvokeFunction conditioned on InvokedViaFunctionUrl=true, for this exact
-  function ARN. It is not granted the consumer cache ARN; the existing gateway
-  secret-read deny excludes this cache from its approved credentials.
-* Runtime role: GetSecretValue and PutSecretValue for **one** fixed cache secret,
-  plus CreateLogStream/PutLogEvents for its own finite-retention log group only.
-* Publisher role: ECR push/readback on only the shared `oconnordev-tools` repository;
-  GetAuthorizationToken requires Resource `*`. No Lambda update, PassRole, secret
-  access, infrastructure apply or gateway privilege. The role can publish **any
-  tag** in this repository, including future targets' tags. The `microsoft365-`
-  prefix is a collision-avoidance convention, **not an authorization boundary**:
-  ECR IAM cannot enforce an image-tag prefix for these push permissions. Sharing
-  the repository shares the publisher content-trust boundary; review that risk
-  explicitly before adding other publishers or targets.
-* Function URL uses AWS_IAM. No public resource allow, wildcard public principal,
-  CORS, unauthenticated alternative or forwarded Graph bearer authority. In the
-  same account, these identity allows suffice. They are **not absolute exclusive
-  access**: another same-account principal with identity grants can invoke too.
-  A resource-policy allow for the gateway would not deny those identity grants.
-  Review existing IAM/SCP permissions before live proof; do not present an allow
-  as a restrictive deny boundary.
-* ECR Lambda service pull policy is limited to this exact function SourceArn.
-  Sharing the repository does not authorize future functions: extend the single
-  repository policy explicitly with reviewed exact SourceArns for future targets,
-  never a function-name wildcard. Function, runtime/publisher role, cache secret
-  and gateway target names remain Microsoft365-specific.
-  Repo and roles and secret metadata bootstrap regardless of activation; function,
-  URL, runtime grants/logs, invoke grant, target/catalog and Cedar permits are
-  gated together by `microsoft365_runtime_enabled`. The reviewed activation default
-  is now true; explicit false retains bootstrap-only/rollback behavior.
-* Reserved concurrency **1**, plus the runtime transaction mutex, serialize cache
-  refresh/load/save/readback. No other function/version/client may write the cache;
-  exclude owner bootstrap while active. Revocation/missing state must fail closed
-  even in a warm environment. Credentials live only in Secrets Manager/MSAL memory;
-  filesystem/log scratch is ephemeral. No provisioned concurrency, VPC/NAT,
-  persistent worker, new Cognito setup or paid KMS key.
+The gateway may invoke this Function URL, not read its cache. The runtime role
+has GetSecretValue/PutSecretValue on one fixed cache ARN and bounded logging on
+its own group. No secret values belong in IaC, plans/state, variables, outputs,
+CI, chat or local copies. Reserved concurrency **1** and a transaction mutex
+serialize load/refresh/save/exact-version readback; stop all competing writers,
+including owner bootstrap. The mutex is not a distributed lock. Missing,
+corrupt, wrong-owner or revoked state fails closed even when warm. Never fall
+back to another cached account or overwrite rotated cache with an older copy.
 
-## Historical staged owner procedure (no automatic applies)
+The ECR-only publisher cannot deploy Lambda, PassRole, read secrets or apply IaC.
+It can push any tag in the shared repository: `microsoft365-` is a naming
+convention, not IAM isolation. Review shared content trust before adding targets.
+The Lambda pull policy uses an exact function SourceArn, never a wildcard.
+Image publication tests a real arm64 image, transports the same archive, verifies
+its digest and master-input freshness before credentials, then reads back the
+pushed ECR digest. No mutable latest tag, rebuild-in-publish or auto-pruning of
+active/rollback images is allowed.
 
-The following records the original staged activation procedure and its approval
-boundaries, not current instructions to keep the legacy connector or rerun
-bootstrap. Live activation supersedes its pre-activation status statements;
-current retirement and recovery instructions follow below. Retain these gates
-for review of any future redeployment, without treating old preparation claims as
-evidence of tests performed during retirement.
+## Owner-only consumer bootstrap
 
-1. Bootstrap is already applied: shared ECR, repository policy, roles, empty
-   cache metadata and TOOLS additional project globs. Review the exact proposed
-   head and secretless checks for subsequent changes; provider locks remain AWS
-   **6.66.0**. The owner now reports identity/cache bootstrap complete; do not
-   rerun the empty-secret helper or introduce a competing cache writer.
-   No secret-version resource exists; no secret values may enter
-   tfvars, Spacelift variables, state, outputs, plans, CI or docs.
-2. Review `microsoft365_bootstrap` output (only repository URL, publisher-role ARN,
-   secret ARN). The shared repository is `oconnordev-tools`
-   (`aws_ecr_repository.tools_images`), with URL
-   `421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools`.
-   The repository and role are in TOOLS, us-east-1, not SECURITY.
-   The obsolete bootstrap publication-variable dependency is removed. Publication
-   is allowed only for `master` push or `workflow_dispatch`, after the check job
-   succeeds; PRs and feature-branch manual dispatch cannot acquire credentials.
-   The old repository variable is unused and may optionally be removed by the
-   owner in GitHub settings; this cleanup does not change repository settings.
-   No GitHub Environment is required by this role's trust. The trust pins
-   aud=sts.amazonaws.com and exact
-   `repo:andrewoconnor/oconnordev:ref:refs/heads/master`. This proves repo/master,
-   **not the workflow filename**: AWS does not support a job_workflow_ref condition
-   here. Protect master and review all workflows able to request OIDC. A custom
-   GitHub OIDC subject template can be a separate future trust change, not an
-   invented workflow-identity guarantee or an uncreated environment gate.
-3. On reviewed master, the image workflow publishes on matching push events or
-   manual dispatch. **This activation changes only TOOLS defaults, offline tests
-   and this runbook; it does not change runtime image inputs or deploy Lambda.**
-   The verified run/digest is recorded above. PR/feature jobs have no AWS/OIDC credentials.
-   The native arm64 build creates a single image without provenance
-   indexes/attestations, runs secretless runtime tests (including real synthetic
-   HTTP) inside that image (tests bind-mounted read-only; runtime modules and
-   dependencies are the image bytes), saves it once and hashes its archive. Master publication
-   downloads and verifies the same archive/image ID and compares **fresh master
-   application inputs before credentials**. It loads/pushes those tested bytes,
-   never rebuilds them. Dedicated ECR-only OIDC credentials are acquired only in
-   publish. Tags use `microsoft365-<commit>-<run-id>-<run-attempt>` so different
-   targets and reruns do not collide in the immutable shared repository. Future
-   targets must choose their own prefix; prefixes are not IAM isolation. Digest
-   is read back from `oconnordev-tools` and compared with docker push output.
-   Capture the actual `repository@sha256:...` from job summary; never use `latest`
-   or the synthetic fixture digest. No Lambda deployment occurs in workflow.
-4. For first-time bootstrap only, separately authorize owner app/consumer consent and **new** serialized cache
-   bootstrap using the [reviewed owner-only helper](#owner-only-consumer-consent-step-1).
-   Do not read/copy the current local Outlook token/cache/key. Keep runtime disabled;
-   stop all competing writers. Set only its verified nonsecret identity/client pins
-   and the separately verified published image digest in TOOLS inputs. The owner
-   reports this step complete for the identity above; do not repeat it now.
-5. Owner reviews the exact activation head and TOOLS plan with the four nonsecret
-   defaults above. Inspect any existing stack/environment variable overrides:
-   they take precedence over defaults and must not silently retain false/empty or
-   different pins. No separate Spacelift environment-variable management apply is
-   introduced. Only the owner approves/applies; `autodeploy=false` stays unchanged.
-   Offline mock plans render one function, IAM Function URL, log group, runtime
-   grant, gateway invoke grant, catalog trigger and target, plus five Cedar permits.
-   This is a configuration inventory, **not a live plan resource-change count**;
-   review the actual owner plan for adds/changes/replacements and unrelated drift.
-   No secret-version resource, Gateway log delivery, shared-engine mode change or
-   new infrastructure outside the existing gated feature is introduced.
-   These map to runtime `EXPECTED_HOME_ACCOUNT_ID` and `M365_CLIENT_ID`; the fixed
-   secret ARN maps to `SECRET_ARN`. LWA readiness is `/health`, whose final status
-   is 200 or 503. Supported LWA 0.9.1 setting MIN_UNHEALTHY_STATUS=201 rejects
-   every final status above 200 (including redirects/404); the similarly named
-   HEALTHY_STATUS variable is not supported by that release.
-   The image must exist before Lambda creation, and cache must be valid before
-   AgentCore performs tools/list. During the owner's apply/target discovery,
-   readiness performs silent authentication and may refresh/persist the MSAL cache;
-   do not mistake this for a metadata-only apply or run a competing helper. This
-   preparation does not execute that authentication. Target and permits activate together; resource
-   dependencies grant gateway URL invoke before registration and create permits
-   only after action catalog exists. Verify target READY/SYNCHRONIZED and all five
-   policy creations. A changed image/manifest triggers target catalog replacement;
-   inspect live catalog after replacement, not just successful deployment status.
-   No placeholder digest is provided in deployment examples.
-6. Verify readback in TOOLS with the owner's approved identity: image digest,
-   arm64, reserved concurrency=1, AWS_IAM Function URL, exact runtime/invoke IAM,
-   secret metadata only, target MCP endpoint/credential mode and five exact Cedar
-   actions under existing ENFORCE engine. Measure actual ARM64 cold start/refresh
-   versus caller deadlines. The function timeout is 25 seconds; the adapter's
-   read timeout is 15 seconds. Cold starts may exceed that client budget: an actual
-   end-to-end timing proof is a gate, not an assumption or reason to enable warming.
-7. Deploy adapter bytes **after** target/policies/catalog proof. Keep its rollout
-   env unset/false in the existing registration. Start a separate, temporary stdio
-   adapter process/registration with the same approved Cognito mechanism and only
-   `HERMES_AGENTCORE_MICROSOFT365_ENABLED=true` added; do not hand-edit the manifest
-   to toggle rollout. Exact lowercase `true`/`false` only; other values fail closed.
-   Do not expose/read consumer cache to this adapter. No persistent Hermes edit or
-   reload is authorized in this implementation.
-8. Explicitly authorized live verification: obtain the exact existing scope;
-   initialize and exhaust tools/list; require baseline plus exactly five mail tools
-   (28 total), unchanged existing tool names and no duplicates. Make one bounded
-   `list-mail-folders` probe (small top) without logging private response data.
-   Check wrong/missing JWT scope/identity, unsigned URL, direct InvokeFunction
-   without URL context, unlisted tool, arbitrary URL/header/expand/unknown args,
-   malformed/unsafe IDs, oversized top, cross-collection pagination and mismatched
-   homeAccountId all deny at the appropriate boundary with no unintended Graph
-   request. Use only synthetic denial fixtures where a test would otherwise expose
-   or mutate real cache. Verify gateway still cannot read consumer secret and the
-   publisher cannot invoke/update Lambda or read secrets. Scope and policy tests
-   must be performed at gateway too, not solely adapter filtering.
-9. Only after all gates pass may the user authorize production adapter enable and
-   client cutover. Keep the local Outlook connector unchanged throughout these
-   stages. Removing old config/cache or restarting Hermes requires separate explicit
-   approval; disabling a config reference does not revoke an upstream credential.
+Do not rerun bootstrap on an occupied cache or deployed runtime. OAuth consent,
+cache replacement and live mailbox probes require separate owner approval.
+For a genuinely empty bootstrap, use the owner's AWS CloudShell in TOOLS
+`421680664125`, `us-east-1`, with Node/npm and a clean reviewed master checkout.
+Do not enable tracing/recording or paste device codes, passwords or MFA into chat.
+The public consumer client above uses
+`https://login.microsoftonline.com/consumers` with only delegated `Mail.Read`,
+`User.Read`, `openid`, `profile`, `offline_access`. No application permissions,
+organizational fallback, client secret or cache import is permitted. Disclose
+these exact scopes before consent; stop on a different client, scope or account.
 
-## Owner-only consumer consent (step 1)
-
-**Historical bootstrap procedure, not an instruction to rerun now.** The helper is
-merged and the owner reports successful verified cache persistence. No device
-flow was started by this activation preparation. For any future bootstrap, require
-separate owner approval and an absent runtime/empty secret as enforced below.
-This is the same *permission boundary* as the local read-only Outlook setup, but a
-fresh consent/session: it never imports the old connector's cache or key. It uses
-public client **084a3e9f-a9f4-43f7-89f9-d229cf97853e**, consumers authority
-`https://login.microsoftonline.com/consumers`, and only:
-
-| Scope | Purpose |
-| --- | --- |
-| `Mail.Read` | Delegated reading of the signed-in owner's mail |
-| `User.Read` | Basic own identity/profile |
-| `openid` | Sign-in identity |
-| `profile` | Basic identity claims |
-| `offline_access` | Refresh token for later unattended read-only calls |
-
-MSAL includes the last three OIDC scopes; the helper's synthetic endpoint test
-checks the exact outgoing scope set. No application permissions, mail writes,
-Graph `/me` call, mailbox request, token export, client secret, local cache
-persistence, or scope-broadening fallback. A different public app requires separate
-review and explicit `--client-id <UUID>` selection; it is disclosed before consent.
-The client ID's availability/consent eligibility is not proven by offline tests.
-
-Use **the owner's AWS CloudShell**, opened in **TOOLS account `421680664125`**,
-region **`us-east-1`**. This is **not Google Cloud Shell**, not a Hermes terminal,
-not SECURITY, and not a request to provide AWS keys to Hermes. Verify the console
-account and actual shell Node version. Use Node **22 or newer**; if unavailable,
-stop and arrange an owner-approved Node installation rather than running curl/bash
-or unpinned npx. Do not enable shell tracing, terminal recording, debug logging or
-paste console output containing device codes/credentials into chat.
-
-After merge, from an owner-controlled checkout (fresh clone shown; if it already
-exists use a clean reviewed master worktree instead):
-
-```sh
-git clone https://github.com/andrewoconnor/oconnordev.git
-cd oconnordev
-git switch master
-git pull --ff-only origin master
-git status --short
-git rev-parse HEAD
-node --version
-npm --version
-```
-
-Compare the checkout HEAD and helper/lockfiles with the reviewed merged version
-before proceeding; do not run the draft branch or an unexpected changed tree.
-From that repository root install **both** locked dependency scopes (the helper
+From a clean, owner-controlled reviewed master checkout, install **both** locked dependency scopes (the helper
 imports the production envelope validator from the runtime, whose relative imports
 resolve against runtime dependencies):
 
@@ -363,133 +147,49 @@ collection is **not cryptographic memory zeroization**. No credentials are writt
 to the filesystem by this helper. AWS CloudShell/browser/platform security remains
 the owner's trust boundary.
 
-The helper lives outside the Lambda build context under
-`scripts/bootstrap/microsoft365/`, so the runtime Dockerfile's `COPY *.mjs` cannot
-ship the device-login CLI. The helper does not change runtime deployment switches;
-this separate activation configuration changes only the desired TOOLS defaults.
-Offline tests use mocked AWS clients and real pinned MSAL with a synthetic token
-endpoint; they prove envelope interoperability, not live app eligibility, AWS
-permissions, consent, stored identity or end-to-end runtime activation.
-The dedicated `microsoft365-bootstrap.yml` PR/push workflow tests the helper with
-Node 22 and both locked dependency scopes, without AWS credentials/OIDC, Docker,
-or running the owner CLI. `mise run test:microsoft365-bootstrap` runs the same
-secretless suite and is also included in the existing `mise run test` aggregate.
+## Change and verification gates
 
-## Local connector retirement
+1. Review exact-head tests, image digest and actual TOOLS plan. Inspect input
+   overrides; source defaults do not override stack/context values. Require valid
+   cache before target discovery and an existing image before function creation.
+   Discovery/health may refresh and persist cache; it is not metadata-only.
+2. Owner applies and verifies arm64 digest, reserved concurrency=1, AWS_IAM URL,
+   exact runtime/invoke IAM, cache metadata, READY/SYNCHRONIZED target, five Cedar
+   actions and ENFORCE status. A catalog/image change may replace the target;
+   inspect its live catalog, not merely the apply status.
+3. Deploy adapter only after gateway catalog/policies. Separately authorize
+   bounded native reads and deny probes: wrong JWT/scope, unsigned/direct invoke,
+   unlisted tools, unsafe arguments, owner mismatch and cache failures. Use
+   synthetic fixtures where real cache mutation or disclosure would otherwise
+   occur. Never log private mailbox responses. Verify publisher/gateway denials.
+4. Measure cold-start/refresh end-to-end timing: function timeout is 25 seconds,
+   adapter read timeout 15 seconds. Offline tests do not prove this budget or
+   live authorization; do not enable warming to conceal an unverified deadline.
 
-Use AgentCore's five native read-only mail tools listed above for all operative
-mail runbooks. The upstream `@softeria/ms-365-mcp-server` package in the Lambda is
-still required; retiring `outlook_readonly` does not retire that upstream or its
-repository build paths. Authentication is remote: Cognito to AgentCore, SigV4 to
-the Lambda Function URL, then the pinned owner's delegated MSAL session backed by
-the fixed Secrets Manager cache. The Hermes adapter must not hold that cache.
+## Pause and recovery
 
-Recorded local execution removed:
+Disable the adapter rollout flag and report mail unavailable; do not route to a
+local connector. Preserve the working cache. Owner-reviewed
+`microsoft365_runtime_enabled=false` removes the gated function/URL, grants,
+target and five permits; bootstrap repository/roles and secret metadata remain.
+Removing Lambda does not revoke Microsoft consent. Cache/consent recovery is a
+separate owner operation: stop writers and review metadata, never repeatedly
+refresh or overwrite an occupied secret. The helper intentionally rejects it.
 
-* `/opt/data/ms-365-mcp-server` (installed connector and dependencies)
-* `/opt/data/ms-365-mcp-server-review` (clean upstream review checkout)
-* `/opt/data/.ms-365-mcp-server` (legacy local logs)
-* `/opt/data/.config/ms-365-mcp-server` (encrypted cache, key and selected account)
+Retain verified image digests for rollback. Shared ECR has no automatic lifecycle
+cleanup; review all targets before removing images. Disabling image workflow
+publication does not disable runtime. Monitor real image storage, secret API,
+Lambda and shared gateway/log/CI usage; free-tier eligibility is not assumed.
 
-The exact connector Node process was stopped, unrelated config entries were
-preserved, and a post-cleanup native AgentCore folder read returned HTTP 200.
-A names-only duplicate sweep found no exact encrypted-cache/key matches in the
-scanned persistent files; it excluded dependency/Git trees and files over 20 MB,
-so it is not a forensic or secure-erasure guarantee. Historical config backups
-and the managed recovery baseline retain inert registration references, not a
-working local fallback. They were preserved rather than deleting shared recovery
-data. The subsequent reload at 2026-10-16 14:33:55 UTC registered 74 tools from
-four servers, without the legacy connector; the post-reload native AgentCore
-folder read also returned HTTP 200.
-
-For future retirements, record completion against these checks:
-
-1. Remove only the identified legacy `outlook_readonly` registration and stop its
-   local processes; preserve the working AgentCore registration and mail enable
-   flag. Refresh/reload through the approved runtime procedure and check the
-   surviving native mail tools, not merely the on-disk config.
-2. Remove the owner-authorized legacy connector checkout/venv and credential
-   directories, including obsolete local token/cache/key copies. Inventory actual
-   local paths and consumers first; do not infer a deletion target from an
-   upstream package name. Check scoped config/recovery copies, schema caches and
-   rollback artifacts for paths that could resurrect the old registration or
-   credentials; report inaccessible copies rather than claiming they are gone.
-3. Preserve the cloud Secrets Manager MSAL cache, Lambda's active cache ownership,
-   the independent owner bootstrap helper under `scripts/bootstrap/microsoft365/`
-   and its reviewed source/lockfiles. Do not run bootstrap against the active cache,
-   revoke the working cloud session or remove unrelated account credentials.
-4. Record sanitized path/process/config checks and a bounded read-only call through
-   the surviving AgentCore connection. Do not print tokens, secret values or mail
-   payloads into cleanup evidence. The execution record above is separate from
-   these reusable checks; the recorded final reload verification passed.
-
-Removing local copies is **not upstream revocation** of Microsoft consent,
-refresh tokens or sessions, nor a secure-erasure guarantee. Any upstream revocation
-requires a separate owner decision that accounts for the working cloud identity.
-After cleanup there is **no retained legacy local fallback**: restoring old config
-alone cannot restore deleted software and credentials. Reintroducing a local
-connector would require separate approval, reinstall and fresh authentication;
-do not retain secret-bearing rollback copies as an implicit fallback.
-
-## Rollback and recovery
-
-If remote mail must be paused, disable Microsoft365 on the adapter (unset rollout
-env or `false`) and report mail access unavailable; do not route to retired local
-Outlook. Preserve the working cloud cache for reviewed recovery. To disable the
-runtime, the owner sets `microsoft365_runtime_enabled=false` and reviews/applies removal of
-five permits, target, URL/function and runtime/invoke grants. Bootstrap ECR/roles
-and recoverable secret metadata remain. To stop image publication, use an
-owner-reviewed workflow change or disable the workflow in GitHub Actions; the old
-bootstrap variable no longer controls it. Retain the last verified digest for a
-reviewed rollback;
-no mutable tags and no auto-pruning policy that could delete a needed rollback
-image. Monitor retained ECR size and explicitly remove unused images only after
-owner review across **all** targets using the shared repository; do not delete
-active or rollback images for another target. No lifecycle/automatic tag cleanup
-is configured. Cache corruption/consent revocation is fail closed: stop writers,
-re-consent/rebootstrap separately, never fallback to another cached account or
-force repeated refresh retries. Never restore an obsolete refresh-token cache over
-new rotated state. Removing Lambda does not revoke Microsoft consent.
-
-## Cost and local proof limits
-
-Official pricing checked during implementation:
-[Lambda](https://aws.amazon.com/lambda/pricing/) (arm64 first tier about
-$0.0000133334/GB-s, $0.20/million requests),
-[ECR](https://aws.amazon.com/ecr/pricing/) ($0.10/GB-month private storage),
-[Secrets Manager](https://aws.amazon.com/secrets-manager/pricing/)
-($0.40/secret-month plus $0.05/10,000 API calls). Lambda's published free tier is
-shared across the account and subject to eligibility/credits; do not assume it is
-unused or that this workload is free. With no calls Lambda compute is not billed;
-reserved concurrency is a limit, not provisioned capacity.
-
-Illustrative **not measured** incremental month: one secret + 0.5 GB retained image
-+ 1,000 calls at 512 MB/2 seconds + 3,000 secret API calls is about **$0.48** before
-free tier, logs, network, shared Gateway/Policy/Cognito usage, CI and tax. Stored
-images accumulate without lifecycle deletion; audit actual image sizes and call
-counts. Existing shared services continue their own billing. No tens-of-dollars
-always-on infrastructure is introduced, but this is not a total bill estimate.
-
-Offline commands (no live apply):
+## Offline verification
 
 ```sh
-mise exec -- python -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v
-mise exec -- python -m unittest scripts.ci.tests.test_microsoft365_boundary scripts.ci.tests.test_microsoft365_image scripts.ci.tests.test_microsoft365_policy_rendering -v
-mise exec -- tofu -chdir=infra/aws/tools init -backend=false -input=false -lockfile=readonly
-mise exec -- tofu -chdir=infra/aws/tools validate
-mise exec -- tofu -chdir=infra/aws/tools test
-mise exec -- actionlint .github/workflows/microsoft365-image.yml
-mise exec -- checkov -d infra/aws/tools --framework terraform
-mise exec -- checkov -f .github/workflows/microsoft365-image.yml --framework github_actions
+mise run test:microsoft365-bootstrap
+mise run test:python
+mise run test:opentofu-boundary
+mise run workflow-lint
 ```
 
-The isolated IAM-rendering test uses only synthetic fixed ARNs and a local plan
-with provider validation/metadata/AWS credential requests disabled; no apply or
-remote account. Mock root tests prove both activation gates and exact Cedar output,
-not live SigV4 interoperability or mailbox authorization. Local Docker CLI exists
-but daemon is unavailable: no local arm64 image/HTTP container proof is claimed.
-The workflow requires that real image test before publication; owner must review
-its successful result before any future activation. The published image run above
-remains CI container/publication evidence, not live OAuth, Lambda or mailbox
-verification. Live verification is separately recorded in Status and boundary;
-the original activation preparation did not execute those live tests.
+Synthetic MSAL/Graph/AWS fixtures and mocked plans establish source contracts,
+not current live consent, cache identity, SigV4 enforcement, privacy or mailbox
+availability. Only explicitly authorized real readbacks establish those results.

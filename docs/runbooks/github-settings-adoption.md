@@ -1,22 +1,17 @@
-# GitHub settings: preservation-only adoption
+# GitHub repository-settings operations
 
-## Scope and evidence
+## Managed scope
 
-Root: `infra/github/oconnordev`; existing Spacelift stack:
-`oconnordev-github-repository-config`. This is declarative adoption configuration,
-**not a performed state import or proof of a live zero-change plan**.
+Root `infra/github/oconnordev`, stack `oconnordev-github-repository-config`,
+uses a dedicated provider App, not the read gateway's token. Configuration owns
+one master ruleset, eight singular labels, default branch and topics, six site
+Actions variables and two production environments/master branch policies.
+Live state reconciliation is not established by configuration or offline tests.
+The [sanitized inventory](../assets/github-settings-observed.json) is a bounded
+comparison source, not a current complete administrative inventory. Refresh
+scoped reads before planning. Keep missing/forbidden fields distinct from empty.
 
-The [sanitized inventory](../assets/github-settings-observed.json) records the
-capture timestamp and source coverage. Authenticated native MCP reads confirmed
-one repository ruleset, its full detail with explicit empty bypass actors, eight
-labels (reported total eight), and only the inherent owner as collaborator.
-Unauthenticated public REST reads separately confirmed `default_branch = master`
-and the complete empty topics list. This is not full repository administration
-coverage. The [read prerequisite](github-settings-read.md) remains partial.
-
-`settings-adoption.tf` uses literals verified against that capture, not live data
-sources or configuration generated from unknown defaults. It adds 11 import
-instances through four import blocks:
+Exact settings resource identities:
 
 | Resource address | Provider import ID |
 | --- | --- |
@@ -36,10 +31,10 @@ The label map retains exact names, six-character colors, and descriptions.
 Singular `github_issue_label` resources do not delete unlisted labels. The topics
 resource owns **only the topics set**: the observed empty array is known, not a
 substitute for an omitted field. Stop if refreshed topics differ; do not change a
-newly added topic as part of adoption. Pinned provider v6.13.0 skips
+newly added topic without separate review. Pinned provider v6.13.0 skips
 `ReplaceAllTopics` when the configured set is empty, so a later nonempty-to-empty
-update cannot reliably clear topics and may leave persistent drift. This adoption
-of an already-empty set is safe only with the zero-update plan gate; clearing
+update cannot reliably clear topics and may leave persistent drift. Managing
+an already-empty set requires a zero-update plan gate; clearing
 future topics needs a separately reviewed provider fix or supported update path.
 The default branch remains `master`,
 with `rename = false` and `wait_for_rename = false`.
@@ -58,20 +53,17 @@ All four resource declarations have `prevent_destroy = true`. This blocks planne
 destruction while the declarations remain, not updates, configuration removal,
 manual deletion, or GitHub writes by another actor. Do not treat it as a plan gate.
 
-The five Actions variables are already managed and **not imported again**. Their
-resource addresses, optional DrumrollWorld counts, all input definitions, provider
-authentication, and PRODUCTION/TOOLS/DRUMROLLWORLD dependency chain stay unchanged.
+Site variables and environment resources are owned separately in the same
+root. Preserve their state addresses and workload/TOOLS producer dependencies.
+Environment IAM/bootstrap ordering is in the
+[shared runbook](infrastructure-bootstrap.md#tested-artifact-environment-bootstrap).
+A full-root plan can include separately reviewed environment/variable work;
+that is not permission to update imported settings.
 
-## Exact provider contract
+## Provider contract
 
 The existing OpenTofu-registry lock resolves `integrations/github` **6.13.0**;
-`versions.tf` and `.terraform.lock.hcl` are unchanged. No upgrade is required.
-The actual locked binary's `tofu providers schema -json` capture is checked in at
-`scripts/ci/tests/fixtures/github-adoption-provider-schema.json`. It includes the
-four exact resource schemas and baseline hashes for untouched provider/input and
-Spacelift wiring files. The schema explicitly supports the optional/computed
-list `rules.pull_request.allowed_merge_methods`, which is explicitly configured.
-
+Use `versions.tf` and `.terraform.lock.hcl` as the version contract. Use the lockfile rather than floating a version.
 Authoritative tagged provider docs and implementation:
 
 - [Ruleset schema and import contract](https://github.com/integrations/terraform-provider-github/blob/v6.13.0/docs/resources/repository_ruleset.md)
@@ -84,14 +76,12 @@ Authoritative tagged provider docs and implementation:
 ## Dedicated provider App bootstrap (user only)
 
 Retain the dedicated App, installed only on `andrewoconnor/oconnordev`, and its
-existing Spacelift context `oconnordev-github-provider-auth`. Current live App
-permissions have **not** been verified. Original documentation only required
-Variables read/write plus Metadata read. The user must review/approve the
-following repository permissions before managing this expanded resource scope:
+existing Spacelift context `oconnordev-github-provider-auth`. Verify effective live App permissions; only the user may approve
+permission or installation changes. Required permissions:
 
 | Permission | Required use |
 | --- | --- |
-| Variables: read and write | Existing five managed Actions variables; retain |
+| Variables: read and write | Six managed Actions variables |
 | Metadata: read-only | Repository lookups; retain |
 | Administration: read and write | Ruleset, default branch, topics |
 | Issues: read and write | Singular repository labels |
@@ -100,9 +90,9 @@ GitHub endpoint permission references: [rulesets](https://docs.github.com/en/res
 [repository update](https://docs.github.com/en/rest/repos/repos#update-a-repository),
 [topics](https://docs.github.com/en/rest/repos/repos#replace-all-repository-topics),
 and [labels](https://docs.github.com/en/rest/issues/labels#create-a-label).
+Environment management additionally requires Environments read/write.
 GitHub permissions are coarse: Administration grants capabilities outside the HCL
-scope. That broader API capability needs explicit user approval; it is not granted
-by this change. Approve any pending installation permission update in GitHub UI.
+scope. That broader API capability needs explicit user approval; it is not automatically authorized. Approve any pending installation permission update in GitHub UI.
 
 Keep `TF_VAR_github_app_id`, `TF_VAR_github_app_installation_id`, and the secret,
 write-only `TF_VAR_github_app_private_key` in the dedicated context, attached only
@@ -117,16 +107,16 @@ A 401/403/404 during import/refresh is an authorization/bootstrap or missing-obj
 investigation, **not permission to create a replacement**. Stop and let the user
 resolve the dedicated App/context; do not change authentication or skip refresh.
 
-## Initial live plan gate and rollout
+## Owner reconciliation and plan gate
 
 1. Refresh scoped inventory if the capture has aged; verify full rule parameters,
    explicit bypass array, label totals, default branch and topics. Unknown is not
-   empty. Confirm the latest reviewed draft head is what Spacelift plans.
-2. Have the user complete the dedicated App approval above; verify existing five
+   empty. Confirm the exact reviewed revision is what Spacelift plans.
+2. Have the user complete the dedicated App approval above; verify existing
    state addresses and producer dependency inputs through the existing stack.
-3. Review a refreshed Spacelift plan from that exact head. For a first adoption,
+3. Review a refreshed Spacelift plan from that exact head. When all eleven settings are absent from state,
    require **11 imports, zero creates, zero updates, zero deletes/replacements**.
-   The existing five variables must have no actions. Check every import ID/address
+   The existing variables must have no actions. Check every import ID/address
    against the table and inspect before/after values, especially squash-only merge
    methods and bypass actors. Already-imported instances may reduce the import
    count only when exact state addresses/objects have been verified.
@@ -142,11 +132,10 @@ No local `tofu import`, live plan with borrowed credentials, apply, deploy, GitH
 write, or AWS write is part of local validation. A passing offline check is not a
 claim that the state import has happened.
 
-Before import apply, rollback means reverting the new adoption HCL/import blocks;
-there are no live changes to undo. After import apply, do not remove resource HCL
+Do not remove managed resource HCL
 and apply (that could destroy managed settings); use a separately reviewed
 state-only relinquishment procedure in the existing stack, preserving GitHub
-objects and all five Actions variables. Never destroy a ruleset or label to undo
+objects and all Actions variables. Never destroy a ruleset or label to undo
 an import.
 
 ## Unadopted families and null/unknown semantics
@@ -157,10 +146,11 @@ an import.
 - Only the owner was listed as collaborator. This is inherent ownership, not an
   importable grant. No singular owner collaborator, authoritative collaborator
   set, invitation, grant deletion, or permission reduction is declared.
-- Eight public environments are inventoried, with empty visible protection rules
+- Public environments are inventoried, with empty visible protection rules
   and null deployment-branch policy. Custom protection rules are not authenticated;
   public list completeness does not prove complete effective environment settings.
-  They remain externally owned; null is not converted to a guessed policy block.
+  Other environments remain externally owned. The two production environments
+  are explicitly managed; null inventory fields do not override their HCL.
 - Legacy branch protection, hooks, Actions policy/default token permissions,
   additional Actions variables, Pages, vulnerability alerts and automated security
   fixes are unavailable through the permitted read coverage. The recorded
@@ -168,20 +158,6 @@ an import.
 - Secrets cannot be recovered from inventory and are externally owned. No secret
   resource/value read, workflow change, deploy key, repository-wide default, or
   AWS resource is introduced.
-
-## Verified local results and remaining gate
-
-With the repository-pinned tools, formatting, backend-disabled readonly-lock init,
-OpenTofu validation, Ruff lint/format, and TFLint completed successfully. The full
-`mise run test:python` task passed 142 tests across four suites, including four
-new adoption regressions. Checkov 3.3.20 returned exit 0 with zero passed/failed/
-skipped checks, zero parsing errors, and **resource_count = 0** for this GitHub
-root: it provides no applicable resource security coverage here, not a security
-endorsement. No scanner suppression was added.
-
-The remaining acceptance gate is the authenticated, refreshed, exact-head live
-Spacelift import-only plan after the user's dedicated App permission approval.
-Local validation did not read credentials, import state, or perform an apply.
 
 ## Local verification
 

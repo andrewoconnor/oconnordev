@@ -1,7 +1,5 @@
 # DrumrollWorld production deployment
 
-Both sites now inherit the local module at `infra/modules/static-site`. Before applying the module refactor, follow the [mandatory state handoff](../static-site-state-migration.md): DrumrollWorld uses same-state `moved` blocks; resume is transferred to `oconnordev-resume`. External image recovery risk and existing 30-day noncurrent-version expiry are explicitly documented there.
-
 ## Scope
 
 `apps/drumrollworld/` is a static browser app with a reproducible npm/esbuild
@@ -17,8 +15,9 @@ The check job builds/lints/tests the exact `github.sha` once and uploads a
 pinned Actions artifact containing the tested public bytes. Deployment downloads
 that same-run artifact by SHA-qualified name, verifies the check job's SHA256
 before extraction and AWS credentials, and never rebuilds or checks out moving
-`master`. Both jobs have bounded timeouts. A pre-credential remote-master SHA
-comparison rejects stale queued runs; concurrency serializes each site's runs
+`master`. Both jobs have bounded timeouts. Pre-credential app-scoped freshness validation compares tested inputs with
+fetched master and rejects relevant changes; docs/infrastructure-only successors
+can retain the tested artifact. Concurrency serializes each site's runs
 without cancelling an active publication. A newer merge during publication is
 handled by the next run. S3 publication is not an atomic release switch.
 
@@ -30,18 +29,17 @@ apply the deployment-branch gate **before** a runner can request that token.
 The dedicated `drumrollworld-github-actions-broker` in TOOLS can assume only
 `drumrollworld-site-deploy` in PRODUCTION. The OConnorDev broker is independently
 restricted to its own environment and site role; neither site's identity can
-chain into the other site. Repository inspection found no non-site consumers
-of the former shared broker; the existing OConnorDev broker address/ARN and OIDC
-provider are retained. No AWS access keys are stored in GitHub.
+chain into the other site. The brokers are separate site identities. No AWS access keys are stored in GitHub.
 
 ## Images and globe textures are outside this checkout
 
-The initial app commit contains only `index.html`, `styles.css`, `main.js` and
-`data.js`. It references `images/` for its favicon, entry photos and KTX2/globe
-texture tiers. Those assets are not reproducible from this repository today.
-Read-only HTTP checks during implementation found the live homepage, favicon,
-first-paint earth texture and a representative entry photo returning HTTP 200.
-This confirms those samples, not an inventory or backup of every asset.
+The app references external `images/` photographs, videos, favicon and
+KTX2/globe tiers. They are not fully reproducible from this repository. Use the
+[image-recovery runbook](drumrollworld-image-recovery.md) for verified local
+restoration, original-master inventory and regeneration. Versioning is enabled;
+noncurrent versions expire after 30 days and incomplete multipart uploads after
+7 days. Versioning is not an independent backup and cannot cover account/region
+loss, privileged version deletion or expired versions.
 
 The workflow excludes `images/*` and prior `assets/*` from root sync/deletion.
 See `.github/workflows/drumrollworld-site.yml` for the complete publication
@@ -58,7 +56,7 @@ asset cleanup needs a separate reviewed retention procedure, not an unbounded
 `--delete` during publication. The workflow does
 not upload or self-copy image bytes. Image publication needs a separate explicit
 procedure or future versioned asset-source design. Do not remove the exclusions
-without migrating ownership. The repository-owned SVG fallback is outside
+without separately reviewing asset ownership. The repository-owned SVG fallback is outside
 `images/` and is included in the release.
 
 ## Self-hosted runtime dependencies
@@ -89,12 +87,6 @@ and browser-check with external CDN traffic blocked. Commit sources and locks,
 not generated bundles or installed packages. Package downloads happen during
 CI only; browser startup no longer depends on esm.sh or unpkg.com. Image/texture
 asset ownership and the existing S3/CloudFront infrastructure are unchanged.
-After the original deployment bootstrap, the dependency migration itself needed
-no new Terraform resources, IAM permissions or infrastructure apply: the existing
-workflow builds, syncs and invalidates CloudFront on `master`.
-
-The tested-artifact/environment cutover requires the user-owned bootstrap
-sequence below before merge-triggered deployment; it removes the old repair read grant.
 
 ## Background texture upgrades
 
@@ -153,32 +145,12 @@ old hashed/image preservation, and deletion of stale root files. cp deliberately
 refreshes unchanged metadata once per deployment, with associated request/version
 costs. CloudFront invalidation cannot recall existing browser caches.
 
-Build diagnostics now live in `apps/drumrollworld/.build/build-meta.json`, outside
-`dist/`, where dependency-graph/license/runtime tests still read them. They never
-enter the release artifact. Ordinary root deletion reconciliation removes a
-legacy public `build-meta.json`; there is no recurring special `s3 rm` command.
-S3 historical versions may remain privately; this is not a historical purge.
-
-### Verified KTX2 scope and repair retirement
-
-Before removing the recurring repair, read-only public production HEAD requests
-to `https://drumroll.world/images/globe/<key>` verified all **13 unique KTX2 paths
-referenced by `tierAssets`**, across 2k/4k/8k/10k: every response was HTTP 200,
-`Content-Type: image/ktx2`, and
-`Cache-Control: public,max-age=0,must-revalidate`. Recorded observations are in
-[the KTX2 HEAD evidence](../assets/drumrollworld-ktx2-heads-2026-10-11.json).
-These are public HTTP observations, not a complete S3-prefix inventory. The AWS
-gateway's cross-account `ListObjectsV2` request was denied, so unreferenced keys
-and the entire bucket/prefix have **not** been verified. On that bounded evidence,
-the workflow self-copy and its `ReadGlobeKtxForMetadataRepair` GetObject grant are
-removed. Any future image migration/repair is a separate user-approved operation,
-not a recurring site-deployment task. New texture references require their own
-MIME/readability checks before merge.
-
-After user apply/deployment, verify current hashed JS, `/`, `/styles.css`, decoder
-JS/WASM, the referenced KTX2 paths and `/build-meta.json`; expect immutable only
-on the hashed JS, mutable revalidation, image/ktx2, and a real diagnostic 404.
-Local tests are not evidence of an applied environment/IAM role or deployed bytes.
+Build diagnostics live in `apps/drumrollworld/.build/build-meta.json`, outside
+`dist/`, and must never enter the release artifact. Verify `/build-meta.json`
+returns a real 404. No recurring image self-copy or GetObject repair privilege
+belongs in site deployment. Check every referenced KTX2 path for readability,
+`image/ktx2` and mutable revalidation metadata before publishing new references.
+Local tests do not prove live environment enforcement or deployed bytes.
 
 ### Opt-in browser regression without installing dependencies
 
@@ -202,24 +174,9 @@ this does **not** prove production 10k memory/performance. The existing security
 browser regression also retains exact hardware-dependent transcode counts and
 its explicit no-eval/foreign-script attacks.
 
-The prior synthetic pipeline fixtures were not present in this instance.
-Local verification reused genuine upstream Three r186 encoded fixtures, fetched
-read-only, not fabricated KTX2 headers or production artwork:
+## Compression and real 404 behavior
 
-- `https://raw.githubusercontent.com/mrdoob/three.js/r186/examples/textures/ktx2/2d_uastc.ktx2`
-  SHA256 `21b6912cae1f074ae3eda1b751f43c36eafc7eb83f3af71f85bba2ccbafce125`
-- `https://raw.githubusercontent.com/mrdoob/three.js/r186/examples/textures/uv_grid_opengl.jpg`
-  SHA256 `909d9a1eb2a5d5de9d221a5e8de4e9119d409decddf522d48896bd51523d354d`
-
-No compiler, package installation, dependency version/lockfile change or edit to
-installed package contents was needed. A node_modules directory symlink changes
-esbuild's resolved metafile paths and is rejected by the existing single-Three
-validator; an unchanged copy of the existing dependencies avoids relaxing that
-assertion.
-
-## Compression and real 404 rollout
-
-The shared module enables `compress = true` for both sites and uses AWS Managed-CachingOptimized (`658327ea-f89d-4fab-a63d-7e88639e58f6`) with normalized Accept-Encoding cache keys for Gzip/Brotli, no query strings or cookies. Managed TTLs are minimum 1s, default 86400s, maximum 31536000s; the legacy 0/3600/86400 TTLs no longer apply. Mutable publication metadata and invalidation remain unchanged. See the state-handoff runbook for staged apply and cache-header risks.
+The shared module enables `compress = true` for both sites and uses AWS Managed-CachingOptimized (`658327ea-f89d-4fab-a63d-7e88639e58f6`) with normalized Accept-Encoding cache keys for Gzip/Brotli, no query strings or cookies. Managed TTLs are minimum 1s, default 86400s, maximum 31536000s; HTML may be cached for at least one second; objects without Cache-Control inherit the default. Review metadata on manually published images.
 
 Both origin 403 and 404 map to `/404.html` with viewer status **404**, never 200
 or the application shell. Private S3 without `s3:ListBucket` for CloudFront
@@ -236,46 +193,13 @@ distribution-scoped OAC read permission, TLS enforcement, security headers and
 US/CA/GB/DE geographic restrictions remain unchanged. Do not add ListBucket,
 public reads or relax restrictions to obtain a prettier error page.
 
-Roll out in this order (the user owns publication and infrastructure apply):
-
-1. Merge the reviewed site change and complete the existing **drumrollworld
-   site** workflow on current `master` **before applying CloudFront changes**.
-   `build.js` copies the standalone, JS-free page byte-for-byte into
-   `dist/404.html`; the existing root sync automatically publishes it with HTML
-   content type. Asset-first upload, `images/*`/`assets/*` preservation,
-   pre-authentication validation and credential boundaries do not change.
-   Verify `https://drumroll.world/404.html` returns 200 and `text/html` with the
-   expected page. This direct object request is 200; missing URLs must be 404.
-2. Review the actual `drumrollworld` Spacelift stack plan, then manually apply
-   the compression and both error mappings. A speculative plan or these offline
-   mock-provider tests prove intended configuration, **not** deployed behavior.
-3. After distribution deployment completes, manually dispatch the existing site
-   workflow on `master` again. Its `/*` invalidation clears previously cached
-   uncompressed bundles and error responses as well as the HTML; wait for that
-   invalidation to complete. This is not an atomic rollout.
-4. From an allowed country, use the current hashed JS path from the published
-   homepage, not a guessed historical filename:
-
-   ```sh
-   curl -sS -D - -o /dev/null -H 'Accept-Encoding: gzip' 'https://drumroll.world/assets/main-CURRENT.js'
-   curl -sS -D - -o /dev/null 'https://drumroll.world/a-new-deliberately-missing-path'
-   ```
-
-   Expect the eligible JS response to be 200 with `Content-Encoding: gzip`.
-   Expect the new missing URL to be **404** with `Content-Type: text/html`;
-   inspect its body for the standalone error page, not S3 XML or the globe app.
-   Also verify homepage, security headers and existing images/decoder assets.
-   Geographic denials are not missing-object tests. If compression is absent,
-   check deployment/invalidation completion and response eligibility before
-   changing TTLs or policies.
-
-Pre-change public HTTP evidence supplied during this review: `/robots.txt`
-returned 403 with `application/xml`; an actual GET of
-`/assets/main-OVHBM2AQ.js` requesting gzip returned 200, 2,062,917 bytes and no
-`Content-Encoding`. Local gzip of that bundle was 591,033 bytes (71.35% smaller).
-That is a **local estimate**, not a measured CloudFront saving or a guarantee
-of 70% reduction for this or every object. Public HTTP does not establish live
-CloudFront configuration. Post-apply header/body checks are still required.
+When changing delivery behavior, publish and verify `/404.html` first, then
+have the owner review/apply the workload plan. After distribution deployment,
+run the master workflow and wait for invalidation. From an allowed country,
+check the current hashed JS with `Accept-Encoding: gzip` and a new missing URL:
+expect eligible JS compression and an HTML **404**, not S3 XML or the app shell.
+Geographic denials are not missing-object tests. Inspect deployment/invalidation
+completion and response eligibility before changing TTLs or permissions.
 
 Offline workload verification (reuse the persistent provider cache):
 
@@ -291,14 +215,12 @@ For rollback, revert the reviewed CloudFront settings and manually apply the
 harmless `/404.html` object until the old mappings have stopped serving; do not
 remove it first and strand an active custom-error mapping.
 
-## Cutover bootstrap: user applies before merge
+## Environment bootstrap
 
-Follow [the shared bootstrap sequence](infrastructure-bootstrap.md#tested-artifact-environment-cutover).
-Do not merge an auto-deploy workflow expecting merge to apply IAM/environments.
-After setup, qualifying `master` pushes deploy tested artifacts automatically;
-manual applies remain user-owned. If setup cannot be staged before merge, the
-user must disable/pause both site workflows first and only re-enable them after
-reviewed applies and readback verification. Expect a temporary deployment pause.
+Follow [the shared bootstrap sequence](infrastructure-bootstrap.md#tested-artifact-environment-bootstrap)
+for a new environment. Pause workflows until owner-reviewed applies, master-only
+branch-gate readback and enforcement checks pass. Qualifying master pushes use
+tested artifacts; a workflow merge does not apply IAM or GitHub environments.
 
 ## Validation and post-apply checks
 
@@ -313,10 +235,10 @@ apps; its HTML support is explicitly enabled rather than silently skipped.
 HTML formatting is experimental in the pinned Biome release. Embedded script
 and style bodies are checked, but JavaScript inside HTML event-handler
 attributes is not linted; keep handlers in external JS, as the OConnorDev print
-action now is. Formatter strict whitespace mode preserves text-node spacing;
+action is. Formatter strict whitespace mode preserves text-node spacing;
 CSS cascade/fallback order is retained with narrowly documented suppressions.
 
-After applying, verify the three site variables plus the dedicated broker variable, both role assumptions,
+After applying, verify the three DrumrollWorld Actions variables, both role assumptions,
 S3 sync success, and creation of an invalidation on the DrumrollWorld distribution.
 Check `https://drumroll.world/`, its CSS/hashed JS module responses and local
 decoder JS/WASM (WASM should have `application/wasm` content type). Block
@@ -327,17 +249,10 @@ root code objects do not; older versioned runtime assets should remain. A
 successful PR check or speculative plan is not proof of
 an applied role, published app, completed invalidation, or working browser UI.
 
-Local validation of this dependency migration on 2026-10-08 used the built
-release with existing image/texture assets fetched read-only from the live
-origin. Chromium rendered the textured WebGL globe on desktop and a 390px
-viewport with esm.sh, unpkg.com and jsDelivr blocked. Navigation, empty-result
-search/reset and photo lightbox open/close passed; no page errors, console errors
-or HTTP failures were observed. This local result is not proof of deployment.
-
 ## Rollback
 
 Revert app code on `master` and let the same pipeline publish it; alternatively,
-dispatch a reviewed restoration committed to `master`. The workflow deploys only its tested SHA when it still equals remote `master`;
-an old run is rejected rather than rebuilt as a historical rollback. S3 versioning exists, but restoring individual historical
-objects is a separate approved live operation. Disable the site workflow to
+dispatch a reviewed restoration committed to `master`. The workflow deploys only its tested bytes after app-scoped current-master
+freshness validation; changed release inputs reject a stale run rather than
+rebuilding untested bytes. S3 versioning exists, but restoring individual object versions is a separate approved live operation. Disable the site workflow to
 halt automation without deleting its bucket, distribution or image assets.

@@ -53,7 +53,7 @@ data "aws_iam_policy_document" "web_tls" {
 
 resource "aws_s3_bucket" "web" {
   # checkov:skip=CKV_AWS_18:Access logs need a second bucket and incur request/storage cost; they do not back up external image bytes. Logging is not justified for these personal static sites; recovery risks are documented separately.
-  # checkov:skip=CKV_AWS_144:No paid replication by owner cost choice. External images have incomplete provenance and are NOT reproducible; versioning only retains overwritten/deleted versions for 30 days. Regional/account loss and older version loss remain accepted risks. See docs/static-site-state-migration.md.
+  # checkov:skip=CKV_AWS_144:No paid replication by owner cost choice. External images have incomplete provenance and are NOT reproducible; versioning only retains overwritten/deleted versions for 30 days. Regional/account loss and older version loss remain accepted risks. See docs/runbooks/drumrollworld-image-recovery.md.
   # checkov:skip=CKV_AWS_145:CloudFront reaches this bucket through an origin access control. An SSE-KMS bucket can only be read by CloudFront if a customer-managed key's policy grants the CloudFront service principal decrypt, and the AWS-managed aws/s3 key policy cannot be edited -- so SSE-KMS here would break the distribution rather than harden the bucket. SSE-S3 (AES256) is applied by aws_s3_bucket_server_side_encryption_configuration.web.
   # checkov:skip=CKV2_AWS_62:Event notifications need a consumer. Nothing consumes object-created events for this bucket; notifications would target a queue or function with no work to do.
   bucket = var.bucket_name

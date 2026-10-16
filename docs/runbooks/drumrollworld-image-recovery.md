@@ -44,10 +44,10 @@ filesystem sandbox for attacker-controlled output paths. Replacement is atomic *
 asset**, not transactional across the entire catalog; a later failure leaves earlier
 verified assets restored.
 
-## Original globe masters: outstanding source inventory
+## Original globe masters
 
-The owner reports original masters on a laptop and in S3. Their exact paths/keys and
-original checksums have **not** been supplied or verified. Required files:
+Original master paths/keys and checksums are not recorded in this repository.
+Obtain and verify them before rebuilding. Required files:
 
 - `earthmap.jpg`: full-resolution color master.
 - `earthheight.jpg`: grayscale elevation master for Sobel normals.
@@ -56,7 +56,7 @@ original checksums have **not** been supplied or verified. Required files:
 
 The published KTX2/JPEG files are derived delivery assets. Their recorded hashes permit
 exact restoration, but cannot reconstruct the original elevation/master files or prove
-a rebuilt normal map matches the old encoder. Do not rename delivery images as masters.
+a rebuilt normal map matches the delivery bytes. Do not rename delivery images as masters.
 Capture those four actual originals and their laptop/S3 locations before rebuilding.
 
 Default input is `apps/drumrollworld/textures/src`; default output is
@@ -71,14 +71,9 @@ FORCE=1 mise exec -- bash scripts/drumrollworld/build-globe-textures.sh
 
 Prerequisites are ImageMagick 7 (`magick`), KTX-Software 4 (`ktx`), and pinned Node
 (`mise exec`). Sources, helper, options and decodable headers are checked before creating
-output/temp artifacts. On this Hermes instance, verified ImageMagick 7.1.2-32 and KTX
-4.4.2 are installed persistently; expose them with:
+output/temp artifacts.
 
-```sh
-export PATH=/opt/data/tools/drumrollworld:/opt/data/tools/drumrollworld/KTX-Software-4.4.2-Linux-x86_64/bin:$PATH
-```
-
-Source/output directories must not overlap. The restored helper
+Source/output directories must not overlap. The helper
 at `scripts/drumrollworld/lib/height-to-normal.mjs` uses a horizontally wrapping Sobel
 filter and vertically clamped bounds; `--flip-y` reverses the normal green channel.
 Masters remain read-only. Generated files are staged before replacement.
@@ -88,7 +83,7 @@ proof of reproducibility. Record every nondefault environment option (TIERS,
 STARS_TIERS, NORMAL_MAX_WIDTH, NORMAL_STRENGTH, NORMAL_PREBLUR, SHARPEN,
 SHARPEN_STARS, JPEG_QUALITY, UASTC_QUALITY, ZSTD_LEVEL, FALLBACK_WIDTH,
 STARS_FALLBACK_WIDTH). The defaults remain in the generator. Rebuilding with the
-restored helper is not a claim of byte equality with historical outputs.
+restored helper is not a claim of byte equality with cataloged delivery assets.
 
 ## Regenerate artifact thumbnails
 
@@ -104,7 +99,7 @@ FORCE=1 mise exec -- bash scripts/drumrollworld/build-thumbs.sh
 ImageMagick 7 and Node are required. Discovery errors fail rather than silently
 reporting an empty success. Existing thumbnails and `globe/` are excluded. Originals
 are never overwritten. Compare generated thumbnail hashes to the catalog if exact
-historical bytes are required; different ImageMagick versions may yield different bytes.
+delivery bytes are required; different ImageMagick versions may yield different bytes.
 
 ## Capture original/derived provenance
 

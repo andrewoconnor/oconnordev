@@ -109,7 +109,7 @@ tofu -chdir=infra/aws/oconnordev init -backend=false -input=false -no-color -loc
 tofu -chdir=infra/aws/oconnordev test -no-color
 tofu -chdir=infra/aws/production init -backend=false -input=false -no-color -lockfile=readonly
 tofu -chdir=infra/aws/production test -no-color
-python3 scripts/infra/test_static_site_state.py
+python3 scripts/infra/test_static_site_compatibility.py
 """
 
 [tasks."test:opentofu-gcp"]

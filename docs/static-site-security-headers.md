@@ -2,9 +2,9 @@
 
 ## Scope and compatibility tradeoff
 
-Both existing CloudFront response headers policies now enforce an overriding CSP
-and Permissions-Policy. The shared-module refactor preserves these exact CSP values, origin authentication and other security headers. Compression and real 404s now apply to both sites; Managed-CachingOptimized replaces legacy forwarding/TTLs. See the [state handoff and cache contract](static-site-state-migration.md). The verification measurements below are historical evidence from the prior headers change, not the current refactor.
-No publication or cloud change was performed.
+Both CloudFront response headers policies override origin CSP and
+Permissions-Policy. The [local module](../infra/modules/static-site/README.md)
+owns delivery behavior; each workload supplies its byte-exact CSP.
 
 The resume remains strict: `default-src 'none'`, same-origin stylesheets/images,
 and only the byte-exact inline JSON-LD script hash
@@ -17,21 +17,20 @@ DrumrollWorld uses `script-src 'self' 'wasm-unsafe-eval'`, with **no JavaScript
 unsafe-eval exception**. Three 0.186.1's shipped Basis runtime dynamically creates
 embind invokers with `Function`, so replacing only its policy would break KTX2.
 The app instead publishes an owned, matched JS/WASM pair rebuilt from unmodified
-Basis Universal v1.50.0 (`051ad6d8a64bb95a79e8601c317055fd1782ad3e`), retaining
-the release family previously shipped by Three. Emscripten 4.0.19's supported
+Basis Universal v1.50.0 (`051ad6d8a64bb95a79e8601c317055fd1782ad3e`), using
+the pinned release family. Emscripten 4.0.19's supported
 `DYNAMIC_EXECUTION=0` paths remove the need for JavaScript string execution;
 `EXPORTED_RUNTIME_METHODS=HEAP8` exposes the heap required by that upstream wrapper.
 Both outputs have pinned SHA-256 hashes, full license attribution and a rebuild
-script in `apps/drumrollworld/third-party/basis-1.50.0-no-eval/`. A second clean
-source/build directory reproduced both pinned hashes. Normal app builds verify
+script in `apps/drumrollworld/third-party/basis-1.50.0-no-eval/`. Normal app builds verify
 and copy vendored assets offline, without compiler installation or npm mutation.
 The UTF-8-only publication gateway requires WASM to be checked in as canonical
 single-line `basis_transcoder.wasm.base64` plus LF. Builds strictly validate and
 decode this transport file, then verify the original binary SHA-256 before
 publishing the unchanged `.wasm`; Base64 is not shipped to browsers. Rebuilds
 verify the same binary hashes before encoding the repository representation.
-The real-worker browser test requires seven KTX2 transcodes and blocked `Function`
-execution. `wasm-unsafe-eval` permits WASM compilation only; it does not permit
+The real-worker browser test requires the exact GPU-dependent KTX2 transcode
+count and blocked `Function` execution. `wasm-unsafe-eval` permits WASM compilation only; it does not permit
 JavaScript eval in the document or inherited-CSP blob workers.
 
 Other Drumroll allowances remain narrow:
@@ -74,56 +73,22 @@ which must be blocked on Drumroll; DevTools evaluation is not used as
 proof of eval permission. Exact mock assertions lock both policies and overrides,
 including strict resume scripts and WASM-only Drumroll compilation.
 
-The fixtures in `/opt/data/cache/scratch/drumrollworld-real-pipeline-proof` have
-synthetic content but are genuinely encoded 16px KTX2 and JPEG files. The local
-server maps normal same-origin image URLs to them without modifying the app,
-faking WebGL/WASM/transcode results or contacting remote sites in globe mode.
-This proves policy/runtime compatibility, not production artwork/size or CDN
-behavior. WebGL-unavailable mode intentionally simulates context-creation failure.
-The local server models existing CloudFront 404 mapping; it is not a deployed-CDN
-readback. Fixture generation is outside this headers change.
-
-Reused existing npm dependencies, provider cache and browser; npm pins and
-lockfiles are unchanged. Installed Emscripten 4.0.19 locally for the authorized
-runtime rebuild (1.7 GB under `/opt/data/tools/drumrollworld/emsdk-4.0.19`).
-No cloud writes or publication occurred. Resume node_modules is an ignored
-symlink to the existing resume worktree; Drumroll dependencies were hardlink-copied
-because esbuild's existing single-Three validator requires local real paths.
+The runner uses vendored, hash-verified genuine upstream fixtures; see
+[fixture provenance](../scripts/security/fixtures/README.md). They prove decoder
+and CSP compatibility, not production artwork, texture size, CDN behavior or
+GPU performance. WebGL-unavailable mode simulates context-creation failure.
 
 ```sh
-export TF_PLUGIN_CACHE_DIR=/opt/data/.opentofu.d/plugin-cache
-export PATH=/opt/data/.local/share/mise/installs/opentofu/1.13.1:/opt/data/.local/share/mise/installs/tflint/0.64.0:$PATH
-export PLAYWRIGHT_BROWSERS_PATH=/opt/data/cache/scratch/oconnordev-playwright
-export DRUMROLL_FIXTURES=/opt/data/cache/scratch/drumrollworld-real-pipeline-proof
-node apps/oconnordev/build.js
-node apps/drumrollworld/build.js
-for stack in oconnordev drumrollworld; do
-  tofu -chdir=infra/aws/$stack init -backend=false -input=false -no-color -lockfile=readonly
-  tofu -chdir=infra/aws/$stack fmt -check
-  tofu -chdir=infra/aws/$stack validate -no-color
-  tofu -chdir=infra/aws/$stack test -no-color
-  tflint --chdir=infra/aws/$stack --config="$PWD/.tflint.hcl" -f compact
-done
-timeout 180 node scripts/security/static-site-headers.test.cjs
-npm --prefix apps/oconnordev test
-npm --prefix apps/drumrollworld test
+mise run build:oconnordev
+mise run test:oconnordev
+mise run build:drumrollworld
+mise run test:drumrollworld
+mise run test:opentofu-delivery
 ```
 
-Completed local verification: both roots pass fmt, validate and TFLint; production
-mock tests report **1 passed, 0 failed**, Drumroll **3 passed, 0 failed** (including
-existing gzip and 404 tests). Checkov reports production **127 passed, 0 failed,
-19 skipped** and Drumroll **71 passed, 0 failed, 9 skipped**, preserving existing
-skips. The runner passes Biome format/lint using the existing scratch config with
-repository-equivalent rules (repository Biome includes only apps). Both fresh builds succeeded. The full default
-actual-HCL browser run exited 0 across all four modes, including **seven real KTX2
-transcodes**, zero compatibility violations, zero page errors and all attack
-assertions passing. Drumroll's `javascriptEvalBlocked` is **true** in globe,
-fallback and 404 modes. Drumroll app tests pass **16/16** after the runtime change.
-The new rebuild script reproduced both byte hashes in a separate clean directory.
-Upstream compilation emits existing C++11/`memcpy` and CMake deprecation warnings;
-no source patches were applied. Two initial browser runs timed out waiting for
-the loading screen on this shared machine; isolated modes and the final complete
-four-mode run passed without changing timeouts or weakening assertions.
+Build tasks install the locked application dependencies; browser installation
+and cache requirements are described in fixture provenance. A passing local run
+is not live CloudFront header verification.
 
 ## Rollout and rollback
 
@@ -132,8 +97,7 @@ Drumroll `/404.html` are published before activating the corresponding headers;
 changing inline JSON-LD, injected style bytes or runtime libraries requires updated
 hashes and another full browser run. After an authorized deployment, read actual
 CloudFront headers for both pages and a missing Drumroll path, and repeat browser
-checks with production artwork. This task has not applied or verified live headers.
-Rollback the headers and runtime artifacts together if reverting to Three's
-original Basis pair, since that runtime needs JavaScript dynamic execution.
-Do not activate this CSP with the old runtime. Retain existing HSTS, nosniff,
+checks with production artwork. Local checks do not establish deployed headers.
+Review headers and runtime artifacts together for rollback. Never pair this CSP
+with a decoder requiring JavaScript dynamic execution. Retain existing HSTS, nosniff,
 framing/referrer headers and delivery behavior.
