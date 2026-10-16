@@ -9,8 +9,12 @@ separate IaC PR #118, now merged and applied. TOOLS apply run
 state. The privacy apply gate is cleared on that apply/state evidence. This is
 not independent direct AWS enumeration, proof against out-of-band deliveries, or
 an end-to-end no-logging guarantee. The metadata-only checks below remain the
-procedure for stronger direct AWS verification. Microsoft365 runtime stays
-disabled while OAuth/cache bootstrap and separate activation proofs are pending.
+procedure for stronger direct AWS verification. Microsoft365 via AgentCore is now
+live, with native `list-mail-folders` and `get-mail-message` HTTP 200 verification
+recorded in the [mail runbook](microsoft365-mcp.md). That bounded live proof does
+not establish an end-to-end absence of logging. The legacy local Outlook connector
+has been retired locally, with final MCP reload verification pending; its cleanup
+does not change this privacy boundary.
 
 Remove only `aws_cloudwatch_log_delivery.gateway_application_logs`. Preserve the
 APPLICATION_LOGS source and destination metadata, existing log group
