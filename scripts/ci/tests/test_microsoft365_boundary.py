@@ -8,6 +8,41 @@ ROOT = Path(__file__).resolve().parents[3]
 
 
 class Microsoft365BoundaryTests(unittest.TestCase):
+    def test_reviewed_owner_activation_defaults(self):
+        import re
+
+        source = (ROOT / "infra/aws/tools/microsoft365-runtime.tf").read_text()
+        defaults = dict(
+            re.findall(
+                r'variable "(microsoft365_[^"]+)" \{.*?default\s*=\s*([^\n]+)',
+                source,
+                re.S,
+            )
+        )
+        self.assertEqual(
+            defaults,
+            {
+                "microsoft365_runtime_enabled": "true",
+                "microsoft365_image_digest": (
+                    '"sha256:c70a21d96fb7395455a638f76166c9418'
+                    '0b28a79dd4819dc9c55f3a3d89998f1"'
+                ),
+                "microsoft365_client_id": '"084a3e9f-a9f4-43f7-89f9-d229cf97853e"',
+                "microsoft365_owner_home_account_id": (
+                    '"00000000-0000-0000-592d-43aab53672fd.'
+                    '9188040d-6c67-4c5b-b112-36a304b66dad"'
+                ),
+            },
+        )
+        tools = ROOT / "infra/aws/tools"
+        for path in tools.glob("*.tf"):
+            self.assertNotIn(
+                'resource "aws_secretsmanager_secret_version"', path.read_text()
+            )
+            self.assertNotIn('resource "aws_cloudwatch_log_delivery"', path.read_text())
+        gateway = (tools / "gateway.tf").read_text()
+        self.assertRegex(gateway, r'\bmode\s*=\s*"ENFORCE"')
+
     def test_runtime_and_gateway_boundary(self):
         path = ROOT / "infra/aws/tools/microsoft365-runtime.tf"
         self.assertTrue(path.exists(), "missing Microsoft365 runtime infrastructure")
@@ -15,7 +50,6 @@ class Microsoft365BoundaryTests(unittest.TestCase):
 
         text = re.sub(r"[ \t]+", " ", path.read_text())
         for fragment in [
-            "default = false",
             "reserved_concurrent_executions = 1",
             'architectures = ["arm64"]',
             'authorization_type = "AWS_IAM"',

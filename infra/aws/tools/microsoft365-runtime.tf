@@ -1,13 +1,13 @@
 variable "microsoft365_runtime_enabled" {
-  description = "Owner-only activation after image publication and independent delegated consumer cache bootstrap. No target or Lambda is deployed by default."
+  description = "Reviewed owner activation configuration after image publication and owner-reported cache bootstrap. True requests deployment on owner apply; it does not describe live status. Set false for rollback."
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "microsoft365_image_digest" {
   description = "Actual owner-published single linux/arm64 ECR manifest digest; tags and invented placeholder digests are not rollout inputs."
   type        = string
-  default     = ""
+  default     = "sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1"
   validation {
     condition     = var.microsoft365_image_digest == "" || can(regex("^sha256:[0-9a-f]{64}$", var.microsoft365_image_digest))
     error_message = "Use an immutable sha256 manifest digest, not an image tag or URI."
@@ -17,7 +17,7 @@ variable "microsoft365_image_digest" {
 variable "microsoft365_client_id" {
   description = "Nonsecret application UUID for the owner's separately approved consumer delegated consent. No client secret or token."
   type        = string
-  default     = ""
+  default     = "084a3e9f-a9f4-43f7-89f9-d229cf97853e"
   validation {
     condition     = var.microsoft365_client_id == "" || can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", var.microsoft365_client_id))
     error_message = "Use the approved application client UUID, never a credential."
@@ -27,7 +27,7 @@ variable "microsoft365_client_id" {
 variable "microsoft365_owner_home_account_id" {
   description = "Immutable nonsecret consumer MSAL homeAccountId selected and verified by the owner during independent onboarding. Never inferred from the first cached identity."
   type        = string
-  default     = ""
+  default     = "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad"
   validation {
     condition     = var.microsoft365_owner_home_account_id == "" || can(regex("^[A-Za-z0-9_-]{1,128}\\.9188040d-6c67-4c5b-b112-36a304b66dad$", var.microsoft365_owner_home_account_id))
     error_message = "Use the exact nonsecret MSAL homeAccountId (uid.utid), not email or a token."

@@ -21,6 +21,12 @@ mock_provider "aws" {
   }
 
   # Keep computed values consumed by provider-side argument validation valid.
+  mock_resource "aws_ecr_repository" {
+    defaults = {
+      repository_url = "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools"
+    }
+  }
+
   mock_resource "aws_lambda_function_url" {
     defaults = {
       function_url = "https://synthetic.lambda-url.us-east-1.on.aws/"
@@ -124,8 +130,9 @@ variables {
 }
 
 
-run "microsoft365_disabled_by_default" {
+run "microsoft365_disabled_for_bootstrap_or_rollback" {
   command = plan
+  variables { microsoft365_runtime_enabled = false }
   assert {
     condition     = length(aws_lambda_function.microsoft365) == 0 && length(aws_bedrockagentcore_gateway_target.microsoft365) == 0 && length(aws_bedrockagentcore_policy.microsoft365_read) == 0 && length(aws_iam_role_policy.microsoft365_gateway_invoke) == 0 && length(aws_iam_role_policy.microsoft365_runtime) == 0
     error_message = "Runtime, target, permissions and permits must all be absent before owner activation."
@@ -147,7 +154,12 @@ run "microsoft365_disabled_by_default" {
 }
 run "microsoft365_requires_owner_inputs" {
   command = plan
-  variables { microsoft365_runtime_enabled = true }
+  variables {
+    microsoft365_runtime_enabled       = true
+    microsoft365_image_digest          = ""
+    microsoft365_owner_home_account_id = ""
+    microsoft365_client_id             = ""
+  }
   expect_failures = [aws_lambda_function.microsoft365[0]]
 }
 run "microsoft365_rejects_tag" {
@@ -155,6 +167,27 @@ run "microsoft365_rejects_tag" {
   variables { microsoft365_image_digest = "latest" }
   expect_failures = [var.microsoft365_image_digest]
 }
+run "microsoft365_reviewed_activation_defaults" {
+  # Mock-only configuration proof, not a live plan or provider/auth readback.
+  command = plan
+  assert {
+    condition     = var.microsoft365_runtime_enabled && aws_lambda_function.microsoft365[0].image_uri == "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools@sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1"
+    error_message = "Owner activation must use the verified push/ECR manifest digest in the existing repository, not a tag or image/config/archive hash."
+  }
+  assert {
+    condition     = aws_lambda_function.microsoft365[0].environment[0].variables.EXPECTED_HOME_ACCOUNT_ID == "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad" && aws_lambda_function.microsoft365[0].environment[0].variables.M365_CLIENT_ID == "084a3e9f-a9f4-43f7-89f9-d229cf97853e"
+    error_message = "Preserve the exact owner-supplied MSAL identity including its zero prefix and the approved nonsecret client UUID."
+  }
+  assert {
+    condition     = length(aws_lambda_function.microsoft365) == 1 && length(aws_lambda_function_url.microsoft365) == 1 && length(aws_cloudwatch_log_group.microsoft365) == 1 && length(aws_iam_role_policy.microsoft365_runtime) == 1 && length(aws_iam_role_policy.microsoft365_gateway_invoke) == 1 && length(terraform_data.microsoft365_catalog) == 1 && length(aws_bedrockagentcore_gateway_target.microsoft365) == 1 && length(aws_bedrockagentcore_policy.microsoft365_read) == 5
+    error_message = "Activation must render only the existing gated function/URL/logs, two grants, catalog, target and five permits; this is not a live change count."
+  }
+  assert {
+    condition     = aws_lambda_function_url.microsoft365[0].authorization_type == "AWS_IAM" && aws_bedrockagentcore_gateway.hermes.policy_engine_configuration[0].mode == "ENFORCE" && alltrue([for k, v in aws_bedrockagentcore_policy.microsoft365_read : strcontains(v.definition[0].cedar[0].statement, "microsoft365___${k}") && strcontains(v.definition[0].cedar[0].statement, "hermes-mcp/invoke")])
+    error_message = "Activation must retain URL IAM authentication, shared ENFORCE and all five exact scoped Cedar permits."
+  }
+}
+
 run "microsoft365_enabled" {
   command = plan
   variables {
