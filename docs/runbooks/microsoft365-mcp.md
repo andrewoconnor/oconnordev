@@ -2,17 +2,32 @@
 
 ## Status and boundary
 
-**Bootstrap applied; image published; runtime still disabled.** The shared
-`oconnordev-tools` ECR repository, publisher role and empty cache metadata bootstrap
-are applied. Verified image workflow run
-[38794178377](https://github.com/andrewoconnor/oconnordev/actions/runs/38794178377)
-published the tested image with manifest digest
-`sha256:816f7d989bc581299bd6b35b204da02e57a42b748aa7fb7a8d64525f3810743c`.
-This is an image publication, not a Lambda deployment or mailbox/runtime proof.
-OAuth consent and serialized consumer-cache bootstrap remain outstanding;
-`microsoft365_runtime_enabled=false` and adapter rollout stays disabled. No secret
-value read/write/migration, mailbox request, Hermes config change, reload or legacy
-Outlook cutover is authorized by this cleanup. TOOLS remains on `master` with
+**Activation configuration prepared for owner review/apply; runtime not yet live.**
+The shared `oconnordev-tools` repository, publisher role and cache metadata bootstrap
+are applied. The owner reports successful OAuth consent/cache bootstrap with the helper's
+exact-version write/readback verification; this preparation has not independently
+read that secret, refreshed credentials or called Graph. The exact nonsecret inputs
+provided by the owner are now the TOOLS variable defaults:
+
+* `microsoft365_runtime_enabled = true` (desired state on owner apply, not live status)
+* `microsoft365_owner_home_account_id = "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad"`
+* `microsoft365_client_id = "084a3e9f-a9f4-43f7-89f9-d229cf97853e"`
+* `microsoft365_image_digest = "sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1"`
+
+Preserve the MSAL homeAccountId exactly, including its zero-prefixed UID; it is not
+an email, inferred object ID or placeholder to repair. The published image is
+`421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools@sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1`.
+Verified master image workflow
+[38816865741](https://github.com/andrewoconnor/oconnordev/actions/runs/38816865741),
+publish job [116703905646](https://github.com/andrewoconnor/oconnordev/actions/runs/38816865741/job/116703905646),
+succeeded with an actual push and matching ECR manifest readback for tag
+`microsoft365-d00b116d0703403ee46e7db862d10cb47a0504c6-38816865741-1`.
+That is publication evidence, not deployed Lambda or mailbox/runtime proof.
+Runtime image inputs are unchanged since publication (subsequent owner-helper
+verification-URL changes are outside the image); no new image build is required.
+No secret value read/write/migration, mailbox request, Hermes config change, reload
+or legacy Outlook cutover is authorized by this activation preparation. Adapter
+rollout stays disabled. TOOLS remains on `master` with
 `autodeploy=false`; only the owner may approve/apply reviewed plans. Existing live
 AWS SDK reachability through the SECURITY gateway does not grant TOOLS access.
 
@@ -61,8 +76,9 @@ applied. TOOLS run `01M50PH738EP65ZF66HKX7CZMT0` finished `FINISHED` with
 The privacy apply gate is cleared on that state/apply evidence, not a claim of
 independent direct AWS enumeration or end-to-end logging proof. See
 [Gateway log privacy](gateway-log-privacy.md) for retained historical seven-day
-expiry and remaining metadata-only checks. Keep this mail runtime disabled:
-OAuth/cache bootstrap and the separate activation proofs are not complete.
+expiry and remaining metadata-only checks. OAuth/cache bootstrap is now
+owner-reported complete; runtime apply and the separate activation proofs remain
+outstanding. The desired enabled configuration does not itself clear those gates.
 Runtime log suppression does **not**
 suppress Gateway logs, and disabling Gateway delivery does not suppress runtime
 or other logs. No end-to-end no-mailbox-logging guarantee or retroactive purge is
@@ -96,7 +112,8 @@ claimed; this runbook does not itself change shared observability or enable mail
   and gateway target names remain Microsoft365-specific.
   Repo and roles and secret metadata bootstrap regardless of activation; function,
   URL, runtime grants/logs, invoke grant, target/catalog and Cedar permits are
-  gated together by `microsoft365_runtime_enabled=false` by default.
+  gated together by `microsoft365_runtime_enabled`. The reviewed activation default
+  is now true; explicit false retains bootstrap-only/rollback behavior.
 * Reserved concurrency **1**, plus the runtime transaction mutex, serialize cache
   refresh/load/save/readback. No other function/version/client may write the cache;
   exclude owner bootstrap while active. Revocation/missing state must fail closed
@@ -109,7 +126,8 @@ claimed; this runbook does not itself change shared observability or enable mail
 1. Bootstrap is already applied: shared ECR, repository policy, roles, empty
    cache metadata and TOOLS additional project globs. Review the exact proposed
    head and secretless checks for subsequent changes; provider locks remain AWS
-   **6.66.0**. Keep runtime disabled; OAuth identity/cache is not bootstrapped.
+   **6.66.0**. The owner now reports identity/cache bootstrap complete; do not
+   rerun the empty-secret helper or introduce a competing cache writer.
    No secret-version resource exists; no secret values may enter
    tfvars, Spacelift variables, state, outputs, plans, CI or docs.
 2. Review `microsoft365_bootstrap` output (only repository URL, publisher-role ARN,
@@ -130,9 +148,9 @@ claimed; this runbook does not itself change shared observability or enable mail
    GitHub OIDC subject template can be a separate future trust change, not an
    invented workflow-identity guarantee or an uncreated environment gate.
 3. On reviewed master, the image workflow publishes on matching push events or
-   manual dispatch. **Merging this cleanup changes the workflow path and will
-   publish another tested image; it will not deploy/update Lambda.** The verified
-   prior run/digest is recorded above. PR/feature jobs have no AWS/OIDC credentials.
+   manual dispatch. **This activation changes only TOOLS defaults, offline tests
+   and this runbook; it does not change runtime image inputs or deploy Lambda.**
+   The verified run/digest is recorded above. PR/feature jobs have no AWS/OIDC credentials.
    The native arm64 build creates a single image without provenance
    indexes/attestations, runs secretless runtime tests (including real synthetic
    HTTP) inside that image (tests bind-mounted read-only; runtime modules and
@@ -146,22 +164,33 @@ claimed; this runbook does not itself change shared observability or enable mail
    is read back from `oconnordev-tools` and compared with docker push output.
    Capture the actual `repository@sha256:...` from job summary; never use `latest`
    or the synthetic fixture digest. No Lambda deployment occurs in workflow.
-4. Separately authorize owner app/consumer consent and **new** serialized cache
+4. For first-time bootstrap only, separately authorize owner app/consumer consent and **new** serialized cache
    bootstrap using the [reviewed owner-only helper](#owner-only-consumer-consent-step-1).
    Do not read/copy the current local Outlook token/cache/key. Keep runtime disabled;
    stop all competing writers. Set only its verified nonsecret identity/client pins
-   and the separately verified published image digest in TOOLS inputs.
-5. Owner sets `microsoft365_runtime_enabled=true`,
-   `microsoft365_image_digest=<actual manifest digest>` and
-   `microsoft365_owner_home_account_id=<verified uid.9188040d-6c67-4c5b-b112-36a304b66dad>`
-   and `microsoft365_client_id=<approved application UUID>`, reviews/applies the plan.
+   and the separately verified published image digest in TOOLS inputs. The owner
+   reports this step complete for the identity above; do not repeat it now.
+5. Owner reviews the exact activation head and TOOLS plan with the four nonsecret
+   defaults above. Inspect any existing stack/environment variable overrides:
+   they take precedence over defaults and must not silently retain false/empty or
+   different pins. No separate Spacelift environment-variable management apply is
+   introduced. Only the owner approves/applies; `autodeploy=false` stays unchanged.
+   Offline mock plans render one function, IAM Function URL, log group, runtime
+   grant, gateway invoke grant, catalog trigger and target, plus five Cedar permits.
+   This is a configuration inventory, **not a live plan resource-change count**;
+   review the actual owner plan for adds/changes/replacements and unrelated drift.
+   No secret-version resource, Gateway log delivery, shared-engine mode change or
+   new infrastructure outside the existing gated feature is introduced.
    These map to runtime `EXPECTED_HOME_ACCOUNT_ID` and `M365_CLIENT_ID`; the fixed
    secret ARN maps to `SECRET_ARN`. LWA readiness is `/health`, whose final status
    is 200 or 503. Supported LWA 0.9.1 setting MIN_UNHEALTHY_STATUS=201 rejects
    every final status above 200 (including redirects/404); the similarly named
    HEALTHY_STATUS variable is not supported by that release.
    The image must exist before Lambda creation, and cache must be valid before
-   AgentCore performs tools/list. Target and permits activate together; resource
+   AgentCore performs tools/list. During the owner's apply/target discovery,
+   readiness performs silent authentication and may refresh/persist the MSAL cache;
+   do not mistake this for a metadata-only apply or run a competing helper. This
+   preparation does not execute that authentication. Target and permits activate together; resource
    dependencies grant gateway URL invoke before registration and create permits
    only after action catalog exists. Verify target READY/SYNCHRONIZED and all five
    policy creations. A changed image/manifest triggers target catalog replacement;
@@ -200,8 +229,10 @@ claimed; this runbook does not itself change shared observability or enable mail
 
 ## Owner-only consumer consent (step 1)
 
-**Preparation only until this helper is reviewed and merged to master, and the
-owner explicitly approves running it.** No device flow was started in development.
+**Historical bootstrap procedure, not an instruction to rerun now.** The helper is
+merged and the owner reports successful verified cache persistence. No device
+flow was started by this activation preparation. For any future bootstrap, require
+separate owner approval and an absent runtime/empty secret as enforced below.
 This is the same *permission boundary* as the local read-only Outlook setup, but a
 fresh consent/session: it never imports the old connector's cache or key. It uses
 public client **084a3e9f-a9f4-43f7-89f9-d229cf97853e**, consumers authority
@@ -309,7 +340,8 @@ the owner's trust boundary.
 
 The helper lives outside the Lambda build context under
 `scripts/bootstrap/microsoft365/`, so the runtime Dockerfile's `COPY *.mjs` cannot
-ship the device-login CLI. No runtime code or deployment switches are changed.
+ship the device-login CLI. The helper does not change runtime deployment switches;
+this separate activation configuration changes only the desired TOOLS defaults.
 Offline tests use mocked AWS clients and real pinned MSAL with a synthetic token
 endpoint; they prove envelope interoperability, not live app eligibility, AWS
 permissions, consent, stored identity or end-to-end runtime activation.
@@ -322,7 +354,7 @@ secretless suite and is also included in the existing `mise run test` aggregate.
 
 First disable Microsoft365 on the adapter (unset rollout env or `false`) and return
 clients to unchanged legacy Outlook; verify its existing catalog before removing
-the remote target. Owner sets runtime_enabled=false and reviews/applies removal of
+the remote target. Owner sets `microsoft365_runtime_enabled=false` and reviews/applies removal of
 five permits, target, URL/function and runtime/invoke grants. Bootstrap ECR/roles
 and recoverable secret metadata remain. To stop image publication, use an
 owner-reviewed workflow change or disable the workflow in GitHub Actions; the old
@@ -377,4 +409,4 @@ but daemon is unavailable: no local arm64 image/HTTP container proof is claimed.
 The workflow requires that real image test before publication; owner must review
 its successful result before activation. The published image run above is CI
 container/publication evidence, not live OAuth, Lambda or mailbox verification;
-none of those activation tests has been executed by this cleanup.
+none of those live activation tests has been executed by this preparation.
