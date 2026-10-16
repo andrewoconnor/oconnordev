@@ -9,8 +9,9 @@ read-only mailbox proof, not just image publication or tools/list evidence; it
 is not proof that every denial/timing/privacy gate below was independently rerun.
 The owner explicitly authorized removal of the legacy local connector and its
 credential directories. Execution removed the legacy config entry, schema cache,
-Node process and the four local directories recorded below. Final native registry
-cleanup awaits the owner's `/reload-mcp`; no upstream revocation was performed.
+Node process and the four local directories recorded below. The final reload
+registered 74 tools from four servers without `outlook_readonly`; a subsequent
+native AgentCore folder read returned HTTP 200. No upstream revocation was performed.
 See [local retirement](#local-connector-retirement) for the completion checks.
 
 The shared `oconnordev-tools` repository, publisher role and cache metadata bootstrap
@@ -397,7 +398,9 @@ scanned persistent files; it excluded dependency/Git trees and files over 20 MB,
 so it is not a forensic or secure-erasure guarantee. Historical config backups
 and the managed recovery baseline retain inert registration references, not a
 working local fallback. They were preserved rather than deleting shared recovery
-data. Native legacy tool registration still needs `/reload-mcp` to clear.
+data. The subsequent reload at 2026-10-16 14:33:55 UTC registered 74 tools from
+four servers, without the legacy connector; the post-reload native AgentCore
+folder read also returned HTTP 200.
 
 For future retirements, record completion against these checks:
 
@@ -418,7 +421,7 @@ For future retirements, record completion against these checks:
 4. Record sanitized path/process/config checks and a bounded read-only call through
    the surviving AgentCore connection. Do not print tokens, secret values or mail
    payloads into cleanup evidence. The execution record above is separate from
-   these reusable checks; final reload verification remains pending.
+   these reusable checks; the recorded final reload verification passed.
 
 Removing local copies is **not upstream revocation** of Microsoft consent,
 refresh tokens or sessions, nor a secure-erasure guarantee. Any upstream revocation

@@ -13,8 +13,8 @@ procedure for stronger direct AWS verification. Microsoft365 via AgentCore is no
 live, with native `list-mail-folders` and `get-mail-message` HTTP 200 verification
 recorded in the [mail runbook](microsoft365-mcp.md). That bounded live proof does
 not establish an end-to-end absence of logging. The legacy local Outlook connector
-has been retired locally, with final MCP reload verification pending; its cleanup
-does not change this privacy boundary.
+has been retired locally, and the final MCP reload and native AgentCore read
+verification passed; its cleanup does not change this privacy boundary.
 
 Remove only `aws_cloudwatch_log_delivery.gateway_application_logs`. Preserve the
 APPLICATION_LOGS source and destination metadata, existing log group
