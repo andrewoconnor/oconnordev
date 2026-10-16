@@ -85,7 +85,7 @@ class ImageFreshnessTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         for item in [
-            "infra/tools/lambdas/microsoft365_mcp/server.mjs",
+            "infra/aws/tools/lambdas/microsoft365_mcp/server.mjs",
             ".github/workflows/microsoft365-image.yml",
             "scripts/ci/microsoft365_image.py",
             "agents/hermes/adapter/microsoft365-mcp-tools.json",

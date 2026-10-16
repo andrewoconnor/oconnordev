@@ -55,9 +55,6 @@ def roots_for_paths(paths: Iterable[str]) -> tuple[str, ...]:
         if path == _COST_EXPORT_SCHEMA:
             selected.update(("infra/aws/general", "infra/aws/security"))
 
-        if path.startswith("infra/tools/lambdas/microsoft365_mcp/"):
-            selected.add("infra/aws/tools")
-
         if path == ".github/workflows/microsoft365-image.yml":
             selected.add("infra/aws/tools")
 

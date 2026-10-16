@@ -102,7 +102,7 @@ class Microsoft365BoundaryTests(unittest.TestCase):
         )
 
     def test_lwa_readiness_uses_pinned_release_supported_threshold(self):
-        runtime = ROOT / "infra/tools/lambdas/microsoft365_mcp"
+        runtime = ROOT / "infra/aws/tools/lambdas/microsoft365_mcp"
         dockerfile = (runtime / "Dockerfile").read_text()
         self.assertIn("AWS_LWA_READINESS_CHECK_MIN_UNHEALTHY_STATUS=201", dockerfile)
         self.assertNotIn("AWS_LWA_READINESS_CHECK_HEALTHY_STATUS", dockerfile)
@@ -122,7 +122,7 @@ class Microsoft365BoundaryTests(unittest.TestCase):
     def test_runtime_path_selects_tools_and_contract_is_strict(self):
         from scripts.ci.path_selection import roots_for_paths
 
-        path = "infra/tools/lambdas/microsoft365_mcp/tools-manifest.json"
+        path = "infra/aws/tools/lambdas/microsoft365_mcp/tools-manifest.json"
         self.assertEqual(roots_for_paths([path]), ("infra/aws/tools",))
         catalog = json.loads((ROOT / path).read_text())
         self.assertEqual(len(catalog), 5)

@@ -15,7 +15,8 @@ EXACT_INPUTS = {
 
 def is_image_input(path: str) -> bool:
     return (
-        path.startswith("infra/tools/lambdas/microsoft365_mcp/") or path in EXACT_INPUTS
+        path.startswith("infra/aws/tools/lambdas/microsoft365_mcp/")
+        or path in EXACT_INPUTS
     )
 
 

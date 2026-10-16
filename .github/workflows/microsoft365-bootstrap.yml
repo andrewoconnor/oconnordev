@@ -5,14 +5,14 @@ on:
     branches: [master, 'hermes/**']
     paths:
       - 'scripts/bootstrap/microsoft365/**'
-      - 'infra/tools/lambdas/microsoft365_mcp/**'
+      - 'infra/aws/tools/lambdas/microsoft365_mcp/**'
       - '.github/workflows/microsoft365-bootstrap.yml'
       - 'mise.toml'
   pull_request:
     branches: [master]
     paths:
       - 'scripts/bootstrap/microsoft365/**'
-      - 'infra/tools/lambdas/microsoft365_mcp/**'
+      - 'infra/aws/tools/lambdas/microsoft365_mcp/**'
       - '.github/workflows/microsoft365-bootstrap.yml'
       - 'mise.toml'
 
@@ -33,7 +33,7 @@ jobs:
           package-manager-cache: false
       - name: Install both locked dependency scopes without lifecycle scripts
         run: |
-          npm ci --prefix infra/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund
+          npm ci --prefix infra/aws/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund
           npm ci --prefix scripts/bootstrap/microsoft365 --ignore-scripts --no-audit --no-fund
       - name: Test mocked AWS and synthetic MSAL only, never run owner CLI
         run: npm test --prefix scripts/bootstrap/microsoft365

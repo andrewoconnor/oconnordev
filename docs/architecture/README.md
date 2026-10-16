@@ -6,6 +6,16 @@ The account map in `infra/aws/accounts.json` is the sole repository source for c
 
 `general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, and Spacelift targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
+## Tools-account Lambda sources
+
+Lambda source packages owned by the TOOLS account live under
+`infra/aws/tools/lambdas/`: `spacelift_session_token/` and `microsoft365_mcp/`.
+The Microsoft365 Docker build context is the latter directory; owner bootstrap
+entrypoints remain separately under `scripts/bootstrap/microsoft365/` and import
+its envelope validator. The tools project root already covers both packages, so
+no additional external-source Spacelift glob is required for them. Source layout
+does not change deployed function names, image digests, permissions or activation.
+
 ## Google Auth project adoption ownership
 
 The administrative `oconnordev` stack owns the separate protected,

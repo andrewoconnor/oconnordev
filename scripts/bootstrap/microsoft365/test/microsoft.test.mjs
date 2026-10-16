@@ -18,7 +18,7 @@ test('real MSAL device flow produces cache accepted by production validator with
  const callbacks=[];const session=await subject.authenticateConsumer(clientId,x=>callbacks.push(x),network);
  assert.equal(session.result.account.homeAccountId,`synthetic.${tenant}`);
  assert.deepEqual(callbacks,[{verificationUri:'https://microsoft.com/devicelogin',userCode:'FAKE-CODE'}]);
- const {validateEnvelope}=await import('../../../../infra/tools/lambdas/microsoft365_mcp/owner-auth.mjs');
+ const {validateEnvelope}=await import('../../../../infra/aws/tools/lambdas/microsoft365_mcp/owner-auth.mjs');
  const raw=JSON.stringify({version:1,homeAccountId:session.result.account.homeAccountId,cache:session.serialize()});
  validateEnvelope(raw,{ownerId:session.result.account.homeAccountId,clientId});
  assert.ok(JSON.parse(JSON.parse(raw).cache).RefreshToken);

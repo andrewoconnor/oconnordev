@@ -125,7 +125,7 @@ python3 scripts/ci/verify_gcp_discovery_plan.py
 [tasks."test:microsoft365-bootstrap"]
 description = "Run owner bootstrap tests with mocked AWS and synthetic MSAL, no owner CLI"
 run = [
-  "npm ci --prefix infra/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund",
+  "npm ci --prefix infra/aws/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund",
   "npm ci --prefix scripts/bootstrap/microsoft365 --ignore-scripts --no-audit --no-fund",
   "npm test --prefix scripts/bootstrap/microsoft365",
 ]

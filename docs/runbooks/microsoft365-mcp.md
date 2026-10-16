@@ -23,8 +23,13 @@ publish job [116703905646](https://github.com/andrewoconnor/oconnordev/actions/r
 succeeded with an actual push and matching ECR manifest readback for tag
 `microsoft365-d00b116d0703403ee46e7db862d10cb47a0504c6-38816865741-1`.
 That is publication evidence, not deployed Lambda or mailbox/runtime proof.
-Runtime image inputs are unchanged since publication (subsequent owner-helper
-verification-URL changes are outside the image); no new image build is required.
+Runtime source bytes and image pins are unchanged since publication; the source
+package now lives at `infra/aws/tools/lambdas/microsoft365_mcp/`, beside the other
+TOOLS-account Lambda. This layout-only move does not require rebuilding or
+replacing the pinned deployed image. Future image workflow builds use that exact
+directory as their Docker context and bind its `test/` directory into the test
+container. The workflow freshness check follows the new location and still binds
+publication to the tested commit SHA; moving paths does not waive that guard.
 No secret value read/write/migration, mailbox request, Hermes config change, reload
 or legacy Outlook cutover is authorized by this activation preparation. Adapter
 rollout stays disabled. TOOLS remains on `master` with
@@ -282,7 +287,7 @@ imports the production envelope validator from the runtime, whose relative impor
 resolve against runtime dependencies):
 
 ```sh
-npm ci --prefix infra/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund
+npm ci --prefix infra/aws/tools/lambdas/microsoft365_mcp --ignore-scripts --no-audit --no-fund
 npm ci --prefix scripts/bootstrap/microsoft365 --ignore-scripts --no-audit --no-fund
 npm test --prefix scripts/bootstrap/microsoft365
 node scripts/bootstrap/microsoft365/cli.mjs --help

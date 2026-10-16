@@ -1,5 +1,5 @@
 import {PublicClientApplication} from '@azure/msal-node';
-import {scopes} from '../../../infra/tools/lambdas/microsoft365_mcp/owner-auth.mjs';
+import {scopes} from '../../../infra/aws/tools/lambdas/microsoft365_mcp/owner-auth.mjs';
 // Optional network dependency is used only by offline tests, never CLI flags/env.
 export async function authenticateConsumer(clientId,display,networkClient){
  const app=new PublicClientApplication({auth:{clientId,authority:'https://login.microsoftonline.com/consumers'},system:{...(networkClient?{networkClient}:{}),loggerOptions:{loggerCallback:()=>{},piiLoggingEnabled:false,logLevel:0}}});
