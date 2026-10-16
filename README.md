@@ -136,6 +136,22 @@ The script exits 2 until MCP reload is confirmed with `--reloaded` after
 
 The Hermes adapter is application code under `agents/hermes/adapter/`. It registers once against the shared gateway and checks the union of target manifests; adding a gateway target does not grant it to an existing target's Cedar policy.
 
+For compatibility with strict MCP discovery clients, `tools/list` preserves
+`outputSchema` only when its root explicitly declares `"type": "object"`.
+Incompatible optional output schemas are omitted, not rewritten; input schemas,
+other tool metadata, and tool-call results are unchanged. The optional offline
+SDK proof uses a synthetic gateway and real stdio `ClientSession` discovery:
+
+```sh
+cd agents/hermes/adapter
+/path/to/isolated-sdk-venv/bin/python -m unittest test.test_sdk_discovery -v
+```
+
+Install the SDK only in an isolated test environment (for example `mcp==1.30.0`);
+it is not an adapter runtime dependency. The test separately checks the daemon's
+strict object-root contract: that SDK release and managed SDK 2.0.0 accept broader
+dictionaries themselves, so neither is evidence of a strict SDK model.
+
 The [native GitHub settings-read runbook](docs/runbooks/github-settings-read.md)
 describes partial ruleset/collaborator/label coverage, permission review, secure
 token rotation, and gateway-before-adapter rollout. The separate
