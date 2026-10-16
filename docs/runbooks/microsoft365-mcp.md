@@ -1,15 +1,26 @@
-# Microsoft365 personal-mail MCP: owner rollout, verification and rollback
+# Microsoft365 personal-mail MCP: operation, local retirement and recovery
 
 ## Status and boundary
 
-**Activation configuration prepared for owner review/apply; runtime not yet live.**
-The shared `oconnordev-tools` repository, publisher role and cache metadata bootstrap
-are applied. The owner reports successful OAuth consent/cache bootstrap with the helper's
-exact-version write/readback verification; this preparation has not independently
-read that secret, refreshed credentials or called Graph. The exact nonsecret inputs
-provided by the owner are now the TOOLS variable defaults:
+**Microsoft365 through AgentCore is live and verified; the legacy local
+`outlook_readonly` connector has been retired locally.** Gateway setup was verified with native
+`list-mail-folders` and `get-mail-message` calls returning HTTP 200. This is live
+read-only mailbox proof, not just image publication or tools/list evidence; it
+is not proof that every denial/timing/privacy gate below was independently rerun.
+The owner explicitly authorized removal of the legacy local connector and its
+credential directories. Execution removed the legacy config entry, schema cache,
+Node process and the four local directories recorded below. The final reload
+registered 74 tools from four servers without `outlook_readonly`; a subsequent
+native AgentCore folder read returned HTTP 200. No upstream revocation was performed.
+See [local retirement](#local-connector-retirement) for the completion checks.
 
-* `microsoft365_runtime_enabled = true` (desired state on owner apply, not live status)
+The shared `oconnordev-tools` repository, publisher role and cache metadata bootstrap
+are applied. OAuth consent/cache bootstrap used the owner's independent helper;
+the cloud Lambda now owns silent authentication and MSAL refresh/persistence in
+Secrets Manager. Do not import a legacy local token, cache or encryption key.
+The recorded nonsecret inputs are the TOOLS variable defaults:
+
+* `microsoft365_runtime_enabled = true` (configuration pin; live proof is recorded above)
 * `microsoft365_owner_home_account_id = "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad"`
 * `microsoft365_client_id = "084a3e9f-a9f4-43f7-89f9-d229cf97853e"`
 * `microsoft365_image_digest = "sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1"`
@@ -30,9 +41,9 @@ replacing the pinned deployed image. Future image workflow builds use that exact
 directory as their Docker context and bind its `test/` directory into the test
 container. The workflow freshness check follows the new location and still binds
 publication to the tested commit SHA; moving paths does not waive that guard.
-No secret value read/write/migration, mailbox request, Hermes config change, reload
-or legacy Outlook cutover is authorized by this activation preparation. Adapter
-rollout stays disabled. TOOLS remains on `master` with
+This documentation update authorizes no additional secret access, mailbox request,
+Hermes config change, reload or infrastructure apply. Local retirement is handled
+separately under the owner's explicit cleanup authorization. TOOLS remains on `master` with
 `autodeploy=false`; only the owner may approve/apply reviewed plans. Existing live
 AWS SDK reachability through the SECURITY gateway does not grant TOOLS access.
 
@@ -62,9 +73,11 @@ Exactly these native tool names (no hyphen/camelCase normalization):
 * `list-mail-folder-messages` (`mailFolderId`)
 
 The wire action is `microsoft365___<native-name>`. No current adapter name collides,
-so native names remain client-visible (no extra client namespace). The adapter
-continues exposing its existing 23 tools by default; explicit temporary rollout
-adds five. Cedar grants only those exact actions to AgentCore::OAuthUser with the
+so native names remain client-visible (no extra client namespace). Keep
+`HERMES_AGENTCORE_MICROSOFT365_ENABLED=true` in the approved AgentCore adapter
+registration for mail access; its code default remains disabled, and the flag
+adds the five mail tools to the baseline catalog. Do not restore a local mail MCP registration.
+Cedar grants only those exact actions to AgentCore::OAuthUser with the
 existing scope-tag check, following Spacelift's established principal model. Exact
 scope admission remains the existing JWT authorizer's responsibility. Argument
 bounds/unknown-key rejection, collection paths, one pinned consumer identity,
@@ -81,9 +94,9 @@ applied. TOOLS run `01M50PH738EP65ZF66HKX7CZMT0` finished `FINISHED` with
 The privacy apply gate is cleared on that state/apply evidence, not a claim of
 independent direct AWS enumeration or end-to-end logging proof. See
 [Gateway log privacy](gateway-log-privacy.md) for retained historical seven-day
-expiry and remaining metadata-only checks. OAuth/cache bootstrap is now
-owner-reported complete; runtime apply and the separate activation proofs remain
-outstanding. The desired enabled configuration does not itself clear those gates.
+expiry and remaining metadata-only checks. OAuth/cache bootstrap and live runtime
+activation have since completed, with the bounded native mail proofs recorded
+above. These proofs do not establish every negative authorization or logging check.
 Runtime log suppression does **not**
 suppress Gateway logs, and disabling Gateway delivery does not suppress runtime
 or other logs. No end-to-end no-mailbox-logging guarantee or retroactive purge is
@@ -126,7 +139,14 @@ claimed; this runbook does not itself change shared observability or enable mail
   filesystem/log scratch is ephemeral. No provisioned concurrency, VPC/NAT,
   persistent worker, new Cognito setup or paid KMS key.
 
-## Staged owner procedure (no automatic applies)
+## Historical staged owner procedure (no automatic applies)
+
+The following records the original staged activation procedure and its approval
+boundaries, not current instructions to keep the legacy connector or rerun
+bootstrap. Live activation supersedes its pre-activation status statements;
+current retirement and recovery instructions follow below. Retain these gates
+for review of any future redeployment, without treating old preparation claims as
+evidence of tests performed during retirement.
 
 1. Bootstrap is already applied: shared ECR, repository policy, roles, empty
    cache metadata and TOOLS additional project globs. Review the exact proposed
@@ -355,11 +375,68 @@ Node 22 and both locked dependency scopes, without AWS credentials/OIDC, Docker,
 or running the owner CLI. `mise run test:microsoft365-bootstrap` runs the same
 secretless suite and is also included in the existing `mise run test` aggregate.
 
+## Local connector retirement
+
+Use AgentCore's five native read-only mail tools listed above for all operative
+mail runbooks. The upstream `@softeria/ms-365-mcp-server` package in the Lambda is
+still required; retiring `outlook_readonly` does not retire that upstream or its
+repository build paths. Authentication is remote: Cognito to AgentCore, SigV4 to
+the Lambda Function URL, then the pinned owner's delegated MSAL session backed by
+the fixed Secrets Manager cache. The Hermes adapter must not hold that cache.
+
+Recorded local execution removed:
+
+* `/opt/data/ms-365-mcp-server` (installed connector and dependencies)
+* `/opt/data/ms-365-mcp-server-review` (clean upstream review checkout)
+* `/opt/data/.ms-365-mcp-server` (legacy local logs)
+* `/opt/data/.config/ms-365-mcp-server` (encrypted cache, key and selected account)
+
+The exact connector Node process was stopped, unrelated config entries were
+preserved, and a post-cleanup native AgentCore folder read returned HTTP 200.
+A names-only duplicate sweep found no exact encrypted-cache/key matches in the
+scanned persistent files; it excluded dependency/Git trees and files over 20 MB,
+so it is not a forensic or secure-erasure guarantee. Historical config backups
+and the managed recovery baseline retain inert registration references, not a
+working local fallback. They were preserved rather than deleting shared recovery
+data. The subsequent reload at 2026-10-16 14:33:55 UTC registered 74 tools from
+four servers, without the legacy connector; the post-reload native AgentCore
+folder read also returned HTTP 200.
+
+For future retirements, record completion against these checks:
+
+1. Remove only the identified legacy `outlook_readonly` registration and stop its
+   local processes; preserve the working AgentCore registration and mail enable
+   flag. Refresh/reload through the approved runtime procedure and check the
+   surviving native mail tools, not merely the on-disk config.
+2. Remove the owner-authorized legacy connector checkout/venv and credential
+   directories, including obsolete local token/cache/key copies. Inventory actual
+   local paths and consumers first; do not infer a deletion target from an
+   upstream package name. Check scoped config/recovery copies, schema caches and
+   rollback artifacts for paths that could resurrect the old registration or
+   credentials; report inaccessible copies rather than claiming they are gone.
+3. Preserve the cloud Secrets Manager MSAL cache, Lambda's active cache ownership,
+   the independent owner bootstrap helper under `scripts/bootstrap/microsoft365/`
+   and its reviewed source/lockfiles. Do not run bootstrap against the active cache,
+   revoke the working cloud session or remove unrelated account credentials.
+4. Record sanitized path/process/config checks and a bounded read-only call through
+   the surviving AgentCore connection. Do not print tokens, secret values or mail
+   payloads into cleanup evidence. The execution record above is separate from
+   these reusable checks; the recorded final reload verification passed.
+
+Removing local copies is **not upstream revocation** of Microsoft consent,
+refresh tokens or sessions, nor a secure-erasure guarantee. Any upstream revocation
+requires a separate owner decision that accounts for the working cloud identity.
+After cleanup there is **no retained legacy local fallback**: restoring old config
+alone cannot restore deleted software and credentials. Reintroducing a local
+connector would require separate approval, reinstall and fresh authentication;
+do not retain secret-bearing rollback copies as an implicit fallback.
+
 ## Rollback and recovery
 
-First disable Microsoft365 on the adapter (unset rollout env or `false`) and return
-clients to unchanged legacy Outlook; verify its existing catalog before removing
-the remote target. Owner sets `microsoft365_runtime_enabled=false` and reviews/applies removal of
+If remote mail must be paused, disable Microsoft365 on the adapter (unset rollout
+env or `false`) and report mail access unavailable; do not route to retired local
+Outlook. Preserve the working cloud cache for reviewed recovery. To disable the
+runtime, the owner sets `microsoft365_runtime_enabled=false` and reviews/applies removal of
 five permits, target, URL/function and runtime/invoke grants. Bootstrap ECR/roles
 and recoverable secret metadata remain. To stop image publication, use an
 owner-reviewed workflow change or disable the workflow in GitHub Actions; the old
@@ -412,6 +489,7 @@ remote account. Mock root tests prove both activation gates and exact Cedar outp
 not live SigV4 interoperability or mailbox authorization. Local Docker CLI exists
 but daemon is unavailable: no local arm64 image/HTTP container proof is claimed.
 The workflow requires that real image test before publication; owner must review
-its successful result before activation. The published image run above is CI
-container/publication evidence, not live OAuth, Lambda or mailbox verification;
-none of those live activation tests has been executed by this preparation.
+its successful result before any future activation. The published image run above
+remains CI container/publication evidence, not live OAuth, Lambda or mailbox
+verification. Live verification is separately recorded in Status and boundary;
+the original activation preparation did not execute those live tests.
