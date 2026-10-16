@@ -61,6 +61,15 @@ class _ToolsListMixin:
                     continue
                 exposed = dict(tool)
                 exposed["name"] = client_name
+                # Strict MCP clients require an explicit object root. This is
+                # optional metadata: omit incompatible schemas, never rewrite
+                # them or wrap the actual tool result to fit a different shape.
+                output_schema = exposed.get("outputSchema")
+                if not (
+                    isinstance(output_schema, dict)
+                    and output_schema.get("type") == "object"
+                ):
+                    exposed.pop("outputSchema", None)
                 safe_tools.append(exposed)
                 seen.add(client_name)
             cursor = page_result.get("nextCursor")
