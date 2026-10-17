@@ -14,3 +14,5 @@
 
 - Describe only the current system. Do not describe old systems or past changes.
 - Do not write open tasks, pending reviews, or blockers in docs.
+- Exception: a runbook with steps that the user must do, such as a state
+  migration. Delete the runbook after the user completes the steps.
