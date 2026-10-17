@@ -247,40 +247,218 @@ async fn caldav_fixture(
     status: &'static str,
     body: &'static str,
 ) -> (Endpoint, tokio::task::JoinHandle<String>) {
+    caldav_fixture_body(status, move |_| body).await
+}
+async fn caldav_fixture_body(
+    status: &'static str,
+    body: impl Fn(&str) -> &'static str + Send + 'static,
+) -> (Endpoint, tokio::task::JoinHandle<String>) {
+    caldav_fixture_requests(status, body, if status.starts_with("207 ") { 2 } else { 1 }).await
+}
+async fn caldav_fixture_requests(
+    status: &'static str,
+    body: impl Fn(&str) -> &'static str + Send + 'static,
+    requests: usize,
+) -> (Endpoint, tokio::task::JoinHandle<String>) {
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(async move {
-        let (socket, _) = listener.accept().await.unwrap();
-        let mut reader = BufReader::new(socket);
-        let mut head = String::new();
-        let mut length = 0;
-        loop {
-            let mut line = String::new();
-            reader.read_line(&mut line).await.unwrap();
-            if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
-                length = v.trim().parse().unwrap();
+        let mut all_requests = String::new();
+        for _ in 0..requests {
+            let (socket, _) = listener.accept().await.unwrap();
+            let mut reader = BufReader::new(socket);
+            let mut head = String::new();
+            let mut length = 0;
+            loop {
+                let mut line = String::new();
+                reader.read_line(&mut line).await.unwrap();
+                if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = v.trim().parse().unwrap();
+                }
+                head.push_str(&line);
+                if line == "\r\n" {
+                    break;
+                }
             }
-            head.push_str(&line);
-            if line == "\r\n" {
-                break;
-            }
+            let mut request = vec![0; length];
+            tokio::io::AsyncReadExt::read_exact(&mut reader, &mut request)
+                .await
+                .unwrap();
+            let request = head + &String::from_utf8(request).unwrap();
+            let body = body(&request);
+            let response = format!(
+                "HTTP/1.1 {status}\r\ncontent-type: application/xml\r\ncontent-length: {}\r\n\r\n{body}",
+                body.len()
+            );
+            reader
+                .get_mut()
+                .write_all(response.as_bytes())
+                .await
+                .unwrap();
+            all_requests.push_str(&request);
         }
-        let mut request = vec![0; length];
-        tokio::io::AsyncReadExt::read_exact(&mut reader, &mut request)
-            .await
-            .unwrap();
-        let response = format!(
-            "HTTP/1.1 {status}\r\ncontent-type: application/xml\r\ncontent-length: {}\r\n\r\n{body}",
-            body.len()
-        );
-        reader
-            .get_mut()
-            .write_all(response.as_bytes())
-            .await
-            .unwrap();
-        head + &String::from_utf8(request).unwrap()
+        all_requests
     });
     (Endpoint::Loopback(addr), task)
+}
+#[tokio::test]
+async fn caldav_preserves_all_day_dates_and_timed_midnight_events() {
+    const RAW: &str = r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><c:calendar-data><![CDATA[BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:all-day
+DTSTART;VALUE=DATE:20261102
+DTEND;VALUE=DATE:20261103
+END:VEVENT
+BEGIN:VEVENT
+UID:midnight
+DTSTART:20261102T000000Z
+DTEND:20261103T000000Z
+END:VEVENT
+END:VCALENDAR]]></c:calendar-data></d:multistatus>"#;
+    const EXPANDED: &str = r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><c:calendar-data><![CDATA[BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:all-day
+DTSTART:20261102T000000Z
+DTEND:20261103T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:midnight
+DTSTART:20261102T000000Z
+DTEND:20261103T000000Z
+END:VEVENT
+END:VCALENDAR]]></c:calendar-data></d:multistatus>"#;
+    let (ep, task) = caldav_fixture_body("207 Multi-Status", |request| {
+        if request.contains("<C:expand ") {
+            EXPANDED
+        } else {
+            RAW
+        }
+    })
+    .await;
+    let value = call(
+        ep,
+        "caldav_list_events",
+        json!({"start":"2026-11-02T00:00:00Z","end":"2026-11-03T00:00:00Z"}),
+    )
+    .await;
+    assert_eq!(value["isError"], false, "{value}");
+    let events = value["structuredContent"]["events"].as_array().unwrap();
+    let all_day = events.iter().find(|e| e["uid"] == "all-day").unwrap();
+    assert_eq!(all_day["all_day"], true);
+    assert_eq!(all_day["start"], "20261102");
+    assert_eq!(all_day["end"], "20261103");
+    let midnight = events.iter().find(|e| e["uid"] == "midnight").unwrap();
+    assert_eq!(midnight["all_day"], false);
+    assert_eq!(midnight["start"], "20261102T000000Z");
+    task.await.unwrap();
+}
+#[tokio::test]
+async fn caldav_expands_recurring_events_without_losing_date_types() {
+    const RAW: &str = r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><c:calendar-data><![CDATA[BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:annual-day
+DTSTART;VALUE=DATE:20251102
+DTEND;VALUE=DATE:20251103
+RRULE:FREQ=YEARLY
+END:VEVENT
+BEGIN:VEVENT
+UID:annual-midnight
+DTSTART:20251102T000000Z
+DTEND:20251103T000000Z
+RRULE:FREQ=YEARLY
+END:VEVENT
+END:VCALENDAR]]></c:calendar-data></d:multistatus>"#;
+    const EXPANDED: &str = r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><c:calendar-data><![CDATA[BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:annual-day
+RECURRENCE-ID:20261102T000000Z
+DTSTART:20261102T000000Z
+DTEND:20261103T000000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:annual-midnight
+RECURRENCE-ID:20261102T000000Z
+DTSTART:20261102T000000Z
+DTEND:20261103T000000Z
+END:VEVENT
+END:VCALENDAR]]></c:calendar-data></d:multistatus>"#;
+    let (ep, task) = caldav_fixture_requests(
+        "207 Multi-Status",
+        |request| {
+            if request.contains("<C:expand ") {
+                EXPANDED
+            } else {
+                RAW
+            }
+        },
+        2,
+    )
+    .await;
+    let value = call(
+        ep,
+        "caldav_list_events",
+        json!({"start":"2026-11-02T00:00:00Z","end":"2026-11-03T00:00:00Z"}),
+    )
+    .await;
+    assert_eq!(value["isError"], false, "{value}");
+    let events = value["structuredContent"]["events"].as_array().unwrap();
+    let day = events.iter().find(|e| e["uid"] == "annual-day").unwrap();
+    assert_eq!(day["start"], "20261102");
+    assert_eq!(day["end"], "20261103");
+    assert_eq!(day["all_day"], true);
+    let timed = events
+        .iter()
+        .find(|e| e["uid"] == "annual-midnight")
+        .unwrap();
+    assert_eq!(timed["start"], "20261102T000000Z");
+    assert_eq!(timed["all_day"], false);
+    assert_eq!(task.await.unwrap().matches("REPORT ").count(), 2);
+}
+#[tokio::test]
+async fn caldav_rejects_ambiguous_timezone_override_instead_of_guessing() {
+    const RAW: &str = r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><c:calendar-data><![CDATA[BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:zoned-series
+DTSTART;TZID=America/New_York:20261001T090000
+RRULE:FREQ=DAILY
+END:VEVENT
+BEGIN:VEVENT
+UID:zoned-series
+RECURRENCE-ID;TZID=America/New_York:20261102T090000
+DTSTART;VALUE=DATE:20261102
+DTEND;VALUE=DATE:20261103
+END:VEVENT
+END:VCALENDAR]]></c:calendar-data></d:multistatus>"#;
+    const EXPANDED: &str = r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><c:calendar-data><![CDATA[BEGIN:VEVENT
+UID:zoned-series
+RECURRENCE-ID:20261102T140000Z
+DTSTART:20261102T000000Z
+DTEND:20261103T000000Z
+END:VEVENT]]></c:calendar-data></d:multistatus>"#;
+    let (ep, task) = caldav_fixture_requests(
+        "207 Multi-Status",
+        |request| {
+            if request.contains("<C:expand ") {
+                EXPANDED
+            } else {
+                RAW
+            }
+        },
+        2,
+    )
+    .await;
+    let value = call(
+        ep,
+        "caldav_list_events",
+        json!({"start":"2026-11-02T00:00:00Z","end":"2026-11-03T00:00:00Z"}),
+    )
+    .await;
+    assert_eq!(value["isError"], true, "{value}");
+    assert_eq!(
+        value["content"][0]["text"],
+        "CalDAV event date type is ambiguous"
+    );
+    task.await.unwrap();
 }
 const MULTISTATUS: &str = r#"<?xml version="1.0" encoding="utf-8"?>
 <multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><response>
@@ -323,6 +501,8 @@ async fn caldav_report_queries_default_calendar_with_basic_auth() {
     assert!(request.contains(&format!("authorization: Basic {token}\r\n")));
     assert!(request.contains(r#"<C:time-range start="20261017T000000Z" end="20261018T000000Z"/>"#));
     assert!(request.contains(r#"<C:expand start="20261017T000000Z" end="20261018T000000Z"/>"#));
+    assert!(request.contains("<C:calendar-data/>"));
+    assert_eq!(request.matches("REPORT ").count(), 2);
 }
 #[tokio::test]
 async fn caldav_rejected_credentials_fail_without_detail() {

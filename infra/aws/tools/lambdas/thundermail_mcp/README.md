@@ -45,12 +45,16 @@ endpoints exist only under `cfg(test)`.
 
 ## CalDAV
 
-`caldav_list_events` sends one CalDAV `REPORT` `calendar-query` with a UTC
+`caldav_list_events` sends two bounded CalDAV `REPORT` queries with the same UTC
 `time-range` to the fixed default calendar on port 443, with HTTP Basic auth.
-It asks the server to expand recurring events. It returns UID, summary, start,
-end, time zone IDs, location, status, description and recurrence fields, with
-text truncated. The same transfer budget, five-second deadline and 128 KiB
-output limit apply. `roxmltree` parses the multistatus XML and rejects DTDs.
+The original calendar data supplies date types; the expanded data supplies
+recurring instances. All-day starts and exclusive ends remain date-only values
+with `all_day: true`; midnight timed events remain timed. It returns UID, summary,
+start, end, time zone IDs, location, status, description and recurrence fields,
+with text truncated. Per-connection transfer budgets, the shared five-second
+deadline and 128 KiB output limit apply. Ambiguous source identifiers or unmatched
+local-time overrides with mixed date types fail the read rather than guessing.
+`roxmltree` parses the multistatus XML and rejects DTDs.
 
 ## Container execution and health policy
 

@@ -50,12 +50,17 @@ pub fn utc(value: &str) -> Option<String> {
     ))
 }
 
-fn query(range: &Range) -> String {
+fn query(range: &Range, expand: bool) -> String {
     let (start, end) = (&range.start, &range.end);
+    let data = if expand {
+        format!(r#"<C:calendar-data><C:expand start="{start}" end="{end}"/></C:calendar-data>"#)
+    } else {
+        "<C:calendar-data/>".into()
+    };
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-  <D:prop><C:calendar-data><C:expand start="{start}" end="{end}"/></C:calendar-data></D:prop>
+  <D:prop>{data}</D:prop>
   <C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT">
     <C:time-range start="{start}" end="{end}"/>
   </C:comp-filter></C:comp-filter></C:filter>
@@ -64,6 +69,81 @@ fn query(range: &Range) -> String {
 }
 
 pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result<Value> {
+    let originals = report(endpoint, password, range, false).await?;
+    let mut found = report(endpoint, password, range, true).await?;
+    for event in &mut found {
+        preserve_date_type(event, &originals)?;
+    }
+    found.sort_by(|a, b| a["start"].as_str().cmp(&b["start"].as_str()));
+    let truncated = found.len() > range.limit;
+    found.truncate(range.limit);
+    Ok(json!({"calendar":"default","events":found,"truncated":truncated}))
+}
+
+fn preserve_date_type(event: &mut Value, originals: &[Value]) -> Result<()> {
+    let ambiguous = || "CalDAV event date type is ambiguous".to_owned();
+    let uid = event["uid"].as_str().ok_or_else(ambiguous)?;
+    if uid.chars().count() >= SHORT_TEXT
+        || event["recurrence_id"]
+            .as_str()
+            .is_some_and(|id| id.chars().count() >= SHORT_TEXT)
+    {
+        return Err(ambiguous());
+    }
+    let same_uid = |source: &&Value| source["uid"].as_str() == Some(uid);
+    let source = originals
+        .iter()
+        .filter(same_uid)
+        .find(|source| {
+            source["recurrence_id"].as_str().is_some_and(|id| {
+                event["recurrence_id"].as_str().is_some_and(|expanded| {
+                    expanded == id || (id.len() == 8 && expanded.starts_with(id))
+                })
+            })
+        })
+        .or_else(|| {
+            originals
+                .iter()
+                .filter(same_uid)
+                .find(|source| source.get("recurrence_id").is_none())
+        });
+    let source = source.ok_or_else(ambiguous)?;
+    if source.get("recurrence_id").is_none()
+        && originals.iter().filter(same_uid).any(|other| {
+            other["all_day"] != source["all_day"]
+                && other["recurrence_id"]
+                    .as_str()
+                    .is_some_and(|id| id.len() > 8 && !id.ends_with('Z'))
+        })
+    {
+        return Err(ambiguous());
+    }
+    if source["all_day"] == true {
+        for key in ["start", "end"] {
+            if let Some(date) = event[key]
+                .as_str()
+                .and_then(|value| value.get(..8))
+                .filter(|date| date.bytes().all(|b| b.is_ascii_digit()))
+                .map(str::to_owned)
+            {
+                event[key] = Value::String(date);
+            }
+        }
+        event["all_day"] = Value::Bool(true);
+        if let Some(map) = event.as_object_mut() {
+            map.remove("start_tzid");
+            map.remove("end_tzid");
+        }
+    }
+    Ok(())
+}
+
+async fn report(
+    endpoint: Endpoint,
+    password: &str,
+    range: &Range,
+    expand: bool,
+) -> Result<Vec<Value>> {
     let io = TokioIo::new(Budget::new(connect::stream(endpoint, PORT).await?));
     let (mut sender, connection) = hyper::client::conn::http1::handshake(io)
         .await
@@ -79,7 +159,7 @@ pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result
             "authorization",
             format!("Basic {}", STANDARD.encode(format!("{OWNER}:{password}"))),
         )
-        .body(Full::new(Bytes::from(query(range))))
+        .body(Full::new(Bytes::from(query(range, expand))))
         .map_err(|_| "CalDAV request invalid")?;
     let response = sender
         .send_request(request)
@@ -97,11 +177,7 @@ pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result
         .map_err(|_| "CalDAV response exceeded the transfer budget or failed")?
         .to_bytes();
     let text = std::str::from_utf8(&body).map_err(|_| "CalDAV response is not UTF-8")?;
-    let mut found = parse_multistatus(text)?;
-    found.sort_by(|a, b| a["start"].as_str().cmp(&b["start"].as_str()));
-    let truncated = found.len() > range.limit;
-    found.truncate(range.limit);
-    Ok(json!({"calendar":"default","events":found,"truncated":truncated}))
+    parse_multistatus(text)
 }
 
 fn parse_multistatus(text: &str) -> Result<Vec<Value>> {
@@ -292,6 +368,43 @@ BEGIN:VEVENT\r\nUID:b@example\r\nSUMMARY:Holiday\r\nDTSTART;VALUE=DATE:20261018\
             events[1],
             json!({"uid":"b@example","summary":"Holiday","start":"20261018","all_day":true})
         );
+    }
+
+    #[test]
+    fn all_day_override_keeps_its_timed_recurrence_identity() {
+        let originals = parse_events(
+            "BEGIN:VEVENT\nUID:series\nDTSTART:20261001T090000Z\nRRULE:FREQ=DAILY\nEND:VEVENT\nBEGIN:VEVENT\nUID:series\nRECURRENCE-ID:20261102T090000Z\nDTSTART;VALUE=DATE:20261102\nDTEND;VALUE=DATE:20261104\nEND:VEVENT\n",
+        );
+        let mut event = json!({"uid":"series","recurrence_id":"20261102T090000Z","start":"20261102T000000Z","end":"20261104T000000Z","all_day":false});
+        preserve_date_type(&mut event, &originals).unwrap();
+        assert_eq!(event["all_day"], true);
+        assert_eq!(event["start"], "20261102");
+        assert_eq!(event["end"], "20261104");
+        assert_eq!(event["recurrence_id"], "20261102T090000Z");
+    }
+
+    #[test]
+    fn timed_override_of_date_series_is_not_converted_to_all_day() {
+        let originals = parse_events(
+            "BEGIN:VEVENT\nUID:series\nDTSTART;VALUE=DATE:20261001\nRRULE:FREQ=DAILY\nEND:VEVENT\nBEGIN:VEVENT\nUID:series\nRECURRENCE-ID;VALUE=DATE:20261102\nDTSTART:20261102T000000Z\nDTEND:20261103T000000Z\nEND:VEVENT\n",
+        );
+        let mut event = json!({"uid":"series","recurrence_id":"20261102T000000Z","start":"20261102T000000Z","end":"20261103T000000Z","all_day":false});
+        let before = event.clone();
+        preserve_date_type(&mut event, &originals).unwrap();
+        assert_eq!(event, before);
+    }
+
+    #[test]
+    fn uncertain_identifiers_fail_without_guessing_a_date_type() {
+        let originals =
+            parse_events("BEGIN:VEVENT\nUID:known\nDTSTART;VALUE=DATE:20261102\nEND:VEVENT\n");
+        for uid in ["unknown".to_owned(), "x".repeat(SHORT_TEXT)] {
+            let mut event = json!({"uid":uid,"start":"20261102T000000Z","all_day":false});
+            assert_eq!(
+                preserve_date_type(&mut event, &originals).unwrap_err(),
+                "CalDAV event date type is ambiguous"
+            );
+        }
     }
 
     #[test]
