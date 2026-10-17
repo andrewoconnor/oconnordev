@@ -39,12 +39,10 @@ dedicated app password as `{"version": 1, "password": "..."}` with no other keys
 Do not copy a local Himalaya credential. Never pass the value into Terraform, a
 build, a workflow or a chat.
 
-`thundermail_runtime_enabled` defaults to false. When true, it needs
-`thundermail_image_digest`, an ECR manifest digest from the publisher. The runtime
-gets only `GetSecretValue` on the secret. The gateway gets only `InvokeFunction` on
-the function ARN. The role, logs, function, grants, catalog, target and three Cedar
-read permits share the runtime flag. The OAuth principal, scope and ENFORCE engine
-do not change. Disabling removes the target and permits; other tools do not change.
+`local.thundermail_image_digest` in `thundermail-runtime.tf` pins the deployed
+ECR manifest digest. The runtime gets only `GetSecretValue` on the secret. The
+gateway gets only `InvokeFunction` on the function ARN. The OAuth principal, scope
+and ENFORCE engine do not change.
 
 Use the shared `oconnordev-tools` ECR repository and existing ECR-only publisher.
 Its role permissions do not gain Lambda updates, PassRole, secrets or apply rights.
@@ -101,17 +99,12 @@ confirms that fresh master has the same image inputs. It never rebuilds. After t
 push, it reads back the ECR digest and compares it to the push output. Publication
 does not update Lambda or apply IaC.
 
-Offline tests plan the default and enabled configurations with mocked providers.
+Offline tests plan the configuration with mocked providers.
 Schema-free Cedar evaluation checks scoped policy decisions only.
 
-## Activation
+## Deploy a new image
 
-1. Set `thundermail_runtime_enabled=true` and `thundermail_image_digest` in the
-   Spacelift stack `oconnordev-tools`.
-2. Review the plan. Outlook, Gmail and CalDAV resources must not change. Apply.
-3. Call the three tools through the gateway with real mail.
-4. Set `HERMES_AGENTCORE_THUNDERMAIL_ENABLED=true` in the adapter.
-
-Rollback: set the adapter flag false, then set `thundermail_runtime_enabled=false`
-and apply. Keep the immutable image digest for investigation or
-rollback; do not add a shared ECR lifecycle rule that could delete sibling images.
+Copy the digest from the publish job summary into `local.thundermail_image_digest`.
+Merge the change; the `oconnordev-tools` Spacelift stack deploys it. To roll back,
+revert the change. Do not add a shared ECR lifecycle rule that could delete sibling
+images.

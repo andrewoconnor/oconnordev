@@ -28,7 +28,7 @@ names, and forwards exact underscore raw tools under `thundermail___`.
 
 `infra/aws/tools/lambdas/thundermail_mcp/` builds a pinned provided.al2023 bootstrap container for
 the existing shared ECR repository. Master CI publishes the image with the existing
-ECR-only publisher. `thundermail_runtime_enabled` deploys it. Outlook Graph, Gmail readonly and local CalDAV remain
+ECR-only publisher. `local.thundermail_image_digest` pins the deployed image. Outlook Graph, Gmail readonly and local CalDAV remain
 unchanged. See [the runbook](../runbooks/thundermail-mcp.md).
 
 ## Google Auth ownership
