@@ -3,15 +3,16 @@
 FROM public.ecr.aws/lambda/provided:al2023@sha256:7a99afa4f62c87e039c95dc3e2d307114f35a148ba5e2eb67287a84082521e44 AS build
 RUN dnf install -y gcc glibc-devel binutils make tar gzip xz && dnf clean all
 WORKDIR /build
-RUN curl -fSL https://static.rust-lang.org/dist/rust-1.90.0-aarch64-unknown-linux-gnu.tar.xz -o rust.tar.xz \
-    && echo '59f1883fcdd2d7243d2fd1ed19f22e05219251227abacfa3d656aebfbcc5e838  rust.tar.xz' | sha256sum -c - \
-    && tar -xf rust.tar.xz \
-    && ./rust-1.90.0-aarch64-unknown-linux-gnu/install.sh --prefix=/opt/rust --components=rustc,cargo,rust-std-aarch64-unknown-linux-gnu --disable-ldconfig \
-    && rm -rf rust.tar.xz rust-1.90.0-aarch64-unknown-linux-gnu
-ENV PATH="/opt/rust/bin:${PATH}" CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
+RUN curl -fSL https://github.com/jdx/mise/releases/download/v2026.10.3/mise-v2026.10.3-linux-arm64-musl -o /usr/local/bin/mise \
+    && echo '1b849098a23ca0b7ec2733bddf243e9d29507779bba4e0e1101eec3c518bc542  /usr/local/bin/mise' | sha256sum -c - \
+    && chmod 0755 /usr/local/bin/mise
+COPY mise.toml mise.lock ./
+ENV MISE_TRUSTED_CONFIG_PATHS=/build MISE_RUSTUP_HOME=/opt/rustup MISE_CARGO_HOME=/opt/cargo
+RUN mise install rust
+ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
 COPY infra/aws/tools/lambdas/thundermail_mcp/Cargo.toml infra/aws/tools/lambdas/thundermail_mcp/Cargo.lock ./
 COPY infra/aws/tools/lambdas/thundermail_mcp/src ./src
-RUN cargo test --locked && cargo build --locked --release \
+RUN mise exec rust -- cargo test --locked && mise exec rust -- cargo build --locked --release \
     && install -m 755 target/release/thundermail-native-read /build/bootstrap
 # checkov:skip=CKV_DOCKER_2:Native Lambda Runtime API client has no listener; Docker health is not Lambda readiness. See README.md.
 FROM public.ecr.aws/lambda/provided:al2023@sha256:7a99afa4f62c87e039c95dc3e2d307114f35a148ba5e2eb67287a84082521e44

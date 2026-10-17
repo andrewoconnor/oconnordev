@@ -1,5 +1,5 @@
 """Run isolated host proof with persistent dependencies and hard disk/time budgets.
-Usage: /opt/hermes/.venv/bin/python verify.py /path/to/thundermail-native-proof
+Usage: mise exec rust -- PYTHON verify.py /path/to/thundermail-native-proof
 The invoking Python needs the MCP SDK solely to validate synthetic results.
 No AWS/mail credential environment is passed to the Rust child processes.
 """
@@ -31,7 +31,9 @@ assert not EVIDENCE.is_relative_to(ROOT), (
 for name in ("home", "tmp", "cargo", "target"):
     (BASE / name).mkdir(exist_ok=True)
 env = {
-    "PATH": str(BASE / "toolchain/bin") + ":/usr/bin:/bin",
+    "PATH": os.path.dirname(shutil.which("cargo")) + ":/usr/bin:/bin",
+    "RUSTUP_HOME": os.environ.get("RUSTUP_HOME", str(pathlib.Path.home() / ".rustup")),
+    **{k: os.environ[k] for k in ("RUSTUP_TOOLCHAIN",) if k in os.environ},
     "HOME": str(BASE / "home"),
     "CARGO_HOME": str(BASE / "cargo"),
     "CARGO_TARGET_DIR": str(BASE / "target"),
@@ -162,10 +164,6 @@ report = {
     "source_sha256": source,
     "remaining_gates": [
         "production AWS/TLS integration",
-        "ARM64/container build and packaged Lambda",
-        "aws-smithy-json GHSA-8ffr-xgwf-xj56: fixed release requires Rust 1.91.1; "
-        "publication blocked",
-        "image redistribution notices/legal review",
         "live AgentCore wrapping/forwarding and canary",
         "explicit rollout approval; preserve existing integrations",
     ],

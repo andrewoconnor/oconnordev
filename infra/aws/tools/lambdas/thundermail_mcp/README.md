@@ -82,13 +82,13 @@ to upstream's full dependency closure. TLS selects ring with defaults disabled.
 Regenerate against an unmodified pinned upstream checkout:
 
 ```sh
-python extract_upstream.py /path/to/mail-mcp /isolated/rust-1.90.0/bin/rustfmt
+python extract_upstream.py /path/to/mail-mcp "$(mise which rustfmt)"
 ```
 
 ## Verification
 
-`verify.py CACHE_ROOT EVIDENCE_DIRECTORY` uses the existing isolated toolchain,
-Cargo cache and target directory. It runs format, locked tests, host production
+`mise exec rust -- PYTHON verify.py CACHE_ROOT EVIDENCE_DIRECTORY` uses the mise
+Rust toolchain with a dedicated Cargo cache and target directory. It runs format, locked tests, host production
 build, clippy, and the compiled test worker through synthetic Runtime API and TCP
 IMAP fixtures. The invoking Python needs the MCP SDK. It strips inherited
 credential/config environment and enforces jobs=1, time and disk budgets.
@@ -96,9 +96,5 @@ Evidence goes outside delivery source. The worker exercises the actual AWS SDK
 request serializer/parser with synthetic HTTP transport, not AWS or real mail.
 Production binary and cfg(test) worker hashes are distinct.
 
-Publication remains blocked: ARM64 image/bootstrap and production AWS/TLS/live
-AgentCore checks require separately authorized CI/owner review. The selected
-`aws-smithy-json` advisory GHSA-8ffr-xgwf-xj56 is an unresolved security gate:
-its fixed 0.62.7 release requires Rust 1.91.1, newer than this pinned toolchain.
-Do not call the dependency audit clean or waive the advisory on host tests.
-Full image redistribution notices/license review is also pending.
+Master CI publishes the tested ARM64 image to ECR without deployment.
+Production AWS/TLS and live AgentCore checks remain activation gates.

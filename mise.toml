@@ -1,4 +1,5 @@
 [tools]
+rust = { version = "1.91.1", profile = "minimal", components = ["rustfmt", "clippy"] }
 opentofu = "1.13.1"
 tflint = "0.64.0"
 actionlint = "1.7.12"
@@ -143,8 +144,10 @@ description = "Run Python, owner bootstrap, and OpenTofu boundary, delivery, and
 depends = ["test:python", "test:microsoft365-bootstrap", "test:opentofu-boundary", "test:opentofu-delivery", "test:opentofu-gcp", "test:thundermail-rust", "test:thundermail-sdk"]
 
 [tasks."test:thundermail-rust"]
-description = "Locked Rust 1.90 format/tests using explicit isolated toolchain; no cloud/credentials"
-run = "python3 infra/aws/tools/lambdas/thundermail_mcp/check.py"
+description = "Check Thundermail Rust formatting, clippy and locked tests; no cloud/credentials"
+dir = "infra/aws/tools/lambdas/thundermail_mcp"
+env = { CARGO_BUILD_JOBS = "1", CARGO_INCREMENTAL = "0" }
+run = ["cargo fmt --check", "cargo clippy --locked --all-targets -- -D warnings", "cargo test --locked"]
 
 [tasks."test:thundermail-sdk"]
 description = "Owned native catalog through adapter and real MCP SDK, in isolated environment"

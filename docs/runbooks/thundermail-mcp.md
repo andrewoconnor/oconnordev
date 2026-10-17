@@ -66,16 +66,16 @@ No dollar estimate is asserted. Runtime memory/timeout still need ARM64 measurem
 ## Build and offline verification
 
 `infra/aws/tools/lambdas/thundermail_mcp/Dockerfile` uses one pinned ARM64 provided.al2023 image for
-both build and runtime ABI; Rust 1.90.0 distribution is SHA-256 pinned, Cargo uses
-`--locked`, jobs=1. It compiles the native release binary as `/var/runtime/bootstrap`.
+both build and runtime ABI. A checksum-pinned mise binary installs the Rust version
+from the repository `mise.toml`. Cargo uses `--locked`, jobs=1. It compiles the native release binary as `/var/runtime/bootstrap`.
 No Node/LWA, secrets or cloud credentials enter the build. OS build packages come
 from AL2023 repositories; their versions are not fully hermetic. Publication uses
 the **saved tested image**, not a supposedly identical rebuild.
 
 ```sh
-# Isolated Rust/Cargo/rustfmt 1.90.0; do not install globally on a managed agent.
+# mise installs the pinned Rust toolchain from mise.toml.
 # Reuse existing target/cache paths on constrained hosts; maintain >=300 MiB free.
-export THUNDERMAIL_CARGO=/path/to/isolated/rust-1.90.0/bin/cargo
+mise install rust
 export CARGO_TARGET_DIR=/path/to/existing/dedicated-target
 mise run test:thundermail-rust
 # Reuse a compatible isolated SDK interpreter if already available:
@@ -86,8 +86,7 @@ mise run test
 ```
 
 With no SDK interpreter override, the SDK task creates a temporary isolated venv
-with MCP 2.0.0, never global pip. Generic CI installs the isolated pinned Rust
-toolchain on its runner. `mise test` declares both Rust and SDK checks alongside
+with MCP 2.0.0, never global pip. Generic CI installs Rust through mise. `mise test` declares both Rust and SDK checks alongside
 existing tests. Native ARM64 image CI separately performs locked Rust tests and
 runs the exact production bootstrap through a synthetic Runtime API with invalid
 inputs, then archives it. That smoke proves packaging/dispatch/fail-closed behavior,
@@ -96,30 +95,25 @@ execution is not claimed locally.
 
 ## Security gate
 
-The lock pins rustls 0.23.46, including the current rustls advisory fixes.
-`aws-smithy-json` 0.62.3 remains affected by
+The lock pins rustls 0.23.46, including the current rustls advisory fixes, and
+`aws-smithy-json` 0.62.7, which fixes
 [GHSA-8ffr-xgwf-xj56](https://github.com/smithy-lang/smithy-rs/security/advisories/GHSA-8ffr-xgwf-xj56).
-The fixed 0.62.7 and its required smithy-types 1.4.9 require Rust 1.91.1,
-which this pinned Rust 1.90 delivery does not satisfy. **Publication/activation
-remain blocked**, not audit-passed. Upgrade and checksum-review the isolated host
-and ARM64 toolchains plus compatible SDK closure, rerun the public advisory audit
-and full tests, and review image redistribution notices before approval. Do not
-suppress the finding based solely on its server-oriented advisory description.
+That release requires Rust 1.91.1, which mise pins.
 
 ## Publication and activation approval gates
 
-Publication is **unconditionally source-blocked** (`publish.if` has a literal `false &&` guard).
-No repository/environment variable, including `THUNDERMAIL_ARM64_REVIEWED=true`,
-can enable publication. Activation is also source-blocked by the constant
+A master run publishes the saved tested image to ECR after the ARM64 check job
+passes. Before OIDC, the publisher verifies the archive hash and image ID and
+confirms that fresh master has the same image inputs. It never rebuilds. After the
+push, it reads back the ECR digest and compares it to the push output. Publication
+does not update Lambda or apply IaC.
+
+Activation is source-blocked by the constant
 `local.thundermail_activation_ready = false` lifecycle precondition: setting
 `thundermail_runtime_enabled=true` rejects every digest, including syntactically
-valid arbitrary digests. Opening either gate requires a separate reviewed source
-change after the advisory and review gates are resolved, not a portal setting or
-Terraform input. Independent metadata-only bootstrap plans remain valid.
-
-The dormant publisher retains archive identity, fresh-master input comparison
-before OIDC, and push/digest readback checks for future review; it cannot run in
-this source. No image publication, Lambda update or IaC apply is authorized.
+valid arbitrary digests. Opening the gate requires a separate reviewed source
+change, not a portal setting or Terraform input. Independent metadata-only
+bootstrap plans remain valid.
 
 Offline tests assert readiness rejection against production source. OpenTofu omits
 failed-precondition resources/dependents, so full enabled-resource/IAM assertions
