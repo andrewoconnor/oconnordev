@@ -13,8 +13,11 @@ COPY infra/aws/tools/lambdas/thundermail_mcp/Cargo.toml infra/aws/tools/lambdas/
 COPY infra/aws/tools/lambdas/thundermail_mcp/src ./src
 RUN cargo test --locked && cargo build --locked --release \
     && install -m 755 target/release/thundermail-native-read /build/bootstrap
+# checkov:skip=CKV_DOCKER_2:Native Lambda Runtime API client has no listener; Docker health is not Lambda readiness. See README.md.
 FROM public.ecr.aws/lambda/provided:al2023@sha256:7a99afa4f62c87e039c95dc3e2d307114f35a148ba5e2eb67287a84082521e44
-COPY --from=build /build/bootstrap /var/runtime/bootstrap
-COPY infra/aws/tools/lambdas/thundermail_mcp/LICENSE.upstream /usr/share/licenses/thundermail/LICENSE.upstream
-COPY infra/aws/tools/lambdas/thundermail_mcp/extraction.json /usr/share/licenses/thundermail/extraction.json
+COPY --chmod=0755 --from=build /build/bootstrap /var/runtime/bootstrap
+COPY --chmod=0644 infra/aws/tools/lambdas/thundermail_mcp/LICENSE.upstream /usr/share/licenses/thundermail/LICENSE.upstream
+COPY --chmod=0644 infra/aws/tools/lambdas/thundermail_mcp/extraction.json /usr/share/licenses/thundermail/extraction.json
+# Local Docker defaults to non-root; world-readable/executable files also allow Lambda's assigned UID.
+USER 10001:10001
 ENTRYPOINT ["/var/runtime/bootstrap"]

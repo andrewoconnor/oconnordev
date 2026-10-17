@@ -48,7 +48,108 @@ class ThundermailDeliveryTests(unittest.TestCase):
         for line in (runtime / "Dockerfile").read_text().splitlines():
             if line.startswith("COPY ") and "--from=" not in line:
                 for path in line.split()[1:-1]:
-                    self.assertTrue((ROOT / path).exists(), path)
+                    if not path.startswith("--"):
+                        self.assertTrue((ROOT / path).exists(), path)
+
+    def test_native_image_defaults_to_nonroot_with_uid_independent_files(self):
+        dockerfile = (
+            ROOT / "infra/aws/tools/lambdas/thundermail_mcp/Dockerfile"
+        ).read_text()
+        runtime = dockerfile.rsplit("\nFROM ", 1)[1]
+        self.assertIn("\nUSER 10001:10001\n", runtime)
+        self.assertIn("COPY --chmod=0755 --from=build /build/bootstrap", runtime)
+        for name in ("LICENSE.upstream", "extraction.json"):
+            self.assertIn(
+                f"COPY --chmod=0644 infra/aws/tools/lambdas/thundermail_mcp/{name}",
+                runtime,
+            )
+        smoke = (
+            ROOT / "infra/aws/tools/lambdas/thundermail_mcp/native_smoke.py"
+        ).read_text()
+        self.assertIn('"10002:10002"', smoke)
+        self.assertIn('"10001:10001"', smoke)
+
+    def test_only_lambda_inapplicable_healthcheck_is_exempted(self):
+        dockerfile = (
+            ROOT / "infra/aws/tools/lambdas/thundermail_mcp/Dockerfile"
+        ).read_text()
+        skips = [line for line in dockerfile.splitlines() if "checkov:skip=" in line]
+        self.assertEqual(len(skips), 1)
+        self.assertIn("checkov:skip=CKV_DOCKER_2:", skips[0])
+        self.assertIn("Lambda Runtime API", skips[0])
+        self.assertNotIn("\nHEALTHCHECK ", dockerfile)
+        readme = (
+            ROOT / "infra/aws/tools/lambdas/thundermail_mcp/README.md"
+        ).read_text()
+        self.assertIn("CKV_DOCKER_2", readme)
+        self.assertIn("not a Lambda readiness", readme)
+
+    def smoke_helper(self):
+        path = ROOT / "infra/aws/tools/lambdas/thundermail_mcp/native_smoke.py"
+        spec = importlib.util.spec_from_file_location("thundermail_smoke", path)
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    def test_smoke_rejects_root_default_before_execution(self):
+        from unittest.mock import patch
+
+        smoke = self.smoke_helper()
+        with (
+            patch.object(smoke.subprocess, "check_output", return_value="0:0\n"),
+            patch.object(smoke.subprocess, "run") as run,
+        ):
+            with self.assertRaisesRegex(
+                AssertionError, "unexpected default image user"
+            ):
+                smoke.check_image_permissions("fixture")
+            run.assert_not_called()
+
+    def test_smoke_checks_default_and_override_access_without_network(self):
+        from unittest.mock import patch
+
+        smoke = self.smoke_helper()
+        with (
+            patch.object(
+                smoke.subprocess, "check_output", return_value="10001:10001\n"
+            ),
+            patch.object(smoke.subprocess, "run") as run,
+        ):
+            smoke.check_image_permissions("fixture")
+            self.assertEqual(run.call_count, 2)
+            default, override = [call.args[0] for call in run.call_args_list]
+            self.assertNotIn("--user", default)
+            self.assertEqual(override[override.index("--user") + 1], "10002:10002")
+            for call in run.call_args_list:
+                self.assertIn("--network=none", call.args[0])
+                self.assertIn("--read-only", call.args[0])
+                self.assertTrue(call.kwargs["check"])
+                self.assertEqual(call.kwargs["timeout"], 15)
+                for path in (
+                    "/var/runtime/bootstrap",
+                    "/usr/share/licenses/thundermail/LICENSE.upstream",
+                    "/usr/share/licenses/thundermail/extraction.json",
+                ):
+                    self.assertIn(path, call.args[0][-1])
+
+    def test_smoke_does_not_ignore_permission_failures(self):
+        import subprocess
+        from unittest.mock import patch
+
+        smoke = self.smoke_helper()
+        with (
+            patch.object(
+                smoke.subprocess, "check_output", return_value="10001:10001\n"
+            ),
+            patch.object(
+                smoke.subprocess,
+                "run",
+                side_effect=subprocess.CalledProcessError(1, "docker"),
+            ),
+            self.assertRaises(subprocess.CalledProcessError),
+        ):
+            smoke.check_image_permissions("fixture")
 
     def test_secret_path_matches_runtime_and_metadata(self):
         import re

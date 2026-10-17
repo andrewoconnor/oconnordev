@@ -19,7 +19,40 @@ CASES = [
 ]
 
 
+def check_image_permissions(image):
+    user = subprocess.check_output(
+        ["docker", "image", "inspect", "--format", "{{.Config.User}}", image],
+        text=True,
+    ).strip()
+    assert user == "10001:10001", f"unexpected default image user: {user!r}"
+    # Exercise the default user and a different UID, as Lambda can assign its own.
+    for override in ([], ["--user", "10002:10002"]):
+        subprocess.run(
+            [
+                "docker",
+                "run",
+                "--rm",
+                "--network=none",
+                "--read-only",
+                "--cap-drop=ALL",
+                "--security-opt=no-new-privileges",
+                *override,
+                "--entrypoint",
+                "/bin/sh",
+                image,
+                "-c",
+                'test "$(id -u)" != 0 '
+                "&& test -x /var/runtime/bootstrap "
+                "&& test -r /usr/share/licenses/thundermail/LICENSE.upstream "
+                "&& test -r /usr/share/licenses/thundermail/extraction.json",
+            ],
+            check=True,
+            timeout=15,
+        )
+
+
 def main(image):
+    check_image_permissions(image)
     responses = []
     errors = []
     completed = threading.Event()

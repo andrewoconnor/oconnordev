@@ -43,6 +43,30 @@ validated untrusted data, not signatures or immutable snapshots; expunges and
 renames can change later pages. No warm-process cursor cache. Plaintext loopback
 endpoints exist only under `cfg(test)`.
 
+## Container execution and health policy
+
+The final image explicitly defaults to numeric `USER 10001:10001` for local
+Docker runs. The bootstrap is mode `0755`; bundled notices are mode `0644`.
+Neither ownership nor a passwd entry is required, so Lambda can also run the
+image with a different least-privileged UID. The ARM64 `native_smoke.py` checks
+the default user, file access with both the default and another UID, and actual
+production-bootstrap invocation responses on a read-only filesystem.
+
+`CKV_DOCKER_2` is exempted **only in this Dockerfile**: this native runtime is
+an outbound Lambda Runtime API client, not a long-running HTTP service. It has
+no application listener to probe. Docker `HEALTHCHECK` is not a Lambda readiness
+or invocation-health signal; starting a second bootstrap would consume Runtime
+API invocations, and checking a file or unconditional success would disguise
+failures rather than measure the running process. No fake probe or health-only
+production CLI path is added. Real startup/protocol coverage stays in the
+secretless synthetic Runtime API smoke test; deployed function state/errors
+remain Lambda's responsibility. All other Docker policies remain enforced.
+
+See AWS's [Lambda image requirements and lifecycle](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html#images-reqs)
+for the Runtime API contract, read-only filesystem, least-privileged user and
+Lambda-managed function states. This exemption does not establish production
+readiness or relax any activation, publication, or dependency-security gate.
+
 ## Provenance
 
 Selected MIT upstream: [tecnologicachile/mail-mcp](https://github.com/tecnologicachile/mail-mcp),
