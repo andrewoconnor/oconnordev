@@ -162,6 +162,15 @@ url = "https://github.com/astral-sh/ruff/releases/download/0.16.10/ruff-x86_64-a
 url_api = "https://api.github.com/repos/astral-sh/ruff/releases/assets/603827024"
 provenance = "github-attestations"
 
+[[tools.rust]]
+version = "1.91.1"
+backend = "core:rust"
+specifiers = ["1.91.1"]
+
+[tools.rust.options]
+components = "clippy,rustfmt"
+profile = "minimal"
+
 [[tools.tflint]]
 version = "0.64.0"
 backend = "aqua:terraform-linters/tflint"

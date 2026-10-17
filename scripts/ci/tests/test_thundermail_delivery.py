@@ -31,7 +31,7 @@ class ThundermailDeliveryTests(unittest.TestCase):
     def test_delivery_layout_uses_runtime_owned_paths(self):
         runtime = ROOT / "infra/aws/tools/lambdas/thundermail_mcp"
         self.assertFalse((ROOT / "delivery/thundermail").exists())
-        for name in ("Dockerfile", "check.py", "native_smoke.py"):
+        for name in ("Dockerfile", "native_smoke.py"):
             self.assertTrue((runtime / name).is_file())
         workflow = (ROOT / ".github/workflows/thundermail-image.yml").read_text()
         self.assertIn(
@@ -41,7 +41,7 @@ class ThundermailDeliveryTests(unittest.TestCase):
             "python3 infra/aws/tools/lambdas/thundermail_mcp/native_smoke.py", workflow
         )
         self.assertIn(
-            "infra/aws/tools/lambdas/thundermail_mcp/check.py",
+            'dir = "infra/aws/tools/lambdas/thundermail_mcp"',
             (ROOT / "mise.toml").read_text(),
         )
         # Build context remains repository root: every COPY source still exists.
@@ -276,17 +276,17 @@ class ThundermailDeliveryTests(unittest.TestCase):
             dockerfile,
         )
         self.assertIn(
-            "RUN cargo test --locked && cargo build --locked --release", dockerfile
+            "RUN mise exec rust -- cargo test --locked && "
+            "mise exec rust -- cargo build --locked --release",
+            dockerfile,
         )
         workflow = (ROOT / ".github/workflows/thundermail-image.yml").read_text()
         publish = workflow.split("\n  publish:", 1)[1]
         gate = publish.split("\n    needs:", 1)[0]
-        # Even THUNDERMAIL_ARM64_REVIEWED=true on master cannot publish the
-        # known-vulnerable lock. Opening publication requires reviewed source.
-        self.assertIn("if: ${{ false && github.ref == 'refs/heads/master' }}", gate)
+        self.assertIn("if: ${{ github.ref == 'refs/heads/master' }}", gate)
         self.assertNotIn("vars.", gate)
         lock = (ROOT / "infra/aws/tools/lambdas/thundermail_mcp/Cargo.lock").read_text()
-        self.assertIn('name = "aws-smithy-json"\nversion = "0.62.3"', lock)
+        self.assertIn('name = "aws-smithy-json"\nversion = "0.62.7"', lock)
         self.assertNotIn("pull_request", gate)
         credentials = publish.index("uses: aws-actions/configure-aws-credentials@")
         for check in [
@@ -306,7 +306,6 @@ class ThundermailDeliveryTests(unittest.TestCase):
         helper = self.helper()
         for path in [
             "infra/aws/tools/lambdas/thundermail_mcp/Dockerfile",
-            "infra/aws/tools/lambdas/thundermail_mcp/check.py",
             "infra/aws/tools/lambdas/thundermail_mcp/native_smoke.py",
             "infra/aws/tools/lambdas/thundermail_mcp/src/main.rs",
             "agents/hermes/adapter/thundermail-mcp-tools.json",

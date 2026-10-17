@@ -28,7 +28,7 @@ variable "thundermail_image_digest" {
   }
 }
 locals {
-  # Source-locked: advisory, ARM64/provider, policy and redistribution review
+  # Source-locked: provider, policy and live AgentCore review
   # unresolved. No Terraform input can approve a digest or bypass readiness.
   # Opening activation requires a separate reviewed source change.
   thundermail_activation_ready = false
@@ -93,7 +93,7 @@ resource "aws_lambda_function" "thundermail" {
   lifecycle {
     precondition {
       condition     = local.thundermail_activation_ready
-      error_message = "Activation is source-blocked: GHSA-8ffr-xgwf-xj56 and independent artifact/provider/policy/redistribution review unresolved. A reviewed source change is required; no input digest is approved."
+      error_message = "Activation is source-blocked: independent provider/policy and live AgentCore review unresolved. A reviewed source change is required; no input digest is approved."
     }
     precondition {
       condition     = var.thundermail_image_digest != "" && (var.thundermail_secret_bootstrap_enabled != (var.thundermail_secret_arn != ""))

@@ -39,11 +39,6 @@ jobs:
           version: '2026.10.3'
           github_token: ${{ github.token }}
 
-      - name: Install isolated pinned Rust for credentialless aggregate checks
-        run: |
-          rustup toolchain install 1.90.0 --profile minimal --component rustfmt
-          printf 'THUNDERMAIL_CARGO=%s\n' "$(rustup which --toolchain 1.90.0 cargo)" >> "$GITHUB_ENV"
-
       - name: Check Python lint and formatting
         run: mise run lint:python
 
