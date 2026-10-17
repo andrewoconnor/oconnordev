@@ -87,6 +87,8 @@ class Target:
     action_prefix: str | None = None
     # Optional Hermes-facing namespace, separate from the upstream tool names.
     client_tool_prefix: str = ""
+    # Owned schemas compensate for native Lambda SchemaDefinition's reduced vocabulary.
+    tool_schemas: dict[str, dict[str, Any]] | None = None
 
     @property
     def client_tools(self) -> frozenset[str]:
@@ -133,15 +135,37 @@ def _load_target(
         raise AdapterError("invalid_gateway_action_prefix")
     client_tool_prefix = document.get("client_tool_prefix", "")
     if not isinstance(client_tool_prefix, str) or (
-        client_tool_prefix and not client_tool_prefix.endswith("___")
+        client_tool_prefix and not client_tool_prefix.endswith(("___", "-"))
     ):
         raise AdapterError("invalid_client_tool_prefix")
+    schemas = document.get("toolSchemas")
+    owned = None
+    if schemas is not None:
+        if (
+            name != "thundermail"
+            or tools
+            != frozenset(
+                {"imap_list_mailboxes", "imap_search_messages", "imap_get_message"}
+            )
+            or not isinstance(schemas, list)
+            or len(schemas) != 3
+            or {t.get("name") for t in schemas} != tools
+            or any(
+                t.get("inputSchema", {}).get("additionalProperties") is not False
+                for t in schemas
+            )
+            or action_prefix != "thundermail___"
+            or client_tool_prefix != "thundermail-"
+        ):
+            raise AdapterError("invalid_owned_tool_schemas")
+        owned = {t["name"]: t for t in schemas}
     return Target(
         name=name,
         tools=tools,
         headers=headers,
         action_prefix=action_prefix,
         client_tool_prefix=client_tool_prefix,
+        tool_schemas=owned,
     )
 
 
@@ -161,6 +185,15 @@ def load_targets() -> tuple[Target, ...]:
     enabled = os.environ.get("HERMES_AGENTCORE_MICROSOFT365_ENABLED", "false")
     if enabled not in {"true", "false"}:
         raise AdapterError("invalid_microsoft365_rollout_configuration")
-    if enabled == "false":
-        return TARGETS
-    return (*TARGETS, _load_target("microsoft365", "microsoft365-mcp-tools.json"))
+    targets = TARGETS
+    if enabled == "true":
+        targets = (
+            *targets,
+            _load_target("microsoft365", "microsoft365-mcp-tools.json"),
+        )
+    thundermail = os.environ.get("HERMES_AGENTCORE_THUNDERMAIL_ENABLED", "false")
+    if thundermail not in {"true", "false"}:
+        raise AdapterError("invalid_thundermail_rollout_configuration")
+    if thundermail == "true":
+        targets = (*targets, _load_target("thundermail", "thundermail-mcp-tools.json"))
+    return targets

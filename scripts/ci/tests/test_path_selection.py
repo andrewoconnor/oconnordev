@@ -96,7 +96,7 @@ class OpenTofuRootSelectionTests(unittest.TestCase):
     def test_mise_rotation_test_task_uses_new_package_directory(self):
         mise = (REPO_ROOT / "mise.toml").read_text(encoding="utf-8")
         self.assertIn(
-            "python3 -m unittest discover -s "
+            '"$CI_PYTHON" -m unittest discover -s '
             "infra/aws/tools/lambdas/spacelift_session_token "
             "-p 'test_*.py' -v",
             mise,

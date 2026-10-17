@@ -79,13 +79,21 @@ run = "checkov --directory . --output cli --output sarif --output-file-path cons
 
 [tasks."test:python"]
 description = "Run adapter, rotation, gateway smoke, and CI path-selection unit tests"
-run = [
-  "python3 -m pip install --disable-pip-version-check --only-binary=:all: --no-deps -r scripts/ci/requirements-test.txt",
-  "python3 -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v",
-  "python3 -m unittest discover -s infra/aws/tools/lambdas/spacelift_session_token -p 'test_*.py' -v",
-  "python3 -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v",
-  "python3 -m unittest discover -s scripts/adapter/test -t . -v",
-]
+run = '''
+set -eu
+if [ -n "${HERMES_CI_PYTHON:-}" ]; then
+  CI_PYTHON="$HERMES_CI_PYTHON"
+else
+  CI_ENV="${TMPDIR:-$HOME/.cache}/hermes-ci-test-venv"
+  python3 -m venv "$CI_ENV"
+  CI_PYTHON="$CI_ENV/bin/python"
+  "$CI_PYTHON" -m pip install --disable-pip-version-check --only-binary=:all: --no-deps -r scripts/ci/requirements-test.txt
+fi
+"$CI_PYTHON" -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v
+"$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/spacelift_session_token -p 'test_*.py' -v
+"$CI_PYTHON" -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
+"$CI_PYTHON" -m unittest discover -s scripts/adapter/test -t . -v
+'''
 
 [tasks."test:opentofu-boundary"]
 description = "Run the offline OpenTofu AWS boundary tests"
@@ -132,4 +140,24 @@ run = [
 
 [tasks.test]
 description = "Run Python, owner bootstrap, and OpenTofu boundary, delivery, and discovery tests"
-depends = ["test:python", "test:microsoft365-bootstrap", "test:opentofu-boundary", "test:opentofu-delivery", "test:opentofu-gcp"]
+depends = ["test:python", "test:microsoft365-bootstrap", "test:opentofu-boundary", "test:opentofu-delivery", "test:opentofu-gcp", "test:thundermail-rust", "test:thundermail-sdk"]
+
+[tasks."test:thundermail-rust"]
+description = "Locked Rust 1.90 format/tests using explicit isolated toolchain; no cloud/credentials"
+run = "python3 infra/aws/tools/lambdas/thundermail_mcp/check.py"
+
+[tasks."test:thundermail-sdk"]
+description = "Owned native catalog through adapter and real MCP SDK, in isolated environment"
+run = '''
+set -eu
+if [ -n "${THUNDERMAIL_SDK_PYTHON:-}" ]; then
+  SDK_PYTHON="$THUNDERMAIL_SDK_PYTHON"
+else
+  SDK_ENV="${TMPDIR:-$HOME/.cache}/thundermail-sdk-venv"
+  python3 -m venv "$SDK_ENV"
+  SDK_PYTHON="$SDK_ENV/bin/python"
+  "$SDK_PYTHON" -m pip install --disable-pip-version-check --only-binary=:all: mcp==2.0.0
+fi
+"$SDK_PYTHON" -c 'from mcp.types import ListToolsResult; assert ListToolsResult'
+PYTHONPATH=agents/hermes/adapter "$SDK_PYTHON" -m unittest test.test_thundermail -v
+'''
