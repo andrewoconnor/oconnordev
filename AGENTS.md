@@ -1,0 +1,19 @@
+# Agent instructions
+
+## Scope
+
+- Do only the task the user asks for. Do not add requirements.
+- Make the smallest change that works. Prefer removing code to adding code.
+- If the task seems to need more than the user asked for, stop and ask.
+
+## Comments
+
+- Do not add comments. Put the rationale in the PR description or in `docs/`.
+- Exception: a directive that a tool needs, such as `# checkov:skip=...`.
+
+## Docs
+
+- Describe only the current system. Do not describe old systems or past changes.
+- Do not write open tasks, pending reviews, or blockers in docs.
+- Exception: a runbook with steps that the user must do, such as a state
+  migration. Delete the runbook after the user completes the steps.
