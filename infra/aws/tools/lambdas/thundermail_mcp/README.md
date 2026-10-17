@@ -52,19 +52,9 @@ image with a different least-privileged UID. The ARM64 `native_smoke.py` checks
 the default user, file access with both the default and another UID, and actual
 production-bootstrap invocation responses on a read-only filesystem.
 
-`CKV_DOCKER_2` is exempted **only in this Dockerfile**: this native runtime is
-an outbound Lambda Runtime API client, not a long-running HTTP service. It has
-no application listener to probe. Docker `HEALTHCHECK` is not a Lambda readiness
-or invocation-health signal; starting a second bootstrap would consume Runtime
-API invocations, and checking a file or unconditional success would disguise
-failures rather than measure the running process. No fake probe or health-only
-production CLI path is added. Real startup/protocol coverage stays in the
-secretless synthetic Runtime API smoke test; deployed function state/errors
-remain Lambda's responsibility. All other Docker policies remain enforced.
-
-See AWS's [Lambda image requirements and lifecycle](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html#images-reqs)
-for the Runtime API contract, read-only filesystem, least-privileged user and
-Lambda-managed function states.
+The Dockerfile skips `CKV_DOCKER_2` because the runtime is a Lambda Runtime API
+client with no listener. A Docker `HEALTHCHECK` cannot measure Lambda health.
+See AWS's [Lambda image requirements](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html#images-reqs).
 
 ## Provenance
 
@@ -86,13 +76,7 @@ python extract_upstream.py /path/to/mail-mcp "$(mise which rustfmt)"
 
 ## Verification
 
-`mise exec rust -- PYTHON verify.py CACHE_ROOT EVIDENCE_DIRECTORY` uses the mise
-Rust toolchain with a dedicated Cargo cache and target directory. It runs format, locked tests, host production
-build, clippy, and the compiled test worker through synthetic Runtime API and TCP
-IMAP fixtures. The invoking Python needs the MCP SDK. It strips inherited
-credential/config environment and enforces jobs=1, time and disk budgets.
-Evidence goes outside delivery source. The worker exercises the actual AWS SDK
-request serializer/parser with synthetic HTTP transport, not AWS or real mail.
-Production binary and cfg(test) worker hashes are distinct.
-
-Master CI publishes the tested ARM64 image to ECR without deployment.
+`mise run test:thundermail-rust` runs format, clippy and the locked tests. The
+wire tests drive the real AWS SDK serializer and an IMAP fixture over loopback,
+with no AWS or real mail. The image workflow runs `native_smoke.py` against the
+built image, then publishes it to ECR without deployment.

@@ -2,7 +2,7 @@ import copy
 import unittest
 from unittest import mock
 
-from .test_support import EXPECTED_TOOLS, make_forwarder, rpc
+from .test_support import UNOWNED_TARGETS, UNOWNED_TOOLS, make_forwarder, rpc
 
 
 class OutputSchemaTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class OutputSchemaTests(unittest.TestCase):
         ]
         for schema in schemas:
             with self.subTest(schema=schema):
-                forwarder = make_forwarder()
+                forwarder = make_forwarder(targets=UNOWNED_TARGETS)
                 page = forwarder.handle(rpc("tools/list"))
                 # Use wire names for the upstream response, not client names.
                 tools = page["result"]["tools"]
@@ -34,13 +34,13 @@ class OutputSchemaTests(unittest.TestCase):
                 with mock.patch.object(forwarder, "_send", return_value=(page, {})):
                     response = forwarder.handle(rpc("tools/list"))
                 exposed = response["result"]["tools"]
-                self.assertEqual({tool["name"] for tool in exposed}, EXPECTED_TOOLS)
+                self.assertEqual({tool["name"] for tool in exposed}, UNOWNED_TOOLS)
                 for tool in exposed:
                     self.assertNotIn("outputSchema", tool)
                 self.assertEqual(page, original)
 
     def test_object_schema_and_other_metadata_are_preserved_exactly(self):
-        forwarder = make_forwarder()
+        forwarder = make_forwarder(targets=UNOWNED_TARGETS)
         page = forwarder.handle(rpc("tools/list"))
         original_tools = copy.deepcopy(page["result"]["tools"])
         schema = {

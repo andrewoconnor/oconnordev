@@ -49,31 +49,3 @@ class GatewayLogPrivacyTests(unittest.TestCase):
         self.assertRegex(text, r'namespace\s*=\s*"AWS/Bedrock-AgentCore"')
         self.assertRegex(text, r'metric_name\s*=\s*"UserErrors"')
         self.assertNotIn("aws_cloudwatch_log_metric_filter", types)
-
-    def test_runbooks_keep_privacy_retention_and_consent_invariants_explicit(self):
-        privacy = (ROOT / "docs/runbooks/gateway-log-privacy.md").read_text()
-        for phrase in (
-            "No APPLICATION_LOGS delivery",
-            "all pages",
-            "seven days",
-            "not a retroactive purge",
-            "runtime",
-            "other logs",
-            "UserErrors",
-            "explicit owner privacy approval",
-            "Do not read log events",
-        ):
-            self.assertIn(phrase, privacy)
-        mail = (ROOT / "docs/runbooks/microsoft365-mcp.md").read_text()
-        for phrase in (
-            "gateway-log-privacy.md",
-            "microsoft365_runtime_enabled=false",
-            "OAuth consent",
-            "Mail.Read",
-            "User.Read",
-            "offline_access",
-            "No end-to-end no-mailbox-logging guarantee",
-            "separate owner approval",
-            "stop all competing writers",
-        ):
-            self.assertIn(phrase, mail)

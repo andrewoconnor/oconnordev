@@ -1,10 +1,8 @@
 import json
 import unittest
 from pathlib import Path
-from unittest import mock
 
 import adapter_config
-from adapter_config import AdapterError
 
 from .test_support import EXPECTED_TOOLS, FakeTransport, make_forwarder, rpc
 
@@ -17,31 +15,16 @@ MAIL_TOOLS = {
 }
 
 
-class Microsoft365RolloutTests(unittest.TestCase):
-    def test_rollout_is_explicit_and_default_preserves_existing_clients(self):
-        self.assertTrue(hasattr(adapter_config, "load_targets"))
-        with mock.patch.dict("os.environ", {}, clear=True):
-            targets = adapter_config.load_targets()
-        self.assertEqual({t.name for t in targets}, {"github", "aws", "spacelift"})
-        with mock.patch.dict(
-            "os.environ", {"HERMES_AGENTCORE_MICROSOFT365_ENABLED": "true"}
-        ):
-            targets = adapter_config.load_targets()
-        mail = next(t for t in targets if t.name == "microsoft365")
+class Microsoft365Tests(unittest.TestCase):
+    def test_mail_tools_route_and_unknown_calls_are_refused(self):
+        mail = next(t for t in adapter_config.TARGETS if t.name == "microsoft365")
         self.assertEqual(mail.tools, MAIL_TOOLS)
         self.assertEqual(mail.prefix, "microsoft365___")
         self.assertEqual(mail.headers, {})
-        self.assertFalse(EXPECTED_TOOLS & mail.client_tools)
         transport = FakeTransport()
-        original_catalog = transport._catalog
-        transport._catalog = lambda: (
-            original_catalog() + [mail.prefix + t for t in MAIL_TOOLS]
-        )
-        client = make_forwarder(transport, targets=targets)
+        client = make_forwarder(transport)
         result = client.handle(rpc("tools/list"))
-        self.assertEqual(
-            {t["name"] for t in result["result"]["tools"]}, EXPECTED_TOOLS | MAIL_TOOLS
-        )
+        self.assertEqual({t["name"] for t in result["result"]["tools"]}, EXPECTED_TOOLS)
         for tool in MAIL_TOOLS:
             client.handle(rpc("tools/call", {"name": tool, "arguments": {}}))
             self.assertEqual(
@@ -68,18 +51,15 @@ class Microsoft365RolloutTests(unittest.TestCase):
                 root / "infra/aws/tools/lambdas/microsoft365_mcp/tools-manifest.json"
             ).read_text()
         )
-        with mock.patch.dict(
-            "os.environ", {"HERMES_AGENTCORE_MICROSOFT365_ENABLED": "true"}
-        ):
-            targets = adapter_config.load_targets()
-        mail = next(t for t in targets if t.name == "microsoft365")
+        mail = next(t for t in adapter_config.TARGETS if t.name == "microsoft365")
         tools = [
             {"name": t.prefix + name}
             for t in adapter_config.TARGETS
+            if t is not mail
             for name in t.tools
         ]
         tools += [{**tool, "name": mail.prefix + tool["name"]} for tool in catalog]
-        client = make_forwarder(targets=targets)
+        client = make_forwarder()
         client._send = lambda message: (
             {"jsonrpc": "2.0", "id": message["id"], "result": {"tools": tools}},
             {},
@@ -97,13 +77,3 @@ class Microsoft365RolloutTests(unittest.TestCase):
             exposed["list-mail-child-folders"]["inputSchema"]["required"],
             ["mailFolderId"],
         )
-
-    def test_invalid_rollout_value_fails_closed(self):
-        self.assertTrue(hasattr(adapter_config, "load_targets"))
-        with (
-            mock.patch.dict(
-                "os.environ", {"HERMES_AGENTCORE_MICROSOFT365_ENABLED": "yes"}
-            ),
-            self.assertRaises(AdapterError),
-        ):
-            adapter_config.load_targets()

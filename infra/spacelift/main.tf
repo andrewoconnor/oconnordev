@@ -26,8 +26,6 @@ locals {
       additional_project_globs = [
         "infra/aws/accounts.json",
         "agents/hermes/adapter/*-mcp-tools.json",
-        ".github/workflows/microsoft365-image.yml",
-        "scripts/ci/microsoft365_image.py",
       ]
     }
     security = {

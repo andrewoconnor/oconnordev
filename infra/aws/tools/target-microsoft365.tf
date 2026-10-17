@@ -6,16 +6,14 @@ locals {
 }
 
 resource "terraform_data" "microsoft365_catalog" {
-  count = var.microsoft365_runtime_enabled ? 1 : 0
   triggers_replace = [sha256(jsonencode({
     manifest        = local.microsoft365_manifest
     runtime_catalog = local.microsoft365_runtime_catalog
-    image_digest    = var.microsoft365_image_digest
+    image_digest    = local.microsoft365_image_digest
   }))]
 }
 
 resource "aws_bedrockagentcore_gateway_target" "microsoft365" {
-  count              = var.microsoft365_runtime_enabled ? 1 : 0
   name               = "microsoft365"
   gateway_identifier = aws_bedrockagentcore_gateway.hermes.gateway_id
   description        = "One pinned personal consumer mailbox, five read-only tools, IAM-authenticated MCP HTTP on Lambda Web Adapter."
@@ -28,13 +26,13 @@ resource "aws_bedrockagentcore_gateway_target" "microsoft365" {
   target_configuration {
     mcp {
       mcp_server {
-        endpoint     = "${aws_lambda_function_url.microsoft365[0].function_url}mcp"
+        endpoint     = "${aws_lambda_function_url.microsoft365.function_url}mcp"
         listing_mode = "DEFAULT"
       }
     }
   }
   lifecycle {
-    replace_triggered_by = [terraform_data.microsoft365_catalog[0]]
+    replace_triggered_by = [terraform_data.microsoft365_catalog]
     precondition {
       condition     = toset([for tool in local.microsoft365_runtime_catalog : tool.name]) == local.microsoft365_tools && length(local.microsoft365_runtime_catalog) == 5 && alltrue([for tool in local.microsoft365_runtime_catalog : tool.inputSchema.additionalProperties == false])
       error_message = "Runtime strict schema artifact must match the manifest's exact five tools with unknown properties forbidden."
@@ -48,7 +46,7 @@ resource "aws_bedrockagentcore_gateway_target" "microsoft365" {
 }
 
 resource "aws_bedrockagentcore_policy" "microsoft365_read" {
-  for_each         = var.microsoft365_runtime_enabled ? local.microsoft365_tools : toset([])
+  for_each         = local.microsoft365_tools
   name             = "HermesMicrosoft365${replace(each.key, "-", "")}"
   policy_engine_id = aws_bedrockagentcore_policy_engine.hermes.policy_engine_id
   description      = "Read-only pinned consumer mail: ${each.key}. Runtime rejects unknown args, bounds queries and pins identity."

@@ -108,8 +108,7 @@ mock_provider "aws" {
 mock_provider "archive" {}
 
 variables {
-  microsoft365_runtime_enabled = false
-  spacelift_run_id             = "terraform-test"
+  spacelift_run_id = "terraform-test"
   # Offline gateway fixture: explicit binding, not a claim of a live mock schema.
   github_ruleset_cedar_schema = {
     gateway_arn        = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-mock"

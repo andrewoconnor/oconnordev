@@ -27,7 +27,8 @@ class TargetManifestTests(unittest.TestCase):
         # Each upstream is one target. The AWS MCP Server is reached through
         # the security gateway.
         self.assertEqual(
-            {target.name for target in TARGETS}, {"github", "aws", "spacelift"}
+            {target.name for target in TARGETS},
+            {"github", "aws", "spacelift", "microsoft365", "thundermail"},
         )
         self.assertEqual(GITHUB_TARGET.tools, GITHUB_TOOLS)
         self.assertEqual(AWS_TARGET.tools, AWS_TOOLS)
@@ -122,7 +123,7 @@ class TargetManifestTests(unittest.TestCase):
 class ExposureTests(unittest.TestCase):
     def test_tools_list_exposes_every_targets_manifest_tools(self):
         self.assertEqual(exposed_names(make_forwarder()), EXPECTED_TOOLS)
-        self.assertEqual(len(EXPECTED_TOOLS), 23)
+        self.assertEqual(len(EXPECTED_TOOLS), 31)
 
     def test_extra_tools_are_not_exposed(self):
         transport = FakeTransport()

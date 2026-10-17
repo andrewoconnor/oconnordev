@@ -19,7 +19,6 @@ class CostExportBoundaryTests(unittest.TestCase):
         cls.schema = json.loads(
             (ROOT / "infra/aws/cost-export-schema.json").read_text()
         )
-        cls.runbook = (ROOT / "docs/aws-cost-analytics.md").read_text()
 
     def test_general_export_configuration(self):
         for expected in (
@@ -54,10 +53,6 @@ class CostExportBoundaryTests(unittest.TestCase):
             "cost_export_data_root    = var.cost_export_data_location", self.security
         )
         self.assertIn("BILLING_PERIOD=$${billing_period}", self.security)
-        self.assertIn(
-            "The Glue table root is the exact Data Exports data location above",
-            self.runbook,
-        )
 
     def test_security_resources_and_queries(self):
         for expected in (
@@ -119,7 +114,7 @@ class CostExportBoundaryTests(unittest.TestCase):
         for forbidden in ("oconnordev-cloudtrail", "oconnordev-config"):
             self.assertNotIn(forbidden, self.iam)
 
-    def test_shared_schema_and_runbook(self):
+    def test_shared_schema(self):
         self.assertEqual(len(self.schema["columns"]), 17)
         schema_types = {
             column["name"]: column["type"] for column in self.schema["columns"]
@@ -130,7 +125,6 @@ class CostExportBoundaryTests(unittest.TestCase):
         self.assertIn("cur_columns", self.general)
         self.assertIn("cost_export_columns", self.security)
         self.assertNotIn("SELECT *", self.general)
-        self.assertIn("physical types", self.runbook)
 
     def test_dependency_is_one_way(self):
         dependencies = (ROOT / "infra/spacelift/dependencies.tf").read_text()

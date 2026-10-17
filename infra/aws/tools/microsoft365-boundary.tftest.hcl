@@ -130,16 +130,11 @@ variables {
 }
 
 
-run "microsoft365_disabled_for_bootstrap_or_rollback" {
+run "microsoft365_boundary" {
   command = plan
-  variables { microsoft365_runtime_enabled = false }
-  assert {
-    condition     = length(aws_lambda_function.microsoft365) == 0 && length(aws_bedrockagentcore_gateway_target.microsoft365) == 0 && length(aws_bedrockagentcore_policy.microsoft365_read) == 0 && length(aws_iam_role_policy.microsoft365_gateway_invoke) == 0 && length(aws_iam_role_policy.microsoft365_runtime) == 0
-    error_message = "Runtime, target, permissions and permits must all be absent before owner activation."
-  }
   assert {
     condition     = aws_ecr_repository.tools_images.name == "oconnordev-tools" && aws_ecr_repository.tools_images.force_delete == false && aws_ecr_repository.tools_images.image_tag_mutability == "IMMUTABLE" && aws_secretsmanager_secret.microsoft365_cache.recovery_window_in_days == 30
-    error_message = "Bootstrap must provision the shared immutable tools repository without force deletion and only recoverable secret metadata."
+    error_message = "Shared immutable tools repository without force deletion and recoverable secret metadata."
   }
   assert {
     condition = (
@@ -151,62 +146,20 @@ run "microsoft365_disabled_for_bootstrap_or_rollback" {
     )
     error_message = "Shared ECR must grant service pull to only the exact Microsoft365 and Thundermail functions."
   }
-}
-run "microsoft365_requires_owner_inputs" {
-  command = plan
-  variables {
-    microsoft365_runtime_enabled       = true
-    microsoft365_image_digest          = ""
-    microsoft365_owner_home_account_id = ""
-    microsoft365_client_id             = ""
-  }
-  expect_failures = [aws_lambda_function.microsoft365[0]]
-}
-run "microsoft365_rejects_tag" {
-  command = plan
-  variables { microsoft365_image_digest = "latest" }
-  expect_failures = [var.microsoft365_image_digest]
-}
-run "microsoft365_reviewed_activation_defaults" {
-  # Mock-only configuration proof, not a live plan or provider/auth readback.
-  command = plan
   assert {
-    condition     = var.microsoft365_runtime_enabled && aws_lambda_function.microsoft365[0].image_uri == "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools@sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1"
-    error_message = "Owner activation must use the verified push/ECR manifest digest in the existing repository, not a tag or image/config/archive hash."
+    condition     = aws_lambda_function.microsoft365.image_uri == "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools@${local.microsoft365_image_digest}"
+    error_message = "Lambda must use the pinned ECR manifest digest."
   }
   assert {
-    condition     = aws_lambda_function.microsoft365[0].environment[0].variables.EXPECTED_HOME_ACCOUNT_ID == "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad" && aws_lambda_function.microsoft365[0].environment[0].variables.M365_CLIENT_ID == "084a3e9f-a9f4-43f7-89f9-d229cf97853e"
-    error_message = "Preserve the exact owner-supplied MSAL identity including its zero prefix and the approved nonsecret client UUID."
+    condition     = aws_lambda_function.microsoft365.environment[0].variables.EXPECTED_HOME_ACCOUNT_ID == "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad" && aws_lambda_function.microsoft365.environment[0].variables.M365_CLIENT_ID == "084a3e9f-a9f4-43f7-89f9-d229cf97853e"
+    error_message = "Preserve the exact MSAL identity including its zero prefix and the client UUID."
   }
   assert {
-    condition     = length(aws_lambda_function.microsoft365) == 1 && length(aws_lambda_function_url.microsoft365) == 1 && length(aws_cloudwatch_log_group.microsoft365) == 1 && length(aws_iam_role_policy.microsoft365_runtime) == 1 && length(aws_iam_role_policy.microsoft365_gateway_invoke) == 1 && length(terraform_data.microsoft365_catalog) == 1 && length(aws_bedrockagentcore_gateway_target.microsoft365) == 1 && length(aws_bedrockagentcore_policy.microsoft365_read) == 5
-    error_message = "Activation must render only the existing gated function/URL/logs, two grants, catalog, target and five permits; this is not a live change count."
+    condition     = aws_lambda_function.microsoft365.architectures == tolist(["arm64"]) && aws_lambda_function.microsoft365.reserved_concurrent_executions == 1 && aws_lambda_function_url.microsoft365.authorization_type == "AWS_IAM" && length(aws_bedrockagentcore_policy.microsoft365_read) == 5
+    error_message = "Serialized arm64 IAM-authenticated runtime with five Cedar permits."
   }
   assert {
-    condition     = aws_lambda_function_url.microsoft365[0].authorization_type == "AWS_IAM" && aws_bedrockagentcore_gateway.hermes.policy_engine_configuration[0].mode == "ENFORCE" && alltrue([for k, v in aws_bedrockagentcore_policy.microsoft365_read : strcontains(v.definition[0].cedar[0].statement, "microsoft365___${k}") && strcontains(v.definition[0].cedar[0].statement, "hermes-mcp/invoke")])
-    error_message = "Activation must retain URL IAM authentication, shared ENFORCE and all five exact scoped Cedar permits."
-  }
-}
-
-run "microsoft365_enabled" {
-  command = plan
-  variables {
-    microsoft365_runtime_enabled = true
-    # Synthetic test-only digest, never an owner deployment example.
-    microsoft365_image_digest          = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    microsoft365_owner_home_account_id = "synthetic.9188040d-6c67-4c5b-b112-36a304b66dad"
-    microsoft365_client_id             = "00000000-0000-4000-8000-000000000001"
-  }
-  assert {
-    condition     = length(aws_bedrockagentcore_gateway_target.microsoft365) == 1 && length(aws_bedrockagentcore_policy.microsoft365_read) == 5 && length(aws_iam_role_policy.microsoft365_gateway_invoke) == 1
-    error_message = "Target and all five exact Cedar actions must be enabled together."
-  }
-  assert {
-    condition     = aws_lambda_function.microsoft365[0].architectures == tolist(["arm64"]) && aws_lambda_function.microsoft365[0].reserved_concurrent_executions == 1 && aws_lambda_function_url.microsoft365[0].authorization_type == "AWS_IAM"
-    error_message = "Only serialized arm64 IAM-authenticated HTTP runtime is supported."
-  }
-  assert {
-    condition     = alltrue([for k, v in aws_bedrockagentcore_policy.microsoft365_read : strcontains(v.definition[0].cedar[0].statement, "microsoft365___${k}") && strcontains(v.definition[0].cedar[0].statement, "hermes-mcp/invoke")])
-    error_message = "Rendered Cedar must use exact gateway actions and existing OAuth scope."
+    condition     = aws_bedrockagentcore_gateway.hermes.policy_engine_configuration[0].mode == "ENFORCE" && alltrue([for k, v in aws_bedrockagentcore_policy.microsoft365_read : strcontains(v.definition[0].cedar[0].statement, "microsoft365___${k}") && strcontains(v.definition[0].cedar[0].statement, "hermes-mcp/invoke")])
+    error_message = "Shared ENFORCE and exact scoped Cedar permits."
   }
 }

@@ -46,13 +46,11 @@ provider "aws" {
         for match in re.finditer(
             r'^data "aws_iam_policy_document" "([^"]+)" \{.*?^\}', source, re.M | re.S
         ):
-            body = match.group(0).replace(
-                "var.microsoft365_runtime_enabled ? 1 : 0", "1"
-            )
+            body = match.group(0)
             for ref, value in {
-                "aws_lambda_function.microsoft365[0].arn": FUNCTION,
+                "aws_lambda_function.microsoft365.arn": FUNCTION,
                 "aws_secretsmanager_secret.microsoft365_cache.arn": SECRET,
-                "${aws_cloudwatch_log_group.microsoft365[0].arn}": (
+                "${aws_cloudwatch_log_group.microsoft365.arn}": (
                     "arn:aws:logs:us-east-1:421680664125:log-group:"
                     "/aws/lambda/hermes-microsoft365-mcp"
                 ),
@@ -62,7 +60,8 @@ provider "aws" {
                 )
             config += body + "\n"
             names.append(match.group(1))
-        publisher = (ROOT / "infra/aws/tools/microsoft365-publisher.tf").read_text()
+        ecr = (ROOT / "infra/aws/tools/ecr.tf").read_text()
+        publisher = ecr[ecr.index('resource "aws_iam_role" "tools_image_publisher"') :]
         for output_name, field in [
             ("publisher", "policy"),
             ("publisher_trust", "assume_role_policy"),
@@ -84,8 +83,7 @@ provider "aws" {
         config += (
             '\noutput "documents" { value = {'
             + ", ".join(
-                f"{name} = data.aws_iam_policy_document.{name}[0].json"
-                for name in names
+                f"{name} = data.aws_iam_policy_document.{name}.json" for name in names
             )
             + "} }\n"
         )
