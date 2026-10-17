@@ -4,6 +4,7 @@
 
 - Do only the task the user asks for. Do not add requirements.
 - Make the smallest change that works. Prefer removing code to adding code.
+- If the task seems to need more than the user asked for, stop and ask.
 
 ## Comments
 
