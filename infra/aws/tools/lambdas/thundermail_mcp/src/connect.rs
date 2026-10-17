@@ -9,15 +9,12 @@ use std::sync::Arc;
 pub const HOST: &str = "mail.thundermail.com";
 pub const OWNER: &str = "oconnor@thundermail.com";
 pub const PORT: u16 = 993;
-pub async fn connect(endpoint: Endpoint, password: String) -> Result<ImapSession> {
-    if password.is_empty() || password.len() > 4096 {
-        return Err("Invalid stored credential".into());
-    }
-    let stream = match endpoint {
+pub async fn stream(endpoint: Endpoint, port: u16) -> Result<ImapStream> {
+    Ok(match endpoint {
         Endpoint::Production => {
-            let tcp = tokio::net::TcpStream::connect((HOST, PORT))
+            let tcp = tokio::net::TcpStream::connect((HOST, port))
                 .await
-                .map_err(|_| "IMAP connection failed")?;
+                .map_err(|_| "Connection failed")?;
             let mut roots = rustls::RootCertStore::empty();
             roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
             let config = rustls::ClientConfig::builder_with_provider(Arc::new(
@@ -46,7 +43,13 @@ pub async fn connect(endpoint: Endpoint, password: String) -> Result<ImapSession
                     .map_err(|_| "Fixture connect failed")?,
             )
         }
-    };
+    })
+}
+pub async fn connect(endpoint: Endpoint, password: String) -> Result<ImapSession> {
+    if password.is_empty() || password.len() > 4096 {
+        return Err("Invalid stored credential".into());
+    }
+    let stream = stream(endpoint, PORT).await?;
     let mut client = async_imap::Client::new(Budget::new(stream));
     if client
         .read_response()

@@ -3,7 +3,9 @@
 ## Architecture
 
 The runtime reads only `oconnor@thundermail.com` at certificate-verified
-`mail.thundermail.com:993`. Source: `infra/aws/tools/lambdas/thundermail_mcp/`.
+`mail.thundermail.com`: IMAP on port 993 and the default CalDAV calendar
+`/dav/cal/oconnor%40thundermail.com/default/` on port 443. Both use the same app
+password. Source: `infra/aws/tools/lambdas/thundermail_mcp/`.
 
 The gateway invokes the Lambda directly as a native Lambda target
 (`target_configuration.mcp.lambda`). There is no Function URL, HTTP server or
@@ -11,7 +13,8 @@ Lambda Web Adapter. AgentCore sends the arguments as the event and the tool name
 `context.client_context.custom.bedrockAgentCoreToolName`. See the
 [AWS native Lambda target contract](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/gateway-add-target-lambda.html).
 
-The tools are `imap_list_mailboxes`, `imap_search_messages` and `imap_get_message`.
+The tools are `imap_list_mailboxes`, `imap_search_messages`, `imap_get_message`
+and `caldav_list_events`.
 Hermes sees them as `thundermail-<name>`. The gateway action is
 `thundermail___<name>`. The runtime refuses unknown tools, account or host
 overrides, and write actions.

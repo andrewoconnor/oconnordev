@@ -4,7 +4,8 @@
   "tools": [
     "imap_list_mailboxes",
     "imap_search_messages",
-    "imap_get_message"
+    "imap_get_message",
+    "caldav_list_events"
   ],
   "toolSchemas": [
     {
@@ -106,6 +107,36 @@
             "maximum": 65536,
             "default": 16384,
             "description": "128 KiB final result ceiling includes duplicate structured/text output and JSON escaping; reduce if exceeded"
+          }
+        }
+      }
+    },
+    {
+      "name": "caldav_list_events",
+      "description": "List events on the owner's default Thundermail calendar that overlap a UTC range, sorted by start. Recurring events are expanded when the server supports CalDAV expand; otherwise the master event includes rrule. Values ending in Z are UTC, values with start_tzid/end_tzid are local to that zone, and 8-digit values are all-day dates.",
+      "inputSchema": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "start",
+          "end"
+        ],
+        "properties": {
+          "start": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+            "description": "Range start, RFC 3339 UTC, for example 2026-10-17T00:00:00Z"
+          },
+          "end": {
+            "type": "string",
+            "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+            "description": "Range end, RFC 3339 UTC, after start"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
           }
         }
       }

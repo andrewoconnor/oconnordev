@@ -22,7 +22,7 @@ no additional external-source Spacelift glob is required for them.
 `thundermail-runtime.tf` and `target-thundermail.tf` define an
 ARM64 Rust native Lambda alongside, not replacing, Microsoft365. The existing
 Cognito gateway invokes its exact ARN directly using `mcp.lambda` and inline
-schemas, with three Cedar read permits. No Function URL/HTTP/LWA or Node.
+schemas, with one Cedar read permit for each tool. No Function URL/HTTP/LWA or Node.
 The runtime alone may read the app-password secret. Terraform manages the secret
 metadata, never the value.
 The adapter exposes `thundermail-` names and forwards them as `thundermail___`

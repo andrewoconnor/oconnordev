@@ -1,10 +1,10 @@
 # Thundermail native read runtime
 
 Native Rust `lambda_runtime` direct AgentCore Lambda target, restricted to
-`oconnor@thundermail.com` on certificate-verified `mail.thundermail.com:993`.
+`oconnor@thundermail.com` on certificate-verified `mail.thundermail.com`.
 No HTTP server, Node, Lambda Web Adapter, Himalaya or local config loaders.
-Only `imap_list_mailboxes`, `imap_search_messages`, and `imap_get_message` are
-accepted; the native context names use `thundermail___` plus the raw tool name.
+Only `imap_list_mailboxes`, `imap_search_messages`, `imap_get_message` and
+`caldav_list_events` are accepted; the native context names use `thundermail___` plus the raw tool name.
 See [operations](../../../../../docs/runbooks/thundermail-mcp.md).
 
 ## Safety contract
@@ -42,6 +42,15 @@ query and UIDVALIDITY. List uses a lexicographic name cursor. Cursors are strict
 validated untrusted data, not signatures or immutable snapshots; expunges and
 renames can change later pages. No warm-process cursor cache. Plaintext loopback
 endpoints exist only under `cfg(test)`.
+
+## CalDAV
+
+`caldav_list_events` sends one CalDAV `REPORT` `calendar-query` with a UTC
+`time-range` to the fixed default calendar on port 443, with HTTP Basic auth.
+It asks the server to expand recurring events. It returns UID, summary, start,
+end, time zone IDs, location, status, description and recurrence fields, with
+text truncated. The same transfer budget, five-second deadline and 128 KiB
+output limit apply. `roxmltree` parses the multistatus XML and rejects DTDs.
 
 ## Container execution and health policy
 

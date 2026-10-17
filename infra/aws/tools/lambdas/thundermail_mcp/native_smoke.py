@@ -15,6 +15,7 @@ CASES = [
     ("imap_list_mailboxes", {"account": "forbidden"}),
     ("imap_search_messages", {"mailbox": "INBOX", "smtp": True}),
     ("imap_get_message", {"mailbox": "INBOX", "uid": 0, "uid_validity": 1}),
+    ("caldav_list_events", {"start": "today", "end": "tomorrow"}),
     ("imap_delete_message", {}),
 ]
 

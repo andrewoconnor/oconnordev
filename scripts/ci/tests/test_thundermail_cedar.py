@@ -12,7 +12,12 @@ import cedarpy
 
 ROOT = Path(__file__).resolve().parents[3]
 GATEWAY = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-mock"
-TOOLS = {"imap_list_mailboxes", "imap_search_messages", "imap_get_message"}
+TOOLS = {
+    "imap_list_mailboxes",
+    "imap_search_messages",
+    "imap_get_message",
+    "caldav_list_events",
+}
 
 
 class ThundermailCedarTests(unittest.TestCase):
@@ -76,7 +81,7 @@ CEDAR
             [entity],
         ).allowed
 
-    def test_only_three_exact_scoped_reads(self):
+    def test_only_exact_scoped_reads(self):
         for tool in TOOLS:
             self.assertTrue(self.decision("thundermail___" + tool))
             self.assertFalse(self.decision(tool))

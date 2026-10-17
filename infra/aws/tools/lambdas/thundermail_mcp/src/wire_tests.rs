@@ -243,3 +243,97 @@ async fn three_owned_reads_use_real_upstream_imap_and_cold_start_cursors() {
     );
     task.abort();
 }
+async fn caldav_fixture(
+    status: &'static str,
+    body: &'static str,
+) -> (Endpoint, tokio::task::JoinHandle<String>) {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    let task = tokio::spawn(async move {
+        let (socket, _) = listener.accept().await.unwrap();
+        let mut reader = BufReader::new(socket);
+        let mut head = String::new();
+        let mut length = 0;
+        loop {
+            let mut line = String::new();
+            reader.read_line(&mut line).await.unwrap();
+            if let Some(v) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = v.trim().parse().unwrap();
+            }
+            head.push_str(&line);
+            if line == "\r\n" {
+                break;
+            }
+        }
+        let mut request = vec![0; length];
+        tokio::io::AsyncReadExt::read_exact(&mut reader, &mut request)
+            .await
+            .unwrap();
+        let response = format!(
+            "HTTP/1.1 {status}\r\ncontent-type: application/xml\r\ncontent-length: {}\r\n\r\n{body}",
+            body.len()
+        );
+        reader
+            .get_mut()
+            .write_all(response.as_bytes())
+            .await
+            .unwrap();
+        head + &String::from_utf8(request).unwrap()
+    });
+    (Endpoint::Loopback(addr), task)
+}
+const MULTISTATUS: &str = r#"<?xml version="1.0" encoding="utf-8"?>
+<multistatus xmlns="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav"><response>
+<href>/dav/cal/oconnor%40thundermail.com/default/b.ics</href><propstat><prop><C:calendar-data>BEGIN:VCALENDAR
+BEGIN:VEVENT
+UID:late
+SUMMARY:Second
+DTSTART:20261017T150000Z
+END:VEVENT
+BEGIN:VEVENT
+UID:early
+SUMMARY:First
+DTSTART:20261017T090000Z
+END:VEVENT
+END:VCALENDAR
+</C:calendar-data></prop><status>HTTP/1.1 200 OK</status></propstat></response></multistatus>"#;
+#[tokio::test]
+async fn caldav_report_queries_default_calendar_with_basic_auth() {
+    let (ep, task) = caldav_fixture("207 Multi-Status", MULTISTATUS).await;
+    let value = call(
+        ep,
+        "caldav_list_events",
+        json!({"start":"2026-10-17T00:00:00Z","end":"2026-10-18T00:00:00Z","limit":1}),
+    )
+    .await;
+    assert_eq!(value["isError"], false, "{value}");
+    let result = &value["structuredContent"];
+    assert_eq!(result["truncated"], true);
+    assert_eq!(result["events"].as_array().unwrap().len(), 1);
+    assert_eq!(result["events"][0]["uid"], "early");
+    let request = task.await.unwrap();
+    assert!(request.starts_with("REPORT /dav/cal/oconnor%40thundermail.com/default/ HTTP/1.1\r\n"));
+    let lower = request.to_ascii_lowercase();
+    assert!(lower.contains("\r\ndepth: 1\r\n"));
+    assert!(lower.contains("\r\nhost: mail.thundermail.com\r\n"));
+    let token = base64::Engine::encode(
+        &base64::engine::general_purpose::STANDARD,
+        "oconnor@thundermail.com:synthetic-only",
+    );
+    assert!(request.contains(&format!("authorization: Basic {token}\r\n")));
+    assert!(request.contains(r#"<C:time-range start="20261017T000000Z" end="20261018T000000Z"/>"#));
+    assert!(request.contains(r#"<C:expand start="20261017T000000Z" end="20261018T000000Z"/>"#));
+}
+#[tokio::test]
+async fn caldav_rejected_credentials_fail_without_detail() {
+    let (ep, task) = caldav_fixture("401 Unauthorized", "denied").await;
+    let value = call(
+        ep,
+        "caldav_list_events",
+        json!({"start":"2026-10-17T00:00:00Z","end":"2026-10-18T00:00:00Z"}),
+    )
+    .await;
+    assert_eq!(value["isError"], true);
+    assert_eq!(value["content"][0]["text"], "CalDAV authentication failed");
+    task.await.unwrap();
+}

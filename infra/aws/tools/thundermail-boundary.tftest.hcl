@@ -121,8 +121,8 @@ variables {
 run "thundermail_boundary" {
   command = plan
   assert {
-    condition     = length(aws_bedrockagentcore_policy.thundermail_read) == 3 && aws_lambda_function.thundermail.image_uri == "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools@${local.thundermail_image_digest}"
-    error_message = "Three Cedar read permits and the pinned image digest."
+    condition     = length(aws_bedrockagentcore_policy.thundermail_read) == 4 && aws_lambda_function.thundermail.image_uri == "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools@${local.thundermail_image_digest}"
+    error_message = "Four Cedar read permits and the pinned image digest."
   }
   assert {
     condition     = jsondecode(aws_iam_role_policy.thundermail_gateway_invoke.policy).Statement[0].Action == ["lambda:InvokeFunction"] && jsondecode(aws_iam_role_policy.thundermail_gateway_invoke.policy).Statement[0].Resource == [local.thundermail_function_arn]
@@ -133,8 +133,8 @@ run "thundermail_boundary" {
     error_message = "Runtime gets exact secret read, no write."
   }
   assert {
-    condition     = aws_lambda_function.thundermail.architectures == tolist(["arm64"]) && aws_lambda_function.thundermail.package_type == "Image" && aws_lambda_function.thundermail.environment[0].variables.THUNDERMAIL_CREDENTIAL_SECRET_ARN == aws_secretsmanager_secret.thundermail.arn && length(aws_bedrockagentcore_gateway_target.thundermail.target_configuration[0].mcp[0].lambda[0].tool_schema[0].inline_payload) == 3
-    error_message = "Native single ARM64 Lambda and inline three tools, not HTTP."
+    condition     = aws_lambda_function.thundermail.architectures == tolist(["arm64"]) && aws_lambda_function.thundermail.package_type == "Image" && aws_lambda_function.thundermail.environment[0].variables.THUNDERMAIL_CREDENTIAL_SECRET_ARN == aws_secretsmanager_secret.thundermail.arn && length(aws_bedrockagentcore_gateway_target.thundermail.target_configuration[0].mcp[0].lambda[0].tool_schema[0].inline_payload) == 4
+    error_message = "Native single ARM64 Lambda and inline four tools, not HTTP."
   }
   assert {
     condition     = toset(jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Condition.ArnLike["aws:SourceArn"]) == toset([local.microsoft365_function_arn, local.thundermail_function_arn])

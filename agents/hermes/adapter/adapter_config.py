@@ -142,12 +142,8 @@ def _load_target(
     if schemas is not None:
         if (
             name != "thundermail"
-            or tools
-            != frozenset(
-                {"imap_list_mailboxes", "imap_search_messages", "imap_get_message"}
-            )
             or not isinstance(schemas, list)
-            or len(schemas) != 3
+            or len(schemas) != len(tools)
             or {t.get("name") for t in schemas} != tools
             or any(
                 t.get("inputSchema", {}).get("additionalProperties") is not False
