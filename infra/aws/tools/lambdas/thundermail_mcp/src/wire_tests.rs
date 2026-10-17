@@ -81,23 +81,6 @@ async fn call(endpoint: Endpoint, tool: &str, args: Value) -> Value {
     output
 }
 #[tokio::test]
-#[ignore = "run only through isolated native_imap_runtime_test.py"]
-async fn native_runtime_worker() {
-    let address: std::net::SocketAddr = std::env::var("THUNDERMAIL_TEST_ADDR")
-        .expect("explicit synthetic endpoint")
-        .parse()
-        .unwrap();
-    assert!(address.ip().is_loopback());
-    lambda_runtime::run(lambda_runtime::service_fn(|event| async move {
-        let (store, rx) = aws_secret::tests::synthetic();
-        let output = invoke(event, &store, Endpoint::Loopback(address)).await;
-        aws_secret::tests::assert_get(rx);
-        Ok::<_, lambda_runtime::Error>(output)
-    }))
-    .await
-    .unwrap();
-}
-#[tokio::test]
 async fn response_budget_rejects_before_serialized_lambda_output_grows() {
     let value = response(Ok(json!({"raw_utf8":"x".repeat(131072)})));
     assert_eq!(

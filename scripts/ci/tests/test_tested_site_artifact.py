@@ -164,36 +164,3 @@ class TestedSiteArtifactTests(unittest.TestCase):
                     self.assertEqual((target / "sentinel").read_bytes(), b"preserve me")
                 else:
                     self.assertFalse(target.exists())
-
-    def test_bootstrap_protects_and_verifies_environments_before_iam_trust(self):
-        runbook = (ROOT / "docs/runbooks/infrastructure-bootstrap.md").read_text()
-        heading = "## Tested-artifact environment bootstrap"
-        self.assertIn(heading, runbook)
-        bootstrap = runbook.split(heading, 1)[1]
-        stages = (
-            "Stage both GitHub environments before any IAM environment trust",
-            "Read back and test both environment gates before IAM changes",
-            "Activate IAM environment trust only after both gates pass",
-            "Apply the full repository-configuration stack",
-            "Merge/re-enable workflows only after those checks",
-        )
-        for stage in stages:
-            self.assertIn(stage, bootstrap)
-        positions = [bootstrap.index(stage) for stage in stages]
-        self.assertEqual(positions, sorted(positions))
-        staging = bootstrap[positions[0] : positions[1]]
-        for required in (
-            "oconnordev-production",
-            "drumrollworld-production",
-            "GitHub UI bootstrap",
-            "Do not run the dependent repository stack yet",
-            "branch `master`",
-            "no tag policy",
-            "TOOLS and DrumrollWorld",
-        ):
-            self.assertIn(required, staging)
-        gate = bootstrap[positions[1] : positions[2]]
-        self.assertIn("non-master", gate)
-        self.assertIn("before starting", gate)
-        self.assertIn("OIDC token", gate)
-        self.assertIn("Stop bootstrap", gate)

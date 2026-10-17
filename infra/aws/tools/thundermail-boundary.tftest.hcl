@@ -108,8 +108,7 @@ mock_provider "aws" {
 mock_provider "archive" {}
 
 variables {
-  microsoft365_runtime_enabled = false
-  spacelift_run_id             = "terraform-test"
+  spacelift_run_id = "terraform-test"
   # Offline gateway fixture: explicit binding, not a claim of a live mock schema.
   github_ruleset_cedar_schema = {
     gateway_arn        = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-mock"
@@ -138,7 +137,7 @@ run "thundermail_boundary" {
     error_message = "Native single ARM64 Lambda and inline three tools, not HTTP."
   }
   assert {
-    condition     = toset(jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Condition.ArnLike["aws:SourceArn"]) == toset([local.microsoft365_function_arn, local.thundermail_function_arn])
+    condition     = toset(jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Condition.ArnLike["aws:SourceArn"]) == toset([local.microsoft365_function_arn, local.thundermail_function_arn])
     error_message = "Extend existing shared pull grant only by the exact Thundermail ARN."
   }
 }

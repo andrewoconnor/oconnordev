@@ -4,16 +4,18 @@
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to OpenTofu data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
 
-`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift and Microsoft365 targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
+`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Microsoft365 and Thundermail targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
 ## Tools-account Lambda sources
 
 Lambda source packages owned by the TOOLS account live under
-`infra/aws/tools/lambdas/`: `spacelift_session_token/` and `microsoft365_mcp/`.
+`infra/aws/tools/lambdas/`: `spacelift_session_token/`, `microsoft365_mcp/` and
+`thundermail_mcp/`. `ecr.tf` defines the shared `oconnordev-tools` image
+repository, its Lambda pull policy and the image publisher role.
 The Microsoft365 Docker build context is the latter directory; owner bootstrap
 entrypoints remain separately under `scripts/bootstrap/microsoft365/` and import
 its envelope validator. The tools project root already covers both packages, so
-no additional external-source Spacelift glob is required for them. Build context and owner helper remain separate from runtime activation.
+no additional external-source Spacelift glob is required for them.
 
 ## Thundermail native Lambda
 
@@ -23,8 +25,8 @@ Cognito gateway invokes its exact ARN directly using `mcp.lambda` and inline
 schemas, with three Cedar read permits. No Function URL/HTTP/LWA or Node.
 The runtime alone may read the app-password secret. Terraform manages the secret
 metadata, never the value.
-Adapter opt-in uses `HERMES_AGENTCORE_THUNDERMAIL_ENABLED`, exposes `thundermail-`
-names, and forwards exact underscore raw tools under `thundermail___`.
+The adapter exposes `thundermail-` names and forwards them as `thundermail___`
+actions.
 
 `infra/aws/tools/lambdas/thundermail_mcp/` builds a pinned provided.al2023 bootstrap container for
 the existing shared ECR repository. Master CI publishes the image with the existing

@@ -3,10 +3,8 @@
 import json
 import unittest
 from pathlib import Path
-from unittest import mock
 
 import adapter_config
-from adapter_config import AdapterError
 
 from .test_support import EXPECTED_TOOLS, FakeTransport, make_forwarder, rpc
 
@@ -16,27 +14,17 @@ CLIENT = {"thundermail-" + name for name in RAW}
 
 
 class ThundermailTests(unittest.TestCase):
-    def targets(self):
-        with mock.patch.dict(
-            "os.environ", {"HERMES_AGENTCORE_THUNDERMAIL_ENABLED": "true"}, clear=True
-        ):
-            return adapter_config.load_targets()
-
-    def test_opt_in_raw_names_namespaced_and_no_unknown_calls(self):
-        targets = self.targets()
-        mail = next((t for t in targets if t.name == "thundermail"), None)
-        self.assertIsNotNone(mail, "explicit opt-in must register native target")
+    def test_raw_names_namespaced_and_no_unknown_calls(self):
+        mail = next(t for t in adapter_config.TARGETS if t.name == "thundermail")
         self.assertEqual(mail.tools, RAW)
         self.assertEqual(mail.client_tools, CLIENT)
         self.assertEqual(mail.prefix, "thundermail___")
         self.assertEqual(mail.headers, {})
         transport = FakeTransport()
-        original = transport._catalog
-        transport._catalog = lambda: original() + [mail.prefix + t for t in RAW]
-        client = make_forwarder(transport, targets=targets)
+        client = make_forwarder(transport)
         self.assertEqual(
             {t["name"] for t in client.handle(rpc("tools/list"))["result"]["tools"]},
-            EXPECTED_TOOLS | CLIENT,
+            EXPECTED_TOOLS,
         )
         for raw in RAW:
             client.handle(
@@ -58,20 +46,6 @@ class ThundermailTests(unittest.TestCase):
             )
             self.assertEqual(len(transport.gateway_calls), before)
 
-    def test_default_and_invalid_flag(self):
-        for env in [{}, {"HERMES_AGENTCORE_THUNDERMAIL_ENABLED": "false"}]:
-            with mock.patch.dict("os.environ", env, clear=True):
-                self.assertEqual(adapter_config.load_targets(), adapter_config.TARGETS)
-        with (
-            mock.patch.dict(
-                "os.environ",
-                {"HERMES_AGENTCORE_THUNDERMAIL_ENABLED": "yes"},
-                clear=True,
-            ),
-            self.assertRaises(AdapterError),
-        ):
-            adapter_config.load_targets()
-
     def test_owned_strict_schema_and_sdk(self):
         try:
             from mcp.types import ListToolsResult
@@ -91,10 +65,11 @@ class ThundermailTests(unittest.TestCase):
         )["tools"]
         self.assertEqual(owned, runtime)
         self.assertEqual({t["name"] for t in owned}, RAW)
-        mail = next(t for t in self.targets() if t.name == "thundermail")
+        mail = next(t for t in adapter_config.TARGETS if t.name == "thundermail")
         tools = [
             {"name": t.prefix + name, "inputSchema": {"type": "object"}}
             for t in adapter_config.TARGETS
+            if t is not mail
             for name in t.tools
         ]
         # Restore restrictions omitted by native SchemaDefinition.
@@ -102,7 +77,7 @@ class ThundermailTests(unittest.TestCase):
             {"name": mail.prefix + tool["name"], "inputSchema": {"type": "object"}}
             for tool in owned
         ]
-        client = make_forwarder(targets=self.targets())
+        client = make_forwarder()
         client._send = lambda message: (
             {"jsonrpc": "2.0", "id": message["id"], "result": {"tools": tools}},
             {},

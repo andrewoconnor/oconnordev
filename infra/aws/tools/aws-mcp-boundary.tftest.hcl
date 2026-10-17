@@ -21,6 +21,18 @@ mock_provider "aws" {
   }
 
   # Keep computed values consumed by provider-side argument validation valid.
+  mock_resource "aws_ecr_repository" {
+    defaults = {
+      repository_url = "421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools"
+    }
+  }
+
+  mock_resource "aws_lambda_function_url" {
+    defaults = {
+      function_url = "https://synthetic.lambda-url.us-east-1.on.aws/"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::421680664125:role/mock"
@@ -109,8 +121,7 @@ mock_provider "archive" {}
 
 variables {
   # This suite isolates the pre-existing AWS/GitHub boundary, not mail activation.
-  microsoft365_runtime_enabled = false
-  spacelift_run_id             = "terraform-test"
+  spacelift_run_id = "terraform-test"
   # Offline gateway fixture: explicit binding, not a claim of a live mock schema.
   github_ruleset_cedar_schema = {
     gateway_arn        = "arn:aws:bedrock-agentcore:us-east-1:421680664125:gateway/hermes-mock"

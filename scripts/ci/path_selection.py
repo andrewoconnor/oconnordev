@@ -55,9 +55,6 @@ def roots_for_paths(paths: Iterable[str]) -> tuple[str, ...]:
         if path == _COST_EXPORT_SCHEMA:
             selected.update(("infra/aws/general", "infra/aws/security"))
 
-        if path == ".github/workflows/microsoft365-image.yml":
-            selected.add("infra/aws/tools")
-
         if path.startswith(_TOOLS_ADAPTER_DIR):
             relative = path.removeprefix(_TOOLS_ADAPTER_DIR)
             if "/" not in relative and relative.endswith("-mcp-tools.json"):

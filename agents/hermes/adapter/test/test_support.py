@@ -43,7 +43,23 @@ SPACELIFT_TOOLS = {
     "provider",
     "query",
 }
-EXPECTED_TOOLS = GITHUB_TOOLS | AWS_TOOLS | SPACELIFT_TOOLS
+MICROSOFT365_TOOLS = {
+    "list-mail-messages",
+    "get-mail-message",
+    "list-mail-folders",
+    "list-mail-child-folders",
+    "list-mail-folder-messages",
+}
+THUNDERMAIL_TOOLS = {
+    "thundermail-imap_list_mailboxes",
+    "thundermail-imap_search_messages",
+    "thundermail-imap_get_message",
+}
+EXPECTED_TOOLS = (
+    GITHUB_TOOLS | AWS_TOOLS | SPACELIFT_TOOLS | MICROSOFT365_TOOLS | THUNDERMAIL_TOOLS
+)
+UNOWNED_TARGETS = tuple(target for target in TARGETS if target.tool_schemas is None)
+UNOWNED_TOOLS = EXPECTED_TOOLS - THUNDERMAIL_TOOLS
 GITHUB_TARGET = next(target for target in TARGETS if target.name == "github")
 AWS_TARGET = next(target for target in TARGETS if target.name == "aws")
 SPACELIFT_TARGET = next(target for target in TARGETS if target.name == "spacelift")

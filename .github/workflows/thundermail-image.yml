@@ -1,26 +1,22 @@
-name: Thundermail native Rust tested arm64 image
+name: Thundermail image
 
 on:
   push:
     branches: [master, 'hermes/**']
     paths:
       - 'infra/aws/tools/lambdas/thundermail_mcp/**'
-      - 'agents/hermes/adapter/**'
       - 'mise.toml'
       - 'mise.lock'
-      - 'agents/hermes/adapter/thundermail-mcp-tools.json'
-      - 'scripts/ci/thundermail_image.py'
       - '.github/workflows/thundermail-image.yml'
+      - '.github/workflows/tool-image.yml'
   pull_request:
     branches: [master]
     paths:
       - 'infra/aws/tools/lambdas/thundermail_mcp/**'
-      - 'agents/hermes/adapter/**'
       - 'mise.toml'
       - 'mise.lock'
-      - 'agents/hermes/adapter/thundermail-mcp-tools.json'
-      - 'scripts/ci/thundermail_image.py'
       - '.github/workflows/thundermail-image.yml'
+      - '.github/workflows/tool-image.yml'
   workflow_dispatch:
 
 permissions:
@@ -31,95 +27,13 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  check:
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 25
-    outputs:
-      archive_sha256: ${{ steps.package.outputs.sha256 }}
-      image_id: ${{ steps.package.outputs.image_id }}
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          persist-credentials: false
-          ref: ${{ github.sha }}
-      - uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
-      - name: Build and run locked Rust tests on native ARM64, without credentials
-        run: >-
-          docker buildx build --platform linux/arm64 --provenance=false --sbom=false
-          --load --tag thundermail-tested:local --file infra/aws/tools/lambdas/thundermail_mcp/Dockerfile .
-      - name: Verify image identity and architecture
-        run: |
-          test "$(uname -m)" = aarch64
-          test "$(docker image inspect --format '{{.Architecture}}' thundermail-tested:local)" = arm64
-      - name: Exercise exact production bootstrap against synthetic Runtime API
-        run: python3 infra/aws/tools/lambdas/thundermail_mcp/native_smoke.py thundermail-tested:local
-      - name: Package tested image once
-        id: package
-        run: |
-          mkdir release
-          docker save thundermail-tested:local --output release/image.tar
-          DIGEST=$(sha256sum release/image.tar | cut -d ' ' -f 1)
-          IMAGE_ID=$(docker image inspect --format '{{.Id}}' thundermail-tested:local)
-          printf 'sha256=%s\nimage_id=%s\n' "$DIGEST" "$IMAGE_ID" >> "$GITHUB_OUTPUT"
-      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: thundermail-${{ github.sha }}
-          path: release/image.tar
-          if-no-files-found: error
-          retention-days: 2
-
-  publish:
-    if: ${{ github.ref == 'refs/heads/master' }}
-    needs: check
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 15
+  image:
+    uses: ./.github/workflows/tool-image.yml
     permissions:
       contents: read
       id-token: write
-    env:
-      IMAGE_REPOSITORY: '421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools'
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with:
-          ref: ${{ github.sha }}
-          fetch-depth: 0
-          persist-credentials: false
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
-        with:
-          name: thundermail-${{ github.sha }}
-          path: release
-      - name: Verify archive and exact image before AWS credentials
-        env:
-          EXPECTED_ARCHIVE: ${{ needs.check.outputs.archive_sha256 }}
-          EXPECTED_IMAGE: ${{ needs.check.outputs.image_id }}
-        run: |
-          printf '%s  release/image.tar\n' "$EXPECTED_ARCHIVE" | sha256sum --check --strict
-          docker load --input release/image.tar
-          test "$(docker image inspect --format '{{.Id}}' thundermail-tested:local)" = "$EXPECTED_IMAGE"
-      - name: Compare application inputs to fresh master before AWS credentials
-        env:
-          EXPECTED_SHA: ${{ github.sha }}
-        run: python3 scripts/ci/thundermail_image.py "$EXPECTED_SHA" thundermail-tested:local
-      - name: Assume dedicated ECR-only publisher using master OIDC identity
-        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: arn:aws:iam::421680664125:role/hermes-microsoft365-image-publisher
-          aws-region: us-east-1
-          role-session-name: thundermail-image-${{ github.run_id }}
-          role-duration-seconds: 900
-          allowed-account-ids: '421680664125'
-      - name: Push exact tested image, read back digest, never deploy
-        env:
-          IMAGE_TAG: thundermail-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
-        run: |
-          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${IMAGE_REPOSITORY%%/*}"
-          docker_logout() { docker logout "${IMAGE_REPOSITORY%%/*}"; }
-          trap docker_logout EXIT
-          docker tag thundermail-tested:local "$IMAGE_REPOSITORY:$IMAGE_TAG"
-          docker push "$IMAGE_REPOSITORY:$IMAGE_TAG" | tee release/push.txt
-          DIGEST=$(aws ecr describe-images --region us-east-1 --repository-name oconnordev-tools --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
-          [[ "$DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]]
-          # Readback must agree with the actual push, not merely a successful API call.
-          PUSH_DIGEST=$(python3 -c 'import re; from pathlib import Path; print(re.findall(r"digest: (sha256:[0-9a-f]{64})", Path("release/push.txt").read_text())[-1])')
-          test "$DIGEST" = "$PUSH_DIGEST"
-          printf 'Published image (not deployed): %s@%s\n' "$IMAGE_REPOSITORY" "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+    with:
+      name: thundermail
+      context: .
+      dockerfile: infra/aws/tools/lambdas/thundermail_mcp/Dockerfile
+      test: python3 infra/aws/tools/lambdas/thundermail_mcp/native_smoke.py "$IMAGE"
