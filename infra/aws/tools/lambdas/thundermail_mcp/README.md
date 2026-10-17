@@ -5,7 +5,7 @@ Native Rust `lambda_runtime` direct AgentCore Lambda target, restricted to
 No HTTP server, Node, Lambda Web Adapter, Himalaya or local config loaders.
 Only `imap_list_mailboxes`, `imap_search_messages`, and `imap_get_message` are
 accepted; the native context names use `thundermail___` plus the raw tool name.
-See [operations and activation gates](../../../../../docs/runbooks/thundermail-mcp.md).
+See [operations](../../../../../docs/runbooks/thundermail-mcp.md).
 
 ## Safety contract
 
@@ -64,8 +64,7 @@ remain Lambda's responsibility. All other Docker policies remain enforced.
 
 See AWS's [Lambda image requirements and lifecycle](https://docs.aws.amazon.com/lambda/latest/dg/images-create.html#images-reqs)
 for the Runtime API contract, read-only filesystem, least-privileged user and
-Lambda-managed function states. This exemption does not establish production
-readiness or relax any activation, publication, or dependency-security gate.
+Lambda-managed function states.
 
 ## Provenance
 
@@ -97,4 +96,3 @@ request serializer/parser with synthetic HTTP transport, not AWS or real mail.
 Production binary and cfg(test) worker hashes are distinct.
 
 Master CI publishes the tested ARM64 image to ECR without deployment.
-Production AWS/TLS and live AgentCore checks remain activation gates.
