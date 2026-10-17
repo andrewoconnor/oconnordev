@@ -1,0 +1,42 @@
+{
+  "contract": "Native AgentCore Lambda argument-map input; tool in client_context.custom.bedrockAgentCoreToolName, exact thundermail___ prefix",
+  "tools": [
+    {
+      "name": "imap_list_mailboxes",
+      "description": "List owner mailboxes, sorted lexicographically. Cursor is a JSON-encoded last mailbox name, not a snapshot. No account/host selector.",
+      "inputSchema": {
+        "type": "object", "additionalProperties": false,
+        "properties": {
+          "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
+          "cursor": {"type": ["string", "null"], "maxLength": 1024, "description": "Opaque next_cursor returned by previous result; validated before secret lookup"}
+        }
+      }
+    },
+    {
+      "name": "imap_search_messages",
+      "description": "Search EXAMINE-only mailbox using all or unseen. Returns mailbox/UIDVALIDITY/UID identifiers, newest UID first. Bounded transfer may fail closed on very large search results. Cursor has no cold-start memory dependency; not an immutable mailbox snapshot.",
+      "inputSchema": {
+        "type": "object", "additionalProperties": false, "required": ["mailbox"],
+        "properties": {
+          "mailbox": {"type": "string", "minLength": 1, "maxLength": 256, "description": "At most 256 UTF-8 bytes, no control characters"},
+          "query": {"type": "string", "enum": ["all", "unseen"], "default": "all"},
+          "limit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 20},
+          "cursor": {"type": ["string", "null"], "maxLength": 1024, "description": "Returned cursor binds mailbox/query/UIDVALIDITY/UID upper boundary; stale validity fails"}
+        }
+      }
+    },
+    {
+      "name": "imap_get_message",
+      "description": "Read a bounded raw source prefix with BODY.PEEK[] only. Does not MIME-decode or read attachments. raw_utf8 uses lossy UTF-8 decoding. PEEK rejection fails, never falls back to BODY[] or SELECT.",
+      "inputSchema": {
+        "type": "object", "additionalProperties": false, "required": ["mailbox", "uid", "uid_validity"],
+        "properties": {
+          "mailbox": {"type": "string", "minLength": 1, "maxLength": 256, "description": "At most 256 UTF-8 bytes, no control characters"},
+          "uid": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+          "uid_validity": {"type": "integer", "minimum": 1, "maximum": 4294967295},
+          "max_bytes": {"type": "integer", "minimum": 1, "maximum": 65536, "default": 16384, "description": "128 KiB final result ceiling includes duplicate structured/text output and JSON escaping; reduce if exceeded"}
+        }
+      }
+    }
+  ]
+}

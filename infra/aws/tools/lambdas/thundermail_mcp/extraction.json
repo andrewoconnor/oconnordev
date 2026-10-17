@@ -1,0 +1,31 @@
+{
+  "repository": "https://github.com/tecnologicachile/mail-mcp",
+  "pin": "da362f41fef8c0969b14b63e6bb5194b84e84549",
+  "source": "src/imap.rs",
+  "source_sha256": "612b4e64c032172c380d48359f7a30041717127b14558527f10d9ffc1bf20b4e",
+  "line_spans_inclusive": [
+    [
+      28,
+      76
+    ],
+    [
+      84,
+      86
+    ],
+    [
+      285,
+      322
+    ],
+    [
+      344,
+      385
+    ],
+    [
+      652,
+      668
+    ]
+  ],
+  "selected_original_lines": 149,
+  "adaptations": "Small support types replace full config/errors; ImapSession wraps upstream stream in Budget. TLS/password connection is separately adapted from original connect_authenticated; OAuth/config loaders/ID not retained. Original fetch_raw_message BODY[] fallback intentionally NOT extracted; caller uses only bounded BODY.PEEK[].",
+  "excluded": "SMTP, writes, Graph/EWS, OAuth, MIME/PDF, rmcp, HTTP, config loading, in-memory pagination"
+}

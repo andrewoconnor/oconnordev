@@ -60,6 +60,8 @@ class _ToolsListMixin:
                 if logical_name not in target.tools or client_name in seen:
                     continue
                 exposed = dict(tool)
+                if target.tool_schemas is not None:
+                    exposed.update(target.tool_schemas[logical_name])
                 exposed["name"] = client_name
                 # Strict MCP clients require an explicit object root. This is
                 # optional metadata: omit incompatible schemas, never rewrite
