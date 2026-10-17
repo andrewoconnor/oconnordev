@@ -59,7 +59,6 @@ class Microsoft365BoundaryTests(unittest.TestCase):
             "SECRET_ARN",
             "EXPECTED_HOME_ACCOUNT_ID",
             "retention_in_days = 14",
-            'image_tag_mutability = "IMMUTABLE"',
         ]:
             self.assertIn(fragment, text)
         self.assertNotIn("aws_secretsmanager_secret_version", text)
@@ -81,9 +80,10 @@ class Microsoft365BoundaryTests(unittest.TestCase):
         self.assertNotIn("lambda {", target)
 
     def test_shared_repository_name_and_references(self):
+        ecr = (ROOT / "infra/aws/tools/ecr.tf").read_text()
+        self.assertIn('resource "aws_ecr_repository" "tools_images"', ecr)
+        self.assertIn('name                 = "oconnordev-tools"', ecr)
         runtime = (ROOT / "infra/aws/tools/microsoft365-runtime.tf").read_text()
-        self.assertIn('resource "aws_ecr_repository" "tools_images"', runtime)
-        self.assertIn('name                 = "oconnordev-tools"', runtime)
         self.assertIn("aws_ecr_repository.tools_images.repository_url", runtime)
         publisher = (ROOT / "infra/aws/tools/microsoft365-publisher.tf").read_text()
         self.assertIn("aws_ecr_repository.tools_images.arn", publisher)

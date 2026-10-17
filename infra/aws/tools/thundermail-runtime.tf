@@ -59,7 +59,7 @@ resource "aws_lambda_function" "thundermail" {
       error_message = "Only the existing commercial AWS us-east-1 tools account is supported."
     }
   }
-  depends_on = [aws_iam_role_policy.thundermail_runtime, aws_ecr_repository_policy.microsoft365_lambda_pull]
+  depends_on = [aws_iam_role_policy.thundermail_runtime, aws_ecr_repository_policy.tools_images]
 }
 resource "aws_iam_role_policy" "thundermail_gateway_invoke" {
   name = "thundermail-native-invoke-only"

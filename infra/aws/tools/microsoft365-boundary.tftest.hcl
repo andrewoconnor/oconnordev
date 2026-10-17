@@ -143,11 +143,11 @@ run "microsoft365_disabled_for_bootstrap_or_rollback" {
   }
   assert {
     condition = (
-      length(jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement) == 1 &&
-      jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Principal.Service == "lambda.amazonaws.com" &&
-      jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Effect == "Allow" &&
-      toset(jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Action) == toset(["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]) &&
-      toset(jsondecode(aws_ecr_repository_policy.microsoft365_lambda_pull.policy).Statement[0].Condition.ArnLike["aws:SourceArn"]) == toset(["arn:aws:lambda:us-east-1:421680664125:function:hermes-microsoft365-mcp", "arn:aws:lambda:us-east-1:421680664125:function:hermes-thundermail-mcp"])
+      length(jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement) == 1 &&
+      jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Principal.Service == "lambda.amazonaws.com" &&
+      jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Effect == "Allow" &&
+      toset(jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Action) == toset(["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]) &&
+      toset(jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Condition.ArnLike["aws:SourceArn"]) == toset(["arn:aws:lambda:us-east-1:421680664125:function:hermes-microsoft365-mcp", "arn:aws:lambda:us-east-1:421680664125:function:hermes-thundermail-mcp"])
     )
     error_message = "Shared ECR must grant service pull to only the exact Microsoft365 and Thundermail functions."
   }

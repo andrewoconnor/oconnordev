@@ -39,34 +39,6 @@ locals {
   microsoft365_function_arn  = "arn:${data.aws_partition.current.partition}:lambda:us-east-1:${data.aws_caller_identity.current.account_id}:function:${local.microsoft365_function_name}"
 }
 
-# Bootstrap resources intentionally exist while runtime activation is false.
-# Shared tools images; tag prefixes are a naming convention, not IAM isolation.
-# No lifecycle cleanup: retained digests may be active/rollback images for any target.
-resource "aws_ecr_repository" "tools_images" {
-  # checkov:skip=CKV_AWS_136:AWS-managed ECR encryption avoids a new paid customer-managed KMS key for this low-duty personal workload.
-  name                 = "oconnordev-tools"
-  image_tag_mutability = "IMMUTABLE"
-  force_delete         = false
-  encryption_configuration { encryption_type = "AES256" }
-  image_scanning_configuration { scan_on_push = true }
-}
-
-# Shared repository does not imply shared invocation/pull authorization.
-# Explicitly review each future function SourceArn before extending this policy.
-resource "aws_ecr_repository_policy" "microsoft365_lambda_pull" {
-  repository = aws_ecr_repository.tools_images.name
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Sid       = "OnlyThisLambdaMayRetrieveImage"
-      Effect    = "Allow"
-      Principal = { Service = "lambda.amazonaws.com" }
-      Action    = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
-      Condition = { ArnLike = { "aws:SourceArn" = [local.microsoft365_function_arn, local.thundermail_function_arn] } }
-    }]
-  })
-}
-
 # Metadata only. No value, cache migration, token, consent or secret-version in IaC.
 resource "aws_secretsmanager_secret" "microsoft365_cache" {
   # checkov:skip=CKV_AWS_149:AWS-managed Secrets Manager key; runtime alone reads/writes the one cache ARN.
@@ -152,7 +124,7 @@ resource "aws_lambda_function" "microsoft365" {
       error_message = "This single-region runtime must be provisioned in us-east-1."
     }
   }
-  depends_on = [aws_iam_role_policy.microsoft365_runtime, aws_ecr_repository_policy.microsoft365_lambda_pull]
+  depends_on = [aws_iam_role_policy.microsoft365_runtime, aws_ecr_repository_policy.tools_images]
 }
 
 resource "aws_lambda_function_url" "microsoft365" {

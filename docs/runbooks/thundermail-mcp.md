@@ -46,9 +46,8 @@ and ENFORCE engine do not change.
 
 Use the shared `oconnordev-tools` ECR repository and existing ECR-only publisher.
 Its role permissions do not gain Lambda updates, PassRole, secrets or apply rights.
-Tag prefixes are collision conventions, not ECR IAM isolation. The existing
-Microsoft pull grant is byte-equivalent while disabled; enabled it adds only the
-exact Thundermail function ARN. No new repository, gateway, VPC, NAT or customer
+Tag prefixes are collision conventions, not ECR IAM isolation. The repository
+policy in `ecr.tf` lets only the exact tool function ARNs pull. No new repository, gateway, VPC, NAT or customer
 KMS key. A serialized 128 MiB ARM64 Lambda scales to zero with finite 14-day logs.
 Secret metadata, ECR storage/scanning, requests, execution, logs and the existing
 gateway can incur charges.
