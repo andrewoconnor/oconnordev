@@ -18,6 +18,9 @@ FROM public.ecr.aws/lambda/provided:al2023@sha256:7a99afa4f62c87e039c95dc3e2d307
 COPY --chmod=0755 --from=build /build/bootstrap /var/runtime/bootstrap
 COPY --chmod=0644 infra/aws/tools/lambdas/thundermail_mcp/LICENSE.upstream /usr/share/licenses/thundermail/LICENSE.upstream
 COPY --chmod=0644 infra/aws/tools/lambdas/thundermail_mcp/extraction.json /usr/share/licenses/thundermail/extraction.json
+# COPY's numeric chmod also creates missing destination parents with 0644.
+# Only this new notice directory needs traversal; AL2023 ancestors are 0755.
+RUN chmod 0755 /usr/share/licenses/thundermail
 # Local Docker defaults to non-root; world-readable/executable files also allow Lambda's assigned UID.
 USER 10001:10001
 ENTRYPOINT ["/var/runtime/bootstrap"]

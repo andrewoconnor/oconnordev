@@ -69,6 +69,56 @@ class ThundermailDeliveryTests(unittest.TestCase):
         self.assertIn('"10002:10002"', smoke)
         self.assertIn('"10001:10001"', smoke)
 
+    def test_notice_directory_is_traversable_with_actual_copy_parent_modes(self):
+        import os
+        import re
+        import subprocess
+        import tempfile
+
+        dockerfile = (
+            (ROOT / "infra/aws/tools/lambdas/thundermail_mcp/Dockerfile")
+            .read_text()
+            .rsplit("\nFROM ", 1)[1]
+        )
+        # The pinned AL2023 layers leave /usr/share/licenses at 0755 and have
+        # no thundermail directory. BuildKit fsutil/copy.Copy passes ci.Mode
+        # to MkdirAll for missing destination parents (including 0644).
+        # Source: moby/buildkit v0.24.0 vendor/.../fsutil/copy/copy.go, Copy.
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            licenses = root / "usr/share/licenses"
+            licenses.mkdir(parents=True, mode=0o755)
+            for line in dockerfile.splitlines():
+                if line.startswith("RUN chmod 0755 "):
+                    command = line.removeprefix("RUN ").split()
+                    command[-1] = str(root / command[-1].lstrip("/"))
+                    subprocess.run(command, check=True)
+                match = re.fullmatch(r"COPY --chmod=(0644) (\S+) (\S+)", line)
+                if match:
+                    mode, source, destination = match.groups()
+                    target = root / destination.lstrip("/")
+                    if not target.parent.exists():
+                        target.parent.mkdir(mode=int(mode, 8))
+                    # A root image builder can populate a non-searchable parent.
+                    # Temporarily allow the unprivileged fixture builder to do so.
+                    parent_mode = target.parent.stat().st_mode & 0o777
+                    target.parent.chmod(0o755)
+                    target.write_bytes((ROOT / source).read_bytes())
+                    target.chmod(int(mode, 8))
+                    target.parent.chmod(parent_mode)
+            directory = licenses / "thundermail"
+            try:
+                self.assertNotEqual(os.getuid(), 0, "run fixture as non-root")
+                self.assertTrue(
+                    os.access(directory, os.X_OK),
+                    "notice parent is not traversable: "
+                    f"{oct(directory.stat().st_mode & 0o777)}",
+                )
+                for name in ("LICENSE.upstream", "extraction.json"):
+                    self.assertTrue(os.access(directory / name, os.R_OK), name)
+            finally:
+                directory.chmod(0o755)
+
     def test_only_lambda_inapplicable_healthcheck_is_exempted(self):
         dockerfile = (
             ROOT / "infra/aws/tools/lambdas/thundermail_mcp/Dockerfile"
@@ -132,6 +182,61 @@ class ThundermailDeliveryTests(unittest.TestCase):
                     "/usr/share/licenses/thundermail/extraction.json",
                 ):
                     self.assertIn(path, call.args[0][-1])
+
+    def test_smoke_reports_each_inaccessible_path_in_nonroot_fixture(self):
+        import re
+        import subprocess
+        import tempfile
+        from unittest.mock import patch
+
+        smoke = self.smoke_helper()
+        with (
+            patch.object(
+                smoke.subprocess, "check_output", return_value="10001:10001\n"
+            ),
+            patch.object(smoke.subprocess, "run") as run,
+        ):
+            smoke.check_image_permissions("fixture")
+            script = run.call_args_list[0].args[0][-1]
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            bootstrap = root / "var/runtime/bootstrap"
+            bootstrap.parent.mkdir(parents=True)
+            bootstrap.write_text("fixture executable; not a production binary")
+            bootstrap.chmod(0o755)
+            notices = root / "usr/share/licenses/thundermail"
+            notices.mkdir(parents=True)
+            for name in ("LICENSE.upstream", "extraction.json"):
+                (notices / name).write_text("fixture notice")
+                (notices / name).chmod(0o644)
+            script = re.sub(
+                r"/(?:var|usr)(?:[A-Za-z0-9_./-]*)",
+                lambda match: str(root) + match[0],
+                script,
+            )
+            notices.chmod(0o644)
+            try:
+                result = subprocess.run(
+                    ["/bin/sh", "-c", script], capture_output=True, text=True
+                )
+                self.assertEqual(result.returncode, 1)
+                for path in (
+                    notices,
+                    notices / "LICENSE.upstream",
+                    notices / "extraction.json",
+                ):
+                    self.assertIn(
+                        f"FAIL -x {path}" if path == notices else f"FAIL -r {path}",
+                        result.stderr,
+                    )
+                self.assertIn(f"PASS -x {bootstrap}", result.stdout)
+            finally:
+                notices.chmod(0o755)
+            result = subprocess.run(
+                ["/bin/sh", "-c", script], capture_output=True, text=True
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("FAIL", result.stderr)
 
     def test_smoke_does_not_ignore_permission_failures(self):
         import subprocess

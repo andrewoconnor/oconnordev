@@ -19,6 +19,39 @@ CASES = [
 ]
 
 
+PERMISSION_CHECK = """\
+failed=0
+uid=$(id -u) || exit 1
+if test "$uid" != 0; then
+    printf 'PASS nonroot uid=%s\\n' "$uid"
+else
+    printf 'FAIL nonroot uid=%s\\n' "$uid" >&2
+    failed=1
+fi
+check_access() {
+    if test "$1" "$2"; then
+        printf 'PASS %s %s\\n' "$1" "$2"
+    else
+        printf 'FAIL %s %s\\n' "$1" "$2" >&2
+        ls -ld "$2" >&2
+        failed=1
+    fi
+}
+# Named paths and mode metadata only: never print notice or runtime contents.
+check_access -x /
+check_access -x /var
+check_access -x /var/runtime
+check_access -x /usr
+check_access -x /usr/share
+check_access -x /usr/share/licenses
+check_access -x /usr/share/licenses/thundermail
+check_access -x /var/runtime/bootstrap
+check_access -r /usr/share/licenses/thundermail/LICENSE.upstream
+check_access -r /usr/share/licenses/thundermail/extraction.json
+exit "$failed"
+"""
+
+
 def check_image_permissions(image):
     user = subprocess.check_output(
         ["docker", "image", "inspect", "--format", "{{.Config.User}}", image],
@@ -41,10 +74,7 @@ def check_image_permissions(image):
                 "/bin/sh",
                 image,
                 "-c",
-                'test "$(id -u)" != 0 '
-                "&& test -x /var/runtime/bootstrap "
-                "&& test -r /usr/share/licenses/thundermail/LICENSE.upstream "
-                "&& test -r /usr/share/licenses/thundermail/extraction.json",
+                PERMISSION_CHECK,
             ],
             check=True,
             timeout=15,
