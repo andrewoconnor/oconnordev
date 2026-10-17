@@ -1,6 +1,6 @@
 locals {
   thundermail_manifest      = jsondecode(file("${local.adapter_root}/thundermail-mcp-tools.json"))
-  thundermail_tools         = toset(["imap_list_mailboxes", "imap_search_messages", "imap_get_message"])
+  thundermail_tools         = toset(["imap_list_mailboxes", "imap_search_messages", "imap_get_message", "caldav_list_events"])
   thundermail_action_prefix = "thundermail___"
 }
 resource "terraform_data" "thundermail_catalog" {
@@ -51,8 +51,8 @@ resource "aws_bedrockagentcore_gateway_target" "thundermail" {
   lifecycle {
     replace_triggered_by = [terraform_data.thundermail_catalog]
     precondition {
-      condition     = toset(local.thundermail_manifest.tools) == local.thundermail_tools && length(local.thundermail_manifest.tools) == 3 && local.thundermail_manifest.gateway_action_prefix == local.thundermail_action_prefix && local.thundermail_manifest.client_tool_prefix == "thundermail-" && toset([for t in local.thundermail_manifest.toolSchemas : t.name]) == local.thundermail_tools && length(local.thundermail_manifest.toolSchemas) == 3 && alltrue([for t in local.thundermail_manifest.toolSchemas : t.inputSchema.additionalProperties == false])
-      error_message = "Only the three exact strict native read tools with owned namespaces are supported."
+      condition     = toset(local.thundermail_manifest.tools) == local.thundermail_tools && length(local.thundermail_manifest.tools) == length(local.thundermail_tools) && local.thundermail_manifest.gateway_action_prefix == local.thundermail_action_prefix && local.thundermail_manifest.client_tool_prefix == "thundermail-" && toset([for t in local.thundermail_manifest.toolSchemas : t.name]) == local.thundermail_tools && length(local.thundermail_manifest.toolSchemas) == length(local.thundermail_tools) && alltrue([for t in local.thundermail_manifest.toolSchemas : t.inputSchema.additionalProperties == false])
+      error_message = "Only the exact strict native read tools with owned namespaces are supported."
     }
     precondition {
       condition     = local.thundermail_manifest.toolSchemas == jsondecode(file("${path.module}/lambdas/thundermail_mcp/tool-schemas.json")).tools

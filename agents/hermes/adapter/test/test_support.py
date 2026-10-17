@@ -54,6 +54,7 @@ THUNDERMAIL_TOOLS = {
     "thundermail-imap_list_mailboxes",
     "thundermail-imap_search_messages",
     "thundermail-imap_get_message",
+    "thundermail-caldav_list_events",
 }
 EXPECTED_TOOLS = (
     GITHUB_TOOLS | AWS_TOOLS | SPACELIFT_TOOLS | MICROSOFT365_TOOLS | THUNDERMAIL_TOOLS

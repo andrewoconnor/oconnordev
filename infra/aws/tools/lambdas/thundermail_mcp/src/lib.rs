@@ -32,6 +32,14 @@ struct Get {
     #[serde(default = "default_bytes")]
     max_bytes: usize,
 }
+#[derive(serde::Deserialize, Debug)]
+#[serde(deny_unknown_fields)]
+struct Events {
+    start: String,
+    end: String,
+    #[serde(default = "default_event_limit")]
+    limit: usize,
+}
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 #[serde(deny_unknown_fields)]
 struct Cursor {
@@ -45,9 +53,13 @@ enum Request {
     List(List),
     Search(Search, Option<Cursor>),
     Get(Get),
+    Events(caldav::Range),
 }
 fn default_limit() -> usize {
     20
+}
+fn default_event_limit() -> usize {
+    50
 }
 fn default_bytes() -> usize {
     16384
@@ -110,6 +122,20 @@ fn parse(tool: &str, v: Value) -> Result<Request> {
             }
             Ok(Request::Get(x))
         }
+        "thundermail___caldav_list_events" => {
+            let x: Events = serde_json::from_value(v).map_err(|_| bad())?;
+            let (Some(start), Some(end)) = (caldav::utc(&x.start), caldav::utc(&x.end)) else {
+                return Err(bad());
+            };
+            if start >= end || !(1..=100).contains(&x.limit) {
+                return Err(bad());
+            }
+            Ok(Request::Events(caldav::Range {
+                start,
+                end,
+                limit: x.limit,
+            }))
+        }
         _ => Err("Unknown tool".into()),
     }
 }
@@ -160,10 +186,15 @@ async fn invoke<S: SecretStore>(event: LambdaEvent<Value>, store: &S, endpoint: 
     )
 }
 mod budget;
+mod caldav;
 mod connect;
 mod upstream_imap;
 async fn run(request: Request, password: String, endpoint: Endpoint) -> Result<Value> {
     use upstream_imap as imap;
+    let request = match request {
+        Request::Events(range) => return caldav::events(endpoint, &password, &range).await,
+        other => other,
+    };
     let mut session = connect::connect(endpoint, password).await?;
     let config = imap::ServerConfig {
         socket_timeout_ms: 3000,
@@ -247,6 +278,7 @@ async fn run(request: Request, password: String, endpoint: Endpoint) -> Result<V
                 .collect();
             Ok(json!({"messages":messages,"next_cursor":cursor}))
         }
+        Request::Events(_) => unreachable!("CalDAV requests return before IMAP"),
         Request::Get(x) => {
             let validity = imap::select_mailbox_readonly(&config, &mut session, &x.mailbox)
                 .await
@@ -321,6 +353,23 @@ mod tests {
                 json!({"mailbox":"INBOX","uid":1,"uid_validity":7,"host":"evil"}),
             ),
             ("thundermail___imap_list_mailboxes", json!([])),
+            ("thundermail___caldav_list_events", json!({})),
+            (
+                "thundermail___caldav_list_events",
+                json!({"start":"2026-10-17T00:00:00Z","end":"2026-10-17T00:00:00Z"}),
+            ),
+            (
+                "thundermail___caldav_list_events",
+                json!({"start":"2026-10-17T00:00:00+01:00","end":"2026-10-18T00:00:00Z"}),
+            ),
+            (
+                "thundermail___caldav_list_events",
+                json!({"start":"2026-10-17T00:00:00Z","end":"2026-10-18T00:00:00Z","limit":101}),
+            ),
+            (
+                "thundermail___caldav_list_events",
+                json!({"start":"2026-10-17T00:00:00Z","end":"2026-10-18T00:00:00Z","calendar":"x"}),
+            ),
         ] {
             assert_eq!(handle(event(tool, args), &store).await["isError"], true);
         }

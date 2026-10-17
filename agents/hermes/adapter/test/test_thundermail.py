@@ -9,7 +9,12 @@ import adapter_config
 from .test_support import EXPECTED_TOOLS, FakeTransport, make_forwarder, rpc
 
 ROOT = Path(__file__).resolve().parents[4]
-RAW = {"imap_list_mailboxes", "imap_search_messages", "imap_get_message"}
+RAW = {
+    "imap_list_mailboxes",
+    "imap_search_messages",
+    "imap_get_message",
+    "caldav_list_events",
+}
 CLIENT = {"thundermail-" + name for name in RAW}
 
 
