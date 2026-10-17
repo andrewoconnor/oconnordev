@@ -15,23 +15,21 @@ entrypoints remain separately under `scripts/bootstrap/microsoft365/` and import
 its envelope validator. The tools project root already covers both packages, so
 no additional external-source Spacelift glob is required for them. Build context and owner helper remain separate from runtime activation.
 
-## Thundermail native Lambda (dormant draft)
+## Thundermail native Lambda
 
-`thundermail-runtime.tf` and `target-thundermail.tf` define a default-disabled
+`thundermail-runtime.tf` and `target-thundermail.tf` define an
 ARM64 Rust native Lambda alongside, not replacing, Microsoft365. The existing
 Cognito gateway invokes its exact ARN directly using `mcp.lambda` and inline
-schemas, with three gated Cedar read permits. No Function URL/HTTP/LWA or Node.
-The runtime alone may read one same-account us-east-1 app-password secret;
-separately default-disabled paid metadata bootstrap never writes a value.
+schemas, with three Cedar read permits. No Function URL/HTTP/LWA or Node.
+The runtime alone may read the app-password secret. Terraform manages the secret
+metadata, never the value.
 Adapter opt-in uses `HERMES_AGENTCORE_THUNDERMAIL_ENABLED`, exposes `thundermail-`
 names, and forwards exact underscore raw tools under `thundermail___`.
 
 `infra/aws/tools/lambdas/thundermail_mcp/` builds a pinned provided.al2023 bootstrap container for
-the existing shared ECR repository. Publication and activation are source-blocked pending
-independent ARM64 production-provider/read review; the existing ECR-only publisher
-has no new permissions. Outlook Graph, Gmail readonly and local CalDAV remain
-unchanged. See [activation gates and offline tests](../runbooks/thundermail-mcp.md).
-This is source configuration, not a claim of live deployment or mailbox access.
+the existing shared ECR repository. Master CI publishes the image with the existing
+ECR-only publisher. `thundermail_runtime_enabled` deploys it. Outlook Graph, Gmail readonly and local CalDAV remain
+unchanged. See [the runbook](../runbooks/thundermail-mcp.md).
 
 ## Google Auth ownership
 

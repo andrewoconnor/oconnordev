@@ -1,4 +1,4 @@
-# Thundermail native Rust MCP — dormant delivery draft
+# Thundermail native Rust MCP
 
 ## Scope and contract
 
@@ -31,27 +31,20 @@ owned full strict `toolSchemas` in `thundermail-mcp-tools.json`; an offline test
 requires exact equality with the runtime schema and parses discovery using the
 real MCP SDK. This is not a claim of live gateway schema fidelity or response wrapping.
 
-## Default-off boundaries and cost
+## Secret, runtime and cost
 
-Both `thundermail_secret_bootstrap_enabled` and `thundermail_runtime_enabled`
-default **false**. Default plans create zero Thundermail resources. Secret bootstrap
-is an independent, explicitly paid opt-in: metadata at exactly
-`/hermes/thundermail/app-password`, 30-day recovery, **no secret version/value**.
-The owner provisions/rotates a **fresh dedicated app password** separately; do not
-copy a local Himalaya/mail credential. SecretString must be the strict versioned
-object with `version: 1` and `password` (no other keys). Never pass the value into
-Terraform, a build, a workflow, a chat or a command recorded in this repository.
+Terraform manages the secret metadata at `/hermes/thundermail/app-password`
+with 30-day recovery. Terraform never manages the secret value. The owner stores a
+dedicated app password as `{"version": 1, "password": "..."}` with no other keys.
+Do not copy a local Himalaya credential. Never pass the value into Terraform, a
+build, a workflow or a chat.
 
-Activation is source-blocked even under an enabled runtime flag. The dormant
-resource definition additionally requires an immutable tested ECR manifest digest
-plus exactly one secret
-source: newly managed metadata, or an exact existing same-account us-east-1 ARN.
-Runtime alone gets `GetSecretValue` on that ARN, no write/list privileges. Gateway
-gets only `InvokeFunction` on the exact function ARN, never secret reads or URL
-access. Role, logs, function, grants, catalog replacement, target and three exact
-Cedar read permits share the runtime gate. Existing OAuth principal/scope and
-ENFORCE engine remain unchanged. Disabling removes the Thundermail target and
-permits together; it does not remove unrelated tools.
+`thundermail_runtime_enabled` defaults to false. When true, it needs
+`thundermail_image_digest`, an ECR manifest digest from the publisher. The runtime
+gets only `GetSecretValue` on the secret. The gateway gets only `InvokeFunction` on
+the function ARN. The role, logs, function, grants, catalog, target and three Cedar
+read permits share the runtime flag. The OAuth principal, scope and ENFORCE engine
+do not change. Disabling removes the target and permits; other tools do not change.
 
 Use the shared `oconnordev-tools` ECR repository and existing ECR-only publisher.
 Its role permissions do not gain Lambda updates, PassRole, secrets or apply rights.
@@ -60,7 +53,7 @@ Microsoft pull grant is byte-equivalent while disabled; enabled it adds only the
 exact Thundermail function ARN. No new repository, gateway, VPC, NAT or customer
 KMS key. A serialized 128 MiB ARM64 Lambda scales to zero with finite 14-day logs.
 Secret metadata, ECR storage/scanning, requests, execution, logs and the existing
-gateway can incur charges; metadata opt-in is **not free**, even without mail calls.
+gateway can incur charges.
 No dollar estimate is asserted. Runtime memory/timeout still need ARM64 measurement.
 
 ## Build and offline verification
@@ -100,7 +93,7 @@ The lock pins rustls 0.23.46, including the current rustls advisory fixes, and
 [GHSA-8ffr-xgwf-xj56](https://github.com/smithy-lang/smithy-rs/security/advisories/GHSA-8ffr-xgwf-xj56).
 That release requires Rust 1.91.1, which mise pins.
 
-## Publication and activation approval gates
+## Publication
 
 A master run publishes the saved tested image to ECR after the ARM64 check job
 passes. Before OIDC, the publisher verifies the archive hash and image ID and
@@ -108,35 +101,17 @@ confirms that fresh master has the same image inputs. It never rebuilds. After t
 push, it reads back the ECR digest and compares it to the push output. Publication
 does not update Lambda or apply IaC.
 
-Activation is source-blocked by the constant
-`local.thundermail_activation_ready = false` lifecycle precondition: setting
-`thundermail_runtime_enabled=true` rejects every digest, including syntactically
-valid arbitrary digests. Opening the gate requires a separate reviewed source
-change, not a portal setting or Terraform input. Independent metadata-only
-bootstrap plans remain valid.
+Offline tests plan the default and enabled configurations with mocked providers.
+Schema-free Cedar evaluation checks scoped policy decisions only.
 
-Offline tests assert readiness rejection against production source. OpenTofu omits
-failed-precondition resources/dependents, so full enabled-resource/IAM assertions
-also run in an isolated test-only source fixture that overrides the local while
-retaining all lifecycle preconditions. This is not a production input or deployment
-path. Schema-free Cedar evaluation checks scoped policy decisions only; live
-AgentCore policy/schema validation remains an explicit activation proof gate.
+## Activation
 
-Before owner activation:
-1. Require independent native ARM64 successful reads with production AWS provider,
-   plus TLS and chosen memory/deadline evidence; review dependency/license/security.
-2. Review live AgentCore native response wrapping and all three SDK-discovered tools;
-   host synthetic CallToolResult proof alone is insufficient.
-3. Owner provision app-password out of band, then review an exact same-account ARN
-   and published **manifest** digest. Never use the test fixture's `aaaa…` digest.
-4. Review a real owner-authorized plan; keep existing Outlook/Gmail/CalDAV resources
-   unchanged. No real-mail canary or apply is authorized by this draft.
-5. Only after the separately reviewed source change and approval, enable runtime;
-   verify exact target/catalog/Cedar and then,
-   separately, set `HERMES_AGENTCORE_THUNDERMAIL_ENABLED=true` in the intended adapter.
-   Shipping this source never changes an active adapter.
+1. Set `thundermail_runtime_enabled=true` and `thundermail_image_digest` in the
+   Spacelift stack `oconnordev-tools`.
+2. Review the plan. Outlook, Gmail and CalDAV resources must not change. Apply.
+3. Call the three tools through the gateway with real mail.
+4. Set `HERMES_AGENTCORE_THUNDERMAIL_ENABLED=true` in the adapter.
 
-Rollback: set the adapter flag false and owner-review runtime disable together with
-catalog/policy removal. Keep managed secret metadata disabled separately only when
-its removal/recovery is intended. Keep immutable image digest for investigation or
+Rollback: set the adapter flag false, then set `thundermail_runtime_enabled=false`
+and apply. Keep the immutable image digest for investigation or
 rollback; do not add a shared ECR lifecycle rule that could delete sibling images.

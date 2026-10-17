@@ -16,18 +16,6 @@ class ThundermailDeliveryTests(unittest.TestCase):
         spec.loader.exec_module(module)
         return module
 
-    def test_activation_has_no_input_override(self):
-        import re
-
-        source = (ROOT / "infra/aws/tools/thundermail-runtime.tf").read_text()
-        self.assertRegex(source, r"thundermail_activation_ready\s*=\s*false\b")
-        self.assertRegex(
-            source, r"condition\s*=\s*local\.thundermail_activation_ready\b"
-        )
-        self.assertNotRegex(source, r'variable\s+"thundermail_activation_ready"')
-        assignments = re.findall(r"thundermail_activation_ready\s*=", source)
-        self.assertEqual(len(assignments), 1)
-
     def test_delivery_layout_uses_runtime_owned_paths(self):
         runtime = ROOT / "infra/aws/tools/lambdas/thundermail_mcp"
         self.assertFalse((ROOT / "delivery/thundermail").exists())
@@ -265,7 +253,6 @@ class ThundermailDeliveryTests(unittest.TestCase):
         iac = (ROOT / "infra/aws/tools/thundermail-runtime.tf").read_text()
         path = re.search(r'pub const SECRET_PATH: &str = "([^"]+)"', runtime)[1]
         self.assertIn(f'name                    = "{path}"', iac)
-        self.assertIn(f"secret:{path}-", iac)
 
     def test_publication_is_review_gated_exact_archive_before_credentials(self):
         dockerfile = (

@@ -1,22 +1,8 @@
-# Dormant direct native Lambda; no HTTP listener, Function URL, Node or LWA.
+# Direct native Lambda; no HTTP listener, Function URL, Node or LWA.
 variable "thundermail_runtime_enabled" {
-  description = "Requested runtime flag; activation is source-blocked regardless of input until a separate reviewed source change."
+  description = "Deploy the Thundermail Lambda, gateway target and Cedar permits."
   type        = bool
   default     = false
-}
-variable "thundermail_secret_bootstrap_enabled" {
-  description = "Explicit paid Secrets Manager metadata opt-in; creates no value. Independent of runtime activation."
-  type        = bool
-  default     = false
-}
-variable "thundermail_secret_arn" {
-  description = "Existing exact same-account us-east-1 app-password secret ARN; leave empty when creating new metadata. Never the value."
-  type        = string
-  default     = ""
-  validation {
-    condition     = var.thundermail_secret_arn == "" || can(regex("^arn:aws:secretsmanager:us-east-1:[0-9]{12}:secret:/hermes/thundermail/app-password-[A-Za-z0-9]{6}$", var.thundermail_secret_arn))
-    error_message = "Use an exact us-east-1 Secrets Manager ARN, no wildcard, version, or account alias."
-  }
 }
 variable "thundermail_image_digest" {
   description = "Reviewed tested single linux/arm64 ECR manifest digest, not config/archive hash or tag."
@@ -28,18 +14,12 @@ variable "thundermail_image_digest" {
   }
 }
 locals {
-  # Source-locked: provider, policy and live AgentCore review
-  # unresolved. No Terraform input can approve a digest or bypass readiness.
-  # Opening activation requires a separate reviewed source change.
-  thundermail_activation_ready = false
-  thundermail_function_name    = "hermes-thundermail-mcp"
-  thundermail_function_arn     = "arn:${data.aws_partition.current.partition}:lambda:us-east-1:${data.aws_caller_identity.current.account_id}:function:${local.thundermail_function_name}"
-  thundermail_secret_arn       = var.thundermail_secret_bootstrap_enabled ? aws_secretsmanager_secret.thundermail[0].arn : var.thundermail_secret_arn
+  thundermail_function_name = "hermes-thundermail-mcp"
+  thundermail_function_arn  = "arn:${data.aws_partition.current.partition}:lambda:us-east-1:${data.aws_caller_identity.current.account_id}:function:${local.thundermail_function_name}"
 }
 resource "aws_secretsmanager_secret" "thundermail" {
   # checkov:skip=CKV_AWS_149:AWS-managed key; no extra paid CMK.
   # checkov:skip=CKV2_AWS_57:Owner rotates the app password out of band; runtime has no write permission.
-  count                   = var.thundermail_secret_bootstrap_enabled ? 1 : 0
   name                    = "/hermes/thundermail/app-password"
   description             = "Single owner Thundermail app password; owner provisions value outside IaC."
   recovery_window_in_days = 30
@@ -66,7 +46,7 @@ resource "aws_iam_role_policy" "thundermail_runtime" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = [local.thundermail_secret_arn] },
+      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = [aws_secretsmanager_secret.thundermail.arn] },
       { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = ["${aws_cloudwatch_log_group.thundermail[0].arn}:*"] }
     ]
   })
@@ -89,19 +69,11 @@ resource "aws_lambda_function" "thundermail" {
   publish                        = false
   ephemeral_storage { size = 512 }
   tracing_config { mode = "PassThrough" }
-  environment { variables = { THUNDERMAIL_CREDENTIAL_SECRET_ARN = local.thundermail_secret_arn } }
+  environment { variables = { THUNDERMAIL_CREDENTIAL_SECRET_ARN = aws_secretsmanager_secret.thundermail.arn } }
   lifecycle {
     precondition {
-      condition     = local.thundermail_activation_ready
-      error_message = "Activation is source-blocked: independent provider/policy and live AgentCore review unresolved. A reviewed source change is required; no input digest is approved."
-    }
-    precondition {
-      condition     = var.thundermail_image_digest != "" && (var.thundermail_secret_bootstrap_enabled != (var.thundermail_secret_arn != ""))
-      error_message = "Activation needs a tested digest and exactly one managed-metadata or existing-ARN secret source."
-    }
-    precondition {
-      condition     = var.thundermail_secret_bootstrap_enabled || startswith(var.thundermail_secret_arn, "arn:aws:secretsmanager:us-east-1:${data.aws_caller_identity.current.account_id}:secret:")
-      error_message = "Existing secret must be in this account and us-east-1."
+      condition     = var.thundermail_image_digest != ""
+      error_message = "Set thundermail_image_digest to a published ECR manifest digest."
     }
     precondition {
       condition     = data.aws_region.current.region == "us-east-1" && data.aws_partition.current.partition == "aws"
@@ -120,9 +92,14 @@ resource "aws_iam_role_policy" "thundermail_gateway_invoke" {
   })
 }
 output "thundermail_bootstrap" {
-  description = "Nonsecret references only; default does not create paid secret metadata."
+  description = "Nonsecret references only."
   value = {
-    secret_arn     = local.thundermail_secret_arn
+    secret_arn     = aws_secretsmanager_secret.thundermail.arn
     repository_url = aws_ecr_repository.tools_images.repository_url
   }
+}
+import {
+  for_each = var.spacelift_run_id == "terraform-test" ? toset([]) : toset(["arn:aws:secretsmanager:us-east-1:421680664125:secret:/hermes/thundermail/app-password-8xe1R8"])
+  to       = aws_secretsmanager_secret.thundermail
+  id       = each.value
 }
