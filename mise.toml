@@ -3,6 +3,7 @@ rust = { version = "1.91.1", profile = "minimal", components = ["rustfmt", "clip
 opentofu = "1.13.1"
 tflint = "0.64.0"
 actionlint = "1.7.12"
+shellcheck = "0.11.0"
 python = "3.13.16"
 ruff = "0.16.10"
 biome = "2.5.15"
@@ -19,7 +20,8 @@ description = "Check OpenTofu formatting across all roots"
 run = "tofu fmt -check -recursive"
 
 [tasks.lint]
-description = "Initialize TFLint plugins and lint every OpenTofu root"
+description = "Lint every OpenTofu root with TFLint and every workflow with actionlint"
+depends = ["workflow-lint"]
 run = ['tflint --init --config="$PWD/.tflint.hcl"', 'tflint -f compact --recursive --config="$PWD/.tflint.hcl"']
 
 [tasks.validate]

@@ -102,4 +102,4 @@ jobs:
           PUSH_DIGEST=$(docker push "$IMAGE_REPOSITORY:$IMAGE_TAG" | sed -n 's/.*digest: \(sha256:[0-9a-f]\{64\}\).*/\1/p' | tail -1)
           DIGEST=$(aws ecr describe-images --region us-east-1 --repository-name oconnordev-tools --image-ids "imageTag=$IMAGE_TAG" --query 'imageDetails[0].imageDigest' --output text)
           test "$DIGEST" = "$PUSH_DIGEST"
-          printf 'Published image (not deployed): `%s`\n' "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
+          printf 'Published image (not deployed): %s\n' "$DIGEST" >> "$GITHUB_STEP_SUMMARY"
