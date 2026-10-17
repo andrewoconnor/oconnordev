@@ -9,3 +9,8 @@
 
 - Do not add comments. Put the rationale in the PR description or in `docs/`.
 - Exception: a directive that a tool needs, such as `# checkov:skip=...`.
+
+## Docs
+
+- Describe only the current system. Do not describe old systems or past changes.
+- Do not write open tasks, pending reviews, or blockers in docs.
