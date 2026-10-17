@@ -24,9 +24,10 @@ requires them to equal `tool-schemas.json`.
 ## Secret and permissions
 
 Terraform manages the secret metadata at `/hermes/thundermail/app-password`, not
-the value. Store a dedicated app password as
-`{"version": 1, "password": "..."}` with no other keys. Never put the value into
-Terraform, a build, a workflow or a chat.
+the value. Store only the dedicated app password as the plaintext `SecretString`:
+1–4096 bytes with no control characters. The runtime uses it unchanged; do not
+add JSON, quotes or a trailing newline. Never put the value into Terraform, a
+build, a workflow or a chat.
 
 The runtime role can only read that secret and write its own logs. The gateway
 can only invoke the function. The 128 MiB arm64 Lambda has reserved concurrency 1

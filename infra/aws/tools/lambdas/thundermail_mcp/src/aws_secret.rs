@@ -38,27 +38,13 @@ impl SecretStore for AwsSecretStore {
             return Err("SecretStoreGet unavailable".into());
         }
         let secret = output.secret_string().ok_or("SecretStoreGet unavailable")?;
-        if secret.len() > 16384 {
+        if secret.is_empty() || secret.len() > 4096 || secret.chars().any(char::is_control) {
             return Err("SecretStoreGet unavailable".into());
         }
-        let envelope: Envelope =
-            serde_json::from_str(secret).map_err(|_| "SecretStoreGet unavailable".to_string())?;
-        if envelope.version != 1
-            || envelope.password.is_empty()
-            || envelope.password.len() > 4096
-            || envelope.password.chars().any(char::is_control)
-        {
-            return Err("SecretStoreGet unavailable".into());
-        }
-        Ok(envelope.password)
+        Ok(secret.to_owned())
     }
 }
-#[derive(serde::Deserialize)]
-#[serde(deny_unknown_fields)]
-struct Envelope {
-    version: u8,
-    password: String,
-}
+
 /// Fixed owner credential path; IAM must additionally grant only this complete ARN.
 pub const SECRET_PATH: &str = "/hermes/thundermail/app-password";
 fn validate_arn<'a>(secret: &str, function: &'a str) -> Result<&'a str> {
@@ -178,9 +164,7 @@ pub(crate) mod tests {
         AwsSecretStore,
         aws_smithy_http_client::test_util::CaptureRequestReceiver,
     ) {
-        mock(
-            serde_json::json!({"ARN":ARN,"SecretString":r#"{"version":1,"password":"synthetic-only"}"#}),
-        )
+        mock(serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only"}))
     }
     pub(crate) fn assert_get(rx: aws_smithy_http_client::test_util::CaptureRequestReceiver) {
         let request = rx.expect_request();
@@ -277,26 +261,22 @@ pub(crate) mod tests {
         }
     }
     #[tokio::test]
-    async fn sdk_rejects_invalid_envelopes_without_echoing_values() {
+    async fn sdk_rejects_invalid_passwords_without_echoing_values() {
         for secret in [
-            r#"{"version":2,"password":"synthetic-only"}"#.into(),
-            r#"{"version":1,"password":"synthetic-only","host":"evil"}"#.into(),
-            r#"{"version":1,"password":""}"#.into(),
-            serde_json::json!({"version":1,"password":"synthetic\nonly"}).to_string(),
-            serde_json::json!({"version":1,"password":"x".repeat(4097)}).to_string(),
-            format!("{}{}", " ".repeat(16384), r#"{"version":1,"password":"x"}"#),
-            r#"{"version":1,"version":1,"password":"synthetic-only"}"#.into(),
-            r#"{"password":"synthetic-only"}"#.into(),
-            "not JSON synthetic-only".into(),
+            String::new(),
+            "synthetic\nonly".into(),
+            "synthetic\ronly".into(),
+            "synthetic\0only".into(),
+            "x".repeat(4097),
         ] {
             let (store, _) = mock(serde_json::json!({"ARN":ARN,"SecretString":secret}));
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
         }
         for body in [
             serde_json::json!({"ARN":ARN,"SecretBinary":"c3ludGhldGlj"}),
-            serde_json::json!({"ARN":"other","SecretString":r#"{"version":1,"password":"synthetic-only"}"#}),
-            serde_json::json!({"SecretString":r#"{"version":1,"password":"synthetic-only"}"#}),
-            serde_json::json!({"ARN":ARN,"SecretString":r#"{"version":1,"password":"synthetic-only"}"#,"SecretBinary":"eA=="}),
+            serde_json::json!({"ARN":"other","SecretString":"synthetic-only"}),
+            serde_json::json!({"SecretString":"synthetic-only"}),
+            serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only","SecretBinary":"eA=="}),
         ] {
             let (store, _) = mock(body);
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
@@ -314,9 +294,8 @@ pub(crate) mod tests {
             format!("{ARN}:extra"),
             String::new(),
         ] {
-            let (mut store, rx) = mock(
-                serde_json::json!({"ARN":ARN,"SecretString":r#"{"version":1,"password":"synthetic-only"}"#}),
-            );
+            let (mut store, rx) =
+                mock(serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only"}));
             store.secret_arn = arn;
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
             rx.expect_no_request();
@@ -326,9 +305,8 @@ pub(crate) mod tests {
             "arn:aws:lambda:us-east-1:123:function:x",
             "arn:aws:lambda:us-east-1:123456789012:function:",
         ] {
-            let (mut store, rx) = mock(
-                serde_json::json!({"ARN":ARN,"SecretString":r#"{"version":1,"password":"synthetic-only"}"#}),
-            );
+            let (mut store, rx) =
+                mock(serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only"}));
             store.function_arn = function.into();
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
             rx.expect_no_request();
@@ -362,7 +340,19 @@ pub(crate) mod tests {
         assert_eq!(http.num_calls(), 1);
     }
     #[tokio::test]
-    async fn sdk_get_uses_exact_arn_and_versioned_password_envelope() {
+    async fn sdk_get_accepts_plaintext_password_without_modification() {
+        for password in [
+            "synthetic-only",
+            " leading and trailing ",
+            r#"{"literal":"text"}"#,
+        ] {
+            let (store, rx) = mock(serde_json::json!({"ARN":ARN,"SecretString":password}));
+            assert_eq!(store.get().await.unwrap(), password);
+            assert_get(rx);
+        }
+    }
+    #[tokio::test]
+    async fn sdk_get_uses_exact_arn_and_current_password() {
         let (store, rx) = synthetic();
         assert_eq!(store.get().await.unwrap(), "synthetic-only");
         assert_get(rx);
