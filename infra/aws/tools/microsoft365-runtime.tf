@@ -1,5 +1,5 @@
 locals {
-  microsoft365_image_digest          = "sha256:c70a21d96fb7395455a638f76166c94180b28a79dd4819dc9c55f3a3d89998f1"
+  microsoft365_image_digest          = "sha256:46b45e6a4f9ef010144cc3f16bc7ad58e99a5a4d1ab157a8c0c5b130f076aac0"
   microsoft365_client_id             = "084a3e9f-a9f4-43f7-89f9-d229cf97853e"
   microsoft365_owner_home_account_id = "00000000-0000-0000-592d-43aab53672fd.9188040d-6c67-4c5b-b112-36a304b66dad"
   microsoft365_function_name         = "hermes-microsoft365-mcp"
