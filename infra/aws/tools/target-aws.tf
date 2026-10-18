@@ -12,6 +12,7 @@ locals {
   hermes_gateway_readable_secret_arns = [
     aws_secretsmanager_secret.github_machine_user_pat.arn,
     aws_secretsmanager_secret.spacelift_session_token.arn,
+    data.aws_secretsmanager_secret.google_oauth_client.arn,
   ]
 }
 

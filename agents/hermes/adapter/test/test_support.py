@@ -56,11 +56,21 @@ THUNDERMAIL_TOOLS = {
     "thundermail-imap_get_message",
     "thundermail-caldav_list_events",
 }
+GMAIL_TOOLS = {"gmail-getMessage", "gmail-listLabels", "gmail-listMessages"}
 EXPECTED_TOOLS = (
-    GITHUB_TOOLS | AWS_TOOLS | SPACELIFT_TOOLS | MICROSOFT365_TOOLS | THUNDERMAIL_TOOLS
+    GITHUB_TOOLS
+    | AWS_TOOLS
+    | SPACELIFT_TOOLS
+    | MICROSOFT365_TOOLS
+    | THUNDERMAIL_TOOLS
+    | GMAIL_TOOLS
 )
-UNOWNED_TARGETS = tuple(target for target in TARGETS if target.tool_schemas is None)
-UNOWNED_TOOLS = EXPECTED_TOOLS - THUNDERMAIL_TOOLS
+UNOWNED_TARGETS = tuple(
+    target
+    for target in TARGETS
+    if target.tool_schemas is None and not target.client_tool_prefix
+)
+UNOWNED_TOOLS = {tool for target in UNOWNED_TARGETS for tool in target.client_tools}
 GITHUB_TARGET = next(target for target in TARGETS if target.name == "github")
 AWS_TARGET = next(target for target in TARGETS if target.name == "aws")
 SPACELIFT_TARGET = next(target for target in TARGETS if target.name == "spacelift")
