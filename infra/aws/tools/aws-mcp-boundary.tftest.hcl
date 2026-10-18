@@ -33,6 +33,19 @@ mock_provider "aws" {
     }
   }
 
+  mock_data "aws_secretsmanager_secret" {
+    defaults = {
+      arn = "arn:aws:secretsmanager:us-east-1:421680664125:secret:/hermes/mock-Ab12Cd"
+    }
+  }
+
+  mock_resource "aws_bedrockagentcore_oauth2_credential_provider" {
+    defaults = {
+      credential_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:421680664125:token-vault/default/oauth2credentialprovider/hermes-google"
+      callback_url            = "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/callback/00000000-0000-0000-0000-000000000000"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::421680664125:role/mock"
@@ -305,5 +318,28 @@ run "enabled_when_the_security_gateway_is_resolved" {
   assert {
     condition     = "${local.github_target_name}___get_job_logs" == "github___get_job_logs"
     error_message = "The Cedar read policy must name the GitHub target action exactly."
+  }
+}
+run "gmail_is_read_only_user_delegated_oauth" {
+  command = plan
+
+  assert {
+    condition     = aws_bedrockagentcore_gateway_target.gmail.credential_provider_configuration[0].oauth[0].grant_type == "AUTHORIZATION_CODE" && aws_bedrockagentcore_gateway_target.gmail.credential_provider_configuration[0].oauth[0].scopes == toset(["https://www.googleapis.com/auth/gmail.readonly"])
+    error_message = "Gmail must use user-delegated OAuth with only the gmail.readonly scope."
+  }
+
+  assert {
+    condition     = aws_bedrockagentcore_oauth2_credential_provider.google.oauth2_provider_config[0].google_oauth2_provider_config[0].client_secret_source == "EXTERNAL"
+    error_message = "The Google provider must read its client secret from Secrets Manager, never from state."
+  }
+
+  assert {
+    condition     = length(aws_bedrockagentcore_policy.gmail_read) == 3 && alltrue([for k, v in aws_bedrockagentcore_policy.gmail_read : strcontains(v.definition[0].cedar[0].statement, "gmail___${k}")])
+    error_message = "Each Gmail tool needs exactly one scoped Cedar permit."
+  }
+
+  assert {
+    condition     = contains(local.hermes_gateway_readable_secret_arns, data.aws_secretsmanager_secret.google_oauth_client.arn)
+    error_message = "The gateway guardrail must allow reading only the named Google client secret."
   }
 }

@@ -1,0 +1,205 @@
+#!/usr/bin/env python3
+"""Grant AgentCore one-time Google consent for the gmail gateway target.
+
+Uses the adapter's environment: HERMES_AGENTCORE_GATEWAY_URL,
+HERMES_AGENTCORE_COGNITO_TOKEN_URL, HERMES_AGENTCORE_COGNITO_CLIENT_ID and
+HERMES_AGENTCORE_COGNITO_CLIENT_SECRET. Needs AWS credentials for the tools
+account to call CompleteResourceTokenAuth.
+"""
+
+from __future__ import annotations
+
+import base64
+import http.server
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import threading
+import urllib.parse
+import urllib.request
+import webbrowser
+
+SCOPE = "hermes-mcp/invoke"
+PORT = 9090
+CALLBACK_PATH = "/oauth2/callback"
+TOOL = "gmail___listLabels"
+ELICITATION_REQUIRED = -32042
+
+
+def post(url: str, body: bytes, headers: dict[str, str]) -> tuple[bytes, dict]:
+    request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+    with urllib.request.urlopen(request, timeout=30) as response:
+        return response.read(), {k.lower(): v for k, v in response.headers.items()}
+
+
+def access_token(token_url: str, client_id: str, client_secret: str) -> str:
+    basic = base64.b64encode(f"{client_id}:{client_secret}".encode()).decode()
+    body = urllib.parse.urlencode(
+        {"grant_type": "client_credentials", "scope": SCOPE}
+    ).encode()
+    raw, _ = post(
+        token_url,
+        body,
+        {
+            "Authorization": f"Basic {basic}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+    return json.loads(raw)["access_token"]
+
+
+def messages(raw: bytes, content_type: str) -> list[dict]:
+    text = raw.decode("utf-8")
+    if "text/event-stream" not in content_type:
+        return [json.loads(text)]
+    return [
+        json.loads(line[5:].strip())
+        for line in text.splitlines()
+        if line.startswith("data:") and line[5:].strip()
+    ]
+
+
+def elicitation_url(found: list[dict]) -> str | None:
+    for message in found:
+        error = message.get("error") or {}
+        if error.get("code") != ELICITATION_REQUIRED:
+            continue
+        for item in (error.get("data") or {}).get("elicitations") or []:
+            url = item.get("url", "")
+            if item.get("mode") == "url" and url.startswith("https://"):
+                return url
+    return None
+
+
+class Gateway:
+    def __init__(self, url: str, token: str):
+        self.url, self.token, self.session, self.version = url, token, None, None
+
+    def rpc(self, method: str, params: dict, message_id: int) -> list[dict]:
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+        if self.session:
+            headers["Mcp-Session-Id"] = self.session
+        if self.version:
+            headers["MCP-Protocol-Version"] = self.version
+        body = json.dumps(
+            {"jsonrpc": "2.0", "id": message_id, "method": method, "params": params}
+        ).encode()
+        raw, response_headers = post(self.url, body, headers)
+        self.session = response_headers.get("mcp-session-id", self.session)
+        return messages(raw, response_headers.get("content-type", ""))
+
+    def initialize(self) -> None:
+        found = self.rpc(
+            "initialize",
+            {
+                "protocolVersion": "2025-11-25",
+                "capabilities": {"elicitation": {"url": {}}},
+                "clientInfo": {"name": "gmail-consent", "version": "1"},
+            },
+            1,
+        )
+        self.version = found[-1]["result"]["protocolVersion"]
+
+    def list_labels(self) -> list[dict]:
+        return self.rpc("tools/call", {"name": TOOL, "arguments": {}}, 2)
+
+
+def wait_for_session_id() -> str:
+    received: dict[str, str] = {}
+
+    class Callback(http.server.BaseHTTPRequestHandler):
+        def do_GET(self):
+            parsed = urllib.parse.urlparse(self.path)
+            session = urllib.parse.parse_qs(parsed.query).get("session_id", [""])[0]
+            ok = parsed.path == CALLBACK_PATH and bool(session)
+            if ok:
+                received["session_id"] = session
+            self.send_response(200 if ok else 400)
+            self.end_headers()
+            self.wfile.write(
+                b"Consent received. Return to the terminal."
+                if ok
+                else b"Missing session_id."
+            )
+            if ok:
+                threading.Thread(target=server.shutdown).start()
+
+        def log_message(self, *args):
+            pass
+
+    server = http.server.HTTPServer(("127.0.0.1", PORT), Callback)
+    server.serve_forever()
+    return received["session_id"]
+
+
+def complete(session_uri: str, token: str) -> None:
+    with tempfile.NamedTemporaryFile("w", suffix=".json") as handle:
+        os.chmod(handle.name, 0o600)
+        json.dump(
+            {"sessionUri": session_uri, "userIdentifier": {"userToken": token}},
+            handle,
+        )
+        handle.flush()
+        subprocess.run(
+            [
+                "aws",
+                "bedrock-agentcore",
+                "complete-resource-token-auth",
+                "--region",
+                "us-east-1",
+                "--cli-input-json",
+                f"file://{handle.name}",
+            ],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+
+
+def main() -> int:
+    env = {
+        key: os.environ.get(f"HERMES_AGENTCORE_{key}", "")
+        for key in (
+            "GATEWAY_URL",
+            "COGNITO_TOKEN_URL",
+            "COGNITO_CLIENT_ID",
+            "COGNITO_CLIENT_SECRET",
+        )
+    }
+    missing = [f"HERMES_AGENTCORE_{key}" for key, value in env.items() if not value]
+    if missing:
+        print("Set " + ", ".join(missing), file=sys.stderr)
+        return 2
+    token = access_token(
+        env["COGNITO_TOKEN_URL"],
+        env["COGNITO_CLIENT_ID"],
+        env["COGNITO_CLIENT_SECRET"],
+    )
+    gateway = Gateway(env["GATEWAY_URL"], token)
+    gateway.initialize()
+    url = elicitation_url(gateway.list_labels())
+    if url is None:
+        print("Gmail already has consent; listLabels did not ask for authorization.")
+        return 0
+    print(f"Open this URL and approve read-only Gmail access:\n{url}")
+    webbrowser.open(url)
+    complete(wait_for_session_id(), token)
+    found = gateway.list_labels()
+    failed = any(
+        "error" in message or (message.get("result") or {}).get("isError")
+        for message in found
+    )
+    if elicitation_url(found) or failed:
+        print("Consent did not complete; listLabels still fails.", file=sys.stderr)
+        return 1
+    print("Consent complete; listLabels succeeded.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

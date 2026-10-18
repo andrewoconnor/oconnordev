@@ -94,6 +94,12 @@ resource "aws_bedrockagentcore_gateway" "hermes" {
   authorizer_type = "CUSTOM_JWT"
   protocol_type   = "MCP"
 
+  protocol_configuration {
+    mcp {
+      supported_versions = ["2025-03-26", "2025-06-18", "2025-11-25"]
+    }
+  }
+
   authorizer_configuration {
     custom_jwt_authorizer {
       discovery_url   = "${local.cognito_issuer}/.well-known/openid-configuration"

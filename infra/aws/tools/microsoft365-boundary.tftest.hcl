@@ -33,6 +33,19 @@ mock_provider "aws" {
     }
   }
 
+  mock_data "aws_secretsmanager_secret" {
+    defaults = {
+      arn = "arn:aws:secretsmanager:us-east-1:421680664125:secret:/hermes/mock-Ab12Cd"
+    }
+  }
+
+  mock_resource "aws_bedrockagentcore_oauth2_credential_provider" {
+    defaults = {
+      credential_provider_arn = "arn:aws:bedrock-agentcore:us-east-1:421680664125:token-vault/default/oauth2credentialprovider/hermes-google"
+      callback_url            = "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/callback/00000000-0000-0000-0000-000000000000"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::421680664125:role/mock"
