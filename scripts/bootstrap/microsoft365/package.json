@@ -7,9 +7,9 @@
   "scripts": {"test": "node --test test/*.test.mjs", "start": "node cli.mjs"},
   "dependencies": {
     "@azure/msal-node": "5.6.0",
-    "@aws-sdk/client-secrets-manager": "3.910.0",
-    "@aws-sdk/client-sts": "3.910.0",
-    "@aws-sdk/client-lambda": "3.910.0",
-    "@aws-sdk/credential-provider-node": "3.910.0"
+    "@aws-sdk/client-secrets-manager": "3.1152.0",
+    "@aws-sdk/client-sts": "3.1152.0",
+    "@aws-sdk/client-lambda": "3.1152.0",
+    "@aws-sdk/credential-provider-node": "3.972.86"
   }
 }
