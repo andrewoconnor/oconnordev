@@ -6,6 +6,10 @@ locals {
   gmail_scopes           = ["https://www.googleapis.com/auth/gmail.readonly"]
   gmail_return_url       = "http://localhost:9090/oauth2/callback"
   google_oauth_client_id = "693193037198-cgg4gr2q675dt3t18c74uhafgbrfdle3.apps.googleusercontent.com"
+  google_oauth_secret_arns = compact([
+    data.aws_secretsmanager_secret.google_oauth_client.arn,
+    try(aws_bedrockagentcore_oauth2_credential_provider.google.client_secret_arn[0].secret_arn, ""),
+  ])
 }
 
 data "aws_secretsmanager_secret" "google_oauth_client" {
@@ -31,6 +35,17 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "google" {
 
 data "aws_iam_policy_document" "gmail_target_credentials" {
   statement {
+    sid     = "GetUserBoundWorkloadAccessToken"
+    effect  = "Allow"
+    actions = ["bedrock-agentcore:GetWorkloadAccessTokenForJWT", "bedrock-agentcore:GetWorkloadAccessTokenForUserId"]
+
+    resources = [
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default",
+      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",
+    ]
+  }
+
+  statement {
     sid     = "GetGoogleTokenFromAgentCoreIdentity"
     effect  = "Allow"
     actions = ["bedrock-agentcore:GetResourceOauth2Token"]
@@ -47,7 +62,7 @@ data "aws_iam_policy_document" "gmail_target_credentials" {
     sid       = "ReadGoogleOauthClientSecret"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
-    resources = [data.aws_secretsmanager_secret.google_oauth_client.arn]
+    resources = local.google_oauth_secret_arns
   }
 }
 
