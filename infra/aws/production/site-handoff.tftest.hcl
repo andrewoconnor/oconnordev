@@ -3,6 +3,12 @@ mock_provider "aws" {
   mock_data "aws_partition" {
     defaults = { partition = "aws" }
   }
+  mock_resource "aws_route53_zone" {
+    defaults = {
+      id      = "Z02434432RXWI3WCMIEA2"
+      zone_id = "Z02434432RXWI3WCMIEA2"
+    }
+  }
   mock_resource "aws_iam_role" {
     defaults = { arn = "arn:aws:iam::767397796791:role/offline-test" }
   }
@@ -27,9 +33,25 @@ mock_provider "aws" {
 }
 
 variables {
-  spacelift_run_id = "offline-delivery-test"
+  spacelift_run_id           = "offline-delivery-test"
+  import_thundermail_records = false
 }
 
+
+run "thundermail_records_match_exported_dns" {
+  command = plan
+  assert {
+    condition = toset(keys(aws_route53_record.thundermail)) == toset(keys(jsondecode(file("${path.module}/testdata/thundermail-records.json")))) && alltrue([
+      for key, record in aws_route53_record.thundermail :
+      record.zone_id == "Z02434432RXWI3WCMIEA2" &&
+      trimsuffix(record.name, ".") == trimsuffix(jsondecode(file("${path.module}/testdata/thundermail-records.json"))[key].name, ".") &&
+      record.type == jsondecode(file("${path.module}/testdata/thundermail-records.json"))[key].type &&
+      record.ttl == jsondecode(file("${path.module}/testdata/thundermail-records.json"))[key].ttl &&
+      record.records == toset(jsondecode(file("${path.module}/testdata/thundermail-records.json"))[key].records)
+    ])
+    error_message = "Adopt exactly the exported mail record names, types, TTLs and values in the existing zone."
+  }
+}
 
 run "shared_zone_certificate_and_dnssec_stay_production" {
   command = plan
