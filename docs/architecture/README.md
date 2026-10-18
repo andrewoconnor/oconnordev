@@ -30,8 +30,10 @@ actions.
 
 `infra/aws/tools/lambdas/thundermail_mcp/` builds a pinned provided.al2023 bootstrap container for
 the existing shared ECR repository. Master CI publishes the image with the existing
-ECR-only publisher. `local.thundermail_image_digest` pins the deployed image. Outlook Graph, Gmail readonly and local CalDAV remain
-unchanged. See [the runbook](../runbooks/thundermail-mcp.md).
+ECR-only publisher. `local.thundermail_image_digest` pins the deployed image.
+Thundermail mail and default-calendar reads use this AgentCore target. Outlook
+uses the Microsoft365 target; Gmail uses its separate read-only connection.
+See [the runbook](../runbooks/thundermail-mcp.md).
 
 ## Google Auth ownership
 
