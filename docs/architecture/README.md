@@ -6,32 +6,39 @@ The account map in `infra/aws/accounts.json` is the sole repository source for c
 
 `general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Microsoft365 and Thundermail targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
-## Tools-account Lambda sources
+## Tools-account Lambdas
 
-Lambda source packages owned by the TOOLS account live under
-`infra/aws/tools/lambdas/`: `spacelift_session_token/`, `microsoft365_mcp/` and
-`thundermail_mcp/`. `ecr.tf` defines the shared `oconnordev-tools` image
-repository, its Lambda pull policy and the image publisher role.
-The Microsoft365 Docker build context is the latter directory; owner bootstrap
-entrypoints remain separately under `scripts/bootstrap/microsoft365/` and import
-its envelope validator. The tools project root already covers both packages, so
-no additional external-source Spacelift glob is required for them.
+Lambda sources live under `infra/aws/tools/lambdas/`: `spacelift_session_token/`,
+`microsoft365_mcp/` and `thundermail_mcp/`. The tools project root covers all
+three, so no extra Spacelift project glob is needed.
 
-## Thundermail native Lambda
+`ecr.tf` defines the shared `oconnordev-tools` image repository, its Lambda pull
+policy and the image publisher role. On master, `tool-image.yml` builds and tests
+each image and publishes it to that repository. It does not deploy. Each
+image-based Lambda pins its deployed digest in a local:
+`local.microsoft365_image_digest` and `local.thundermail_image_digest`. To deploy a
+new image, change the local and apply the tools stack.
 
-`thundermail-runtime.tf` and `target-thundermail.tf` define an ARM64 Rust Lambda
+### Microsoft365
+
+`microsoft365-runtime.tf` and `target-microsoft365.tf` define an arm64 Node Lambda
+that reads Outlook mail through Microsoft Graph. The gateway calls it as an MCP
+server target through an AWS_IAM Function URL and Lambda Web Adapter. The owner
+bootstrap helper is in `scripts/bootstrap/microsoft365/` and imports the runtime's
+envelope validator. See [the runbook](../runbooks/microsoft365-mcp.md).
+
+### Thundermail
+
+`thundermail-runtime.tf` and `target-thundermail.tf` define an arm64 Rust Lambda
 that reads Thundermail mail over IMAP and the default calendar over CalDAV. The
-Cognito gateway invokes it directly as a native Lambda target (`mcp.lambda`), with
-inline schemas and one Cedar read permit for each tool. There is no Function URL,
-HTTP server, Lambda Web Adapter or Node. Only the runtime can read the
-app-password secret. Terraform manages the secret metadata, never the value. The
-adapter exposes `thundermail-` names and forwards them as `thundermail___` actions.
+gateway invokes it directly as a native Lambda target (`mcp.lambda`), with inline
+schemas and one Cedar read permit for each tool. There is no Function URL, HTTP
+server or Lambda Web Adapter. Only the runtime can read the app-password secret.
+Terraform manages the secret metadata, never the value. The adapter exposes
+`thundermail-` names and forwards them as `thundermail___` actions. See
+[the runbook](../runbooks/thundermail-mcp.md).
 
-`infra/aws/tools/lambdas/thundermail_mcp/` builds the image on a pinned
-`provided.al2023` base. Master CI publishes it to the shared `oconnordev-tools`
-repository, and `local.thundermail_image_digest` pins the deployed image. Outlook
-mail uses the Microsoft365 target. Gmail uses a separate read-only connection
-outside this repository. See [the runbook](../runbooks/thundermail-mcp.md).
+Gmail uses a separate read-only connection outside this repository.
 
 ## Google Auth ownership
 
