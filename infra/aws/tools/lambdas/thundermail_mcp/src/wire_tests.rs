@@ -264,9 +264,9 @@ async fn caldav_fixture_requests(
     let addr = listener.local_addr().unwrap();
     let task = tokio::spawn(async move {
         let mut all_requests = String::new();
+        let (socket, _) = listener.accept().await.unwrap();
+        let mut reader = BufReader::new(socket);
         for _ in 0..requests {
-            let (socket, _) = listener.accept().await.unwrap();
-            let mut reader = BufReader::new(socket);
             let mut head = String::new();
             let mut length = 0;
             loop {
@@ -415,7 +415,7 @@ END:VCALENDAR]]></c:calendar-data></d:multistatus>"#;
     assert_eq!(task.await.unwrap().matches("REPORT ").count(), 2);
 }
 #[tokio::test]
-async fn caldav_rejects_ambiguous_timezone_override_instead_of_guessing() {
+async fn caldav_unmatched_timezone_override_is_returned_as_the_server_sent_it() {
     const RAW: &str = r#"<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><c:calendar-data><![CDATA[BEGIN:VCALENDAR
 BEGIN:VEVENT
 UID:zoned-series
@@ -453,11 +453,10 @@ END:VEVENT]]></c:calendar-data></d:multistatus>"#;
         json!({"start":"2026-11-02T00:00:00Z","end":"2026-11-03T00:00:00Z"}),
     )
     .await;
-    assert_eq!(value["isError"], true, "{value}");
-    assert_eq!(
-        value["content"][0]["text"],
-        "CalDAV event date type is ambiguous"
-    );
+    assert_eq!(value["isError"], false, "{value}");
+    let event = &value["structuredContent"]["events"][0];
+    assert_eq!(event["start"], "20261102T000000Z");
+    assert_eq!(event["all_day"], false);
     task.await.unwrap();
 }
 const MULTISTATUS: &str = r#"<?xml version="1.0" encoding="utf-8"?>
@@ -501,7 +500,11 @@ async fn caldav_report_queries_default_calendar_with_basic_auth() {
     assert!(request.contains(&format!("authorization: Basic {token}\r\n")));
     assert!(request.contains(r#"<C:time-range start="20261017T000000Z" end="20261018T000000Z"/>"#));
     assert!(request.contains(r#"<C:expand start="20261017T000000Z" end="20261018T000000Z"/>"#));
-    assert!(request.contains("<C:calendar-data/>"));
+    assert!(
+        request.contains(
+            r#"<C:prop name="UID"/><C:prop name="DTSTART"/><C:prop name="RECURRENCE-ID"/>"#
+        )
+    );
     assert_eq!(request.matches("REPORT ").count(), 2);
 }
 #[tokio::test]

@@ -6,7 +6,7 @@ use crate::{
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use http_body_util::{BodyExt, Full};
-use hyper::{Method, Request, body::Bytes};
+use hyper::{Method, Request, body::Bytes, client::conn::http1::SendRequest};
 use hyper_util::rt::TokioIo;
 use serde_json::{Map, Value, json};
 
@@ -55,7 +55,12 @@ fn query(range: &Range, expand: bool) -> String {
     let data = if expand {
         format!(r#"<C:calendar-data><C:expand start="{start}" end="{end}"/></C:calendar-data>"#)
     } else {
-        "<C:calendar-data/>".into()
+        concat!(
+            r#"<C:calendar-data><C:comp name="VCALENDAR"><C:comp name="VEVENT">"#,
+            r#"<C:prop name="UID"/><C:prop name="DTSTART"/><C:prop name="RECURRENCE-ID"/>"#,
+            "</C:comp></C:comp></C:calendar-data>"
+        )
+        .into()
     };
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
@@ -69,10 +74,15 @@ fn query(range: &Range, expand: bool) -> String {
 }
 
 pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result<Value> {
-    let originals = report(endpoint, password, range, false).await?;
-    let mut found = report(endpoint, password, range, true).await?;
+    let io = TokioIo::new(Budget::new(connect::stream(endpoint, PORT).await?));
+    let (mut sender, connection) = hyper::client::conn::http1::handshake(io)
+        .await
+        .map_err(|_| "CalDAV connection failed")?;
+    tokio::spawn(connection);
+    let originals = report(&mut sender, password, range, false).await?;
+    let mut found = report(&mut sender, password, range, true).await?;
     for event in &mut found {
-        preserve_date_type(event, &originals)?;
+        preserve_date_type(event, &originals);
     }
     found.sort_by(|a, b| a["start"].as_str().cmp(&b["start"].as_str()));
     let truncated = found.len() > range.limit;
@@ -80,26 +90,20 @@ pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result
     Ok(json!({"calendar":"default","events":found,"truncated":truncated}))
 }
 
-fn preserve_date_type(event: &mut Value, originals: &[Value]) -> Result<()> {
-    let ambiguous = || "CalDAV event date type is ambiguous".to_owned();
-    let uid = event["uid"].as_str().ok_or_else(ambiguous)?;
-    if uid.chars().count() >= SHORT_TEXT
-        || event["recurrence_id"]
-            .as_str()
-            .is_some_and(|id| id.chars().count() >= SHORT_TEXT)
-    {
-        return Err(ambiguous());
-    }
+fn preserve_date_type(event: &mut Value, originals: &[Value]) {
+    let Some(uid) = event["uid"].as_str() else {
+        return;
+    };
     let same_uid = |source: &&Value| source["uid"].as_str() == Some(uid);
+    let recurrence = event["recurrence_id"].as_str();
     let source = originals
         .iter()
         .filter(same_uid)
         .find(|source| {
-            source["recurrence_id"].as_str().is_some_and(|id| {
-                event["recurrence_id"].as_str().is_some_and(|expanded| {
-                    expanded == id || (id.len() == 8 && expanded.starts_with(id))
-                })
-            })
+            let (Some(id), Some(expanded)) = (source["recurrence_id"].as_str(), recurrence) else {
+                return false;
+            };
+            expanded == id || (id.len() == 8 && expanded.starts_with(id))
         })
         .or_else(|| {
             originals
@@ -107,48 +111,42 @@ fn preserve_date_type(event: &mut Value, originals: &[Value]) -> Result<()> {
                 .filter(same_uid)
                 .find(|source| source.get("recurrence_id").is_none())
         });
-    let source = source.ok_or_else(ambiguous)?;
-    if source.get("recurrence_id").is_none()
-        && originals.iter().filter(same_uid).any(|other| {
-            other["all_day"] != source["all_day"]
-                && other["recurrence_id"]
-                    .as_str()
-                    .is_some_and(|id| id.len() > 8 && !id.ends_with('Z'))
-        })
-    {
-        return Err(ambiguous());
+    if source.is_none_or(|source| source["all_day"] != true) {
+        return;
     }
-    if source["all_day"] == true {
-        for key in ["start", "end"] {
-            if let Some(date) = event[key]
-                .as_str()
-                .and_then(|value| value.get(..8))
-                .filter(|date| date.bytes().all(|b| b.is_ascii_digit()))
-                .map(str::to_owned)
-            {
-                event[key] = Value::String(date);
-            }
-        }
-        event["all_day"] = Value::Bool(true);
-        if let Some(map) = event.as_object_mut() {
-            map.remove("start_tzid");
-            map.remove("end_tzid");
+    let date = |key: &str| {
+        event[key]
+            .as_str()
+            .and_then(|value| value.strip_suffix("T000000Z"))
+            .filter(|date| date.len() == 8 && date.bytes().all(|b| b.is_ascii_digit()))
+            .map(str::to_owned)
+    };
+    let (start, end) = (date("start"), date("end"));
+    if start.is_none() || (event.get("end").is_some() && end.is_none()) {
+        return;
+    }
+    for (key, value) in [("start", start), ("end", end)] {
+        if let Some(value) = value {
+            event[key] = Value::String(value);
         }
     }
-    Ok(())
+    event["all_day"] = Value::Bool(true);
+    if let Some(map) = event.as_object_mut() {
+        map.remove("start_tzid");
+        map.remove("end_tzid");
+    }
 }
 
 async fn report(
-    endpoint: Endpoint,
+    sender: &mut SendRequest<Full<Bytes>>,
     password: &str,
     range: &Range,
     expand: bool,
 ) -> Result<Vec<Value>> {
-    let io = TokioIo::new(Budget::new(connect::stream(endpoint, PORT).await?));
-    let (mut sender, connection) = hyper::client::conn::http1::handshake(io)
+    sender
+        .ready()
         .await
         .map_err(|_| "CalDAV connection failed")?;
-    tokio::spawn(connection);
     let request = Request::builder()
         .method(Method::from_bytes(b"REPORT").expect("method"))
         .uri(PATH)
@@ -376,7 +374,7 @@ BEGIN:VEVENT\r\nUID:b@example\r\nSUMMARY:Holiday\r\nDTSTART;VALUE=DATE:20261018\
             "BEGIN:VEVENT\nUID:series\nDTSTART:20261001T090000Z\nRRULE:FREQ=DAILY\nEND:VEVENT\nBEGIN:VEVENT\nUID:series\nRECURRENCE-ID:20261102T090000Z\nDTSTART;VALUE=DATE:20261102\nDTEND;VALUE=DATE:20261104\nEND:VEVENT\n",
         );
         let mut event = json!({"uid":"series","recurrence_id":"20261102T090000Z","start":"20261102T000000Z","end":"20261104T000000Z","all_day":false});
-        preserve_date_type(&mut event, &originals).unwrap();
+        preserve_date_type(&mut event, &originals);
         assert_eq!(event["all_day"], true);
         assert_eq!(event["start"], "20261102");
         assert_eq!(event["end"], "20261104");
@@ -390,20 +388,23 @@ BEGIN:VEVENT\r\nUID:b@example\r\nSUMMARY:Holiday\r\nDTSTART;VALUE=DATE:20261018\
         );
         let mut event = json!({"uid":"series","recurrence_id":"20261102T000000Z","start":"20261102T000000Z","end":"20261103T000000Z","all_day":false});
         let before = event.clone();
-        preserve_date_type(&mut event, &originals).unwrap();
+        preserve_date_type(&mut event, &originals);
         assert_eq!(event, before);
     }
 
     #[test]
-    fn uncertain_identifiers_fail_without_guessing_a_date_type() {
+    fn unmatched_or_non_midnight_events_are_left_unchanged() {
         let originals =
             parse_events("BEGIN:VEVENT\nUID:known\nDTSTART;VALUE=DATE:20261102\nEND:VEVENT\n");
-        for uid in ["unknown".to_owned(), "x".repeat(SHORT_TEXT)] {
-            let mut event = json!({"uid":uid,"start":"20261102T000000Z","all_day":false});
-            assert_eq!(
-                preserve_date_type(&mut event, &originals).unwrap_err(),
-                "CalDAV event date type is ambiguous"
-            );
+        for mut event in [
+            json!({"uid":"unknown","start":"20261102T000000Z","all_day":false}),
+            json!({"start":"20261102T000000Z","all_day":false}),
+            json!({"uid":"known","start":"20261101T230000Z","end":"20261102T230000Z","all_day":false}),
+            json!({"uid":"known","start":"20261102T000000Z","end":"20261102T230000Z","all_day":false}),
+        ] {
+            let before = event.clone();
+            preserve_date_type(&mut event, &originals);
+            assert_eq!(event, before);
         }
     }
 
