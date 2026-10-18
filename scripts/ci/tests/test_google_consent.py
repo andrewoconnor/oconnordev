@@ -45,7 +45,6 @@ class GoogleConsentTests(unittest.TestCase):
         self.assertTrue(consent.elicitation_url([ELICITATION]).startswith("https://"))
         for other in [
             {"jsonrpc": "2.0", "id": 2, "result": {"content": []}},
-            {"error": {"code": -32603, "data": ELICITATION["error"]["data"]}},
             {
                 "error": {
                     "code": -32042,
@@ -54,6 +53,26 @@ class GoogleConsentTests(unittest.TestCase):
             },
         ]:
             self.assertIsNone(consent.elicitation_url([other]))
+
+    def test_finds_authorize_url_in_other_response_shapes(self):
+        url = ELICITATION["error"]["data"]["elicitations"][0]["url"]
+        text_result = {
+            "result": {
+                "isError": True,
+                "content": [{"type": "text", "text": f"Visit {url}"}],
+            }
+        }
+        self.assertEqual(consent.elicitation_url([text_result]), url)
+
+    def test_success_requires_a_non_error_result(self):
+        self.assertTrue(consent.succeeded([{"result": {"content": []}}]))
+        for failed in [
+            [ELICITATION],
+            [{"result": {"isError": True, "content": []}}],
+            [{"error": {"code": -32601, "message": "Method not found"}}],
+            [],
+        ]:
+            self.assertFalse(consent.succeeded(failed))
 
     def test_callback_returns_session_id_and_rejects_other_paths(self):
         with mock.patch.object(consent, "PORT", 0):
