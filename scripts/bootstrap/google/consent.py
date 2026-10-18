@@ -17,7 +17,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 import threading
 import urllib.parse
 import urllib.request
@@ -159,26 +158,21 @@ def wait_for_session_id() -> str:
 
 
 def complete(session_uri: str, token: str) -> None:
-    with tempfile.NamedTemporaryFile("w", suffix=".json") as handle:
-        os.chmod(handle.name, 0o600)
-        json.dump(
-            {"sessionUri": session_uri, "userIdentifier": {"userToken": token}},
-            handle,
-        )
-        handle.flush()
-        subprocess.run(
-            [
-                "aws",
-                "bedrock-agentcore",
-                "complete-resource-token-auth",
-                "--region",
-                "us-east-1",
-                "--cli-input-json",
-                f"file://{handle.name}",
-            ],
-            check=True,
-            stdout=subprocess.DEVNULL,
-        )
+    subprocess.run(
+        [
+            "aws",
+            "bedrock-agentcore",
+            "complete-resource-token-auth",
+            "--region",
+            "us-east-1",
+            "--cli-input-json",
+            json.dumps(
+                {"sessionUri": session_uri, "userIdentifier": {"userToken": token}}
+            ),
+        ],
+        check=True,
+        stdout=subprocess.DEVNULL,
+    )
 
 
 def main() -> int:
