@@ -12,7 +12,8 @@
     "type": "TXT",
     "ttl": 300,
     "records": [
-      "v=spf1 include:spf.thundermail.com -all"
+      "v=spf1 include:spf.thundermail.com -all",
+      "google-site-verification=IOTKLU1HKY0BJVrAqx6cz17AaIgZH-FT8Mgzb2B2wEs"
     ]
   },
   "_dmarc.oconnor.dev_TXT": {

@@ -26,7 +26,7 @@ class ThundermailDnsAdoptionTests(unittest.TestCase):
         self.assertNotIn("allow_overwrite", source)
         self.assertNotIn('resource "aws_route53_zone"', source)
 
-    def test_export_fixture_has_only_the_unmanaged_mail_records(self):
+    def test_dns_fixture_preserves_mail_and_google_verification(self):
         records = json.loads(
             (PRODUCTION / "testdata/thundermail-records.json").read_text()
         )
@@ -37,7 +37,16 @@ class ThundermailDnsAdoptionTests(unittest.TestCase):
         for key, value in records.items():
             self.assertEqual(key, value["name"].removesuffix(".") + "_" + value["type"])
             self.assertEqual(value["ttl"], 300)
-            self.assertEqual(len(value["records"]), 1)
+            self.assertEqual(
+                len(value["records"]), 2 if key == "oconnor.dev_TXT" else 1
+            )
+        self.assertEqual(
+            records["oconnor.dev_TXT"]["records"],
+            [
+                "v=spf1 include:spf.thundermail.com -all",
+                "google-site-verification=IOTKLU1HKY0BJVrAqx6cz17AaIgZH-FT8Mgzb2B2wEs",
+            ],
+        )
 
 
 if __name__ == "__main__":
