@@ -12,7 +12,7 @@ const css = await readFile(join(root, "assets/css/resume.css"));
 const hash = createHash("sha256").update(css).digest("hex");
 const stylesheet = `/assets/css/resume-${hash}.css`;
 await writeFile(join(dist, stylesheet.slice(1)), css);
-for (const file of ["index.html", "404.html"]) {
+for (const file of ["index.html", "404.html", "privacy.html"]) {
   const html = await readFile(join(root, file), "utf8");
   assert.equal(html.split('href="/assets/css/resume.css"').length, 2);
   await writeFile(
