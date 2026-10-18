@@ -101,6 +101,7 @@ test("release publishes only deployable assets with a real 1200x630 preview and 
     "assets/resume-preview.png",
     "favicon.ico",
     "index.html",
+    "privacy.html",
     "resume.pdf",
   ]);
   const image = await readFile(new URL("./dist/assets/resume-preview.png", import.meta.url));
@@ -139,6 +140,16 @@ test("resume 404 is a standalone local page compatible with the no-inline CSP", 
   assert.match(html, /<h1>404 — Page not found<\/h1>/);
   assert.match(html, /<a href="\/">Return to Andrew O'Connor's resume<\/a>/);
   assert.doesNotMatch(html, /<script|<style|\sstyle=|https?:\/\//);
+  const href = html.match(/<link href="([^"]+)" rel="stylesheet">/)?.[1];
+  assert.match(href || "", /^\/assets\/css\/resume-[0-9a-f]{64}\.css$/);
+  assert.ok(existsSync(new URL(`./dist${href}`, import.meta.url)));
+});
+
+test("privacy policy is a standalone local page compatible with the no-inline CSP", async () => {
+  const html = await readFile(new URL("./dist/privacy.html", import.meta.url), "utf8");
+  assert.match(html, /<h1>Privacy policy<\/h1>/);
+  assert.match(html, /Limited Use requirements/);
+  assert.doesNotMatch(html, /<script|<style|\sstyle=|<img|src=/);
   const href = html.match(/<link href="([^"]+)" rel="stylesheet">/)?.[1];
   assert.match(href || "", /^\/assets\/css\/resume-[0-9a-f]{64}\.css$/);
   assert.ok(existsSync(new URL(`./dist${href}`, import.meta.url)));
