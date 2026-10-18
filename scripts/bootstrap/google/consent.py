@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Grant AgentCore one-time Google consent for the gmail gateway target.
+"""Grant AgentCore one-time Google consent for the google gateway target.
 
 Uses the adapter's environment: HERMES_AGENTCORE_GATEWAY_URL,
 HERMES_AGENTCORE_COGNITO_TOKEN_URL, HERMES_AGENTCORE_COGNITO_CLIENT_ID and
@@ -25,7 +25,7 @@ import webbrowser
 SCOPE = "hermes-mcp/invoke"
 PORT = 9090
 CALLBACK_PATH = "/oauth2/callback"
-TOOL = "gmail___listLabels"
+TOOL = "google___listLabels"
 ELICITATION_REQUIRED = -32042
 AUTHORIZE_URL = re.compile(
     r"https://bedrock-agentcore\.[a-z0-9-]+\.amazonaws\.com/identities/oauth2/authorize[^\s\"'<>]*"
@@ -112,7 +112,7 @@ class Gateway:
             {
                 "protocolVersion": "2025-11-25",
                 "capabilities": {"elicitation": {"url": {}}},
-                "clientInfo": {"name": "gmail-consent", "version": "1"},
+                "clientInfo": {"name": "google-consent", "version": "1"},
             },
             1,
         )
@@ -200,12 +200,12 @@ def main() -> int:
     url = elicitation_url(found)
     if url is None:
         if succeeded(found):
-            print("Gmail already has consent; listLabels succeeded.")
+            print("Google already has consent; listLabels succeeded.")
             return 0
         print("listLabels failed without a consent URL:", file=sys.stderr)
         print(json.dumps(found, indent=2)[:4000], file=sys.stderr)
         return 1
-    print(f"Open this URL and approve read-only Gmail access:\n{url}")
+    print(f"Open this URL and approve read-only Gmail and Calendar access:\n{url}")
     webbrowser.open(url)
     complete(wait_for_session_id(), token)
     found = gateway.list_labels()

@@ -170,5 +170,5 @@ TARGETS = (
     _load_target("spacelift", "spacelift-mcp-tools.json"),
     _load_target("microsoft365", "microsoft365-mcp-tools.json"),
     _load_target("thundermail", "thundermail-mcp-tools.json"),
-    _load_target("gmail", "gmail-mcp-tools.json"),
+    _load_target("google", "google-mcp-tools.json"),
 )

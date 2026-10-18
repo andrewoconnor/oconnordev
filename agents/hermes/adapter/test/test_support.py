@@ -56,14 +56,20 @@ THUNDERMAIL_TOOLS = {
     "thundermail-imap_get_message",
     "thundermail-caldav_list_events",
 }
-GMAIL_TOOLS = {"gmail-getMessage", "gmail-listLabels", "gmail-listMessages"}
+GOOGLE_TOOLS = {
+    "google-getMessage",
+    "google-listCalendars",
+    "google-listEvents",
+    "google-listLabels",
+    "google-listMessages",
+}
 EXPECTED_TOOLS = (
     GITHUB_TOOLS
     | AWS_TOOLS
     | SPACELIFT_TOOLS
     | MICROSOFT365_TOOLS
     | THUNDERMAIL_TOOLS
-    | GMAIL_TOOLS
+    | GOOGLE_TOOLS
 )
 UNOWNED_TARGETS = tuple(
     target
