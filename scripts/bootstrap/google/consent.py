@@ -4,7 +4,8 @@
 Uses the adapter's environment: HERMES_AGENTCORE_GATEWAY_URL,
 HERMES_AGENTCORE_COGNITO_TOKEN_URL, HERMES_AGENTCORE_COGNITO_CLIENT_ID and
 HERMES_AGENTCORE_COGNITO_CLIENT_SECRET. Needs AWS credentials for the tools
-account to call CompleteResourceTokenAuth.
+account to call CompleteResourceTokenAuth. Pass --force to replace a stored
+Google token.
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ import base64
 import http.server
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -26,6 +28,9 @@ PORT = 9090
 CALLBACK_PATH = "/oauth2/callback"
 TOOL = "gmail___listLabels"
 ELICITATION_REQUIRED = -32042
+AUTHORIZE_URL = re.compile(
+    r"https://bedrock-agentcore\.[a-z0-9-]+\.amazonaws\.com/identities/oauth2/authorize[^\s\"'<>]*"
+)
 
 
 def post(url: str, body: bytes, headers: dict[str, str]) -> tuple[bytes, dict]:
@@ -70,7 +75,15 @@ def elicitation_url(found: list[dict]) -> str | None:
             url = item.get("url", "")
             if item.get("mode") == "url" and url.startswith("https://"):
                 return url
-    return None
+    match = AUTHORIZE_URL.search(json.dumps(found))
+    return match.group(0) if match else None
+
+
+def succeeded(found: list[dict]) -> bool:
+    return any(
+        "result" in message and not (message.get("result") or {}).get("isError")
+        for message in found
+    ) and not any("error" in message for message in found)
 
 
 class Gateway:
@@ -106,8 +119,15 @@ class Gateway:
         )
         self.version = found[-1]["result"]["protocolVersion"]
 
-    def list_labels(self) -> list[dict]:
-        return self.rpc("tools/call", {"name": TOOL, "arguments": {}}, 2)
+    def list_labels(self, force: bool = False) -> list[dict]:
+        params: dict = {"name": TOOL, "arguments": {}}
+        if force:
+            params["_meta"] = {
+                "aws.bedrock-agentcore.gateway/credentialProviderConfiguration": {
+                    "oauthCredentialProvider": {"forceAuthentication": True}
+                }
+            }
+        return self.rpc("tools/call", params, 2)
 
 
 def wait_for_session_id() -> str:
@@ -182,20 +202,22 @@ def main() -> int:
     )
     gateway = Gateway(env["GATEWAY_URL"], token)
     gateway.initialize()
-    url = elicitation_url(gateway.list_labels())
+    found = gateway.list_labels(force="--force" in sys.argv[1:])
+    url = elicitation_url(found)
     if url is None:
-        print("Gmail already has consent; listLabels did not ask for authorization.")
-        return 0
+        if succeeded(found):
+            print("Gmail already has consent; listLabels succeeded.")
+            return 0
+        print("listLabels failed without a consent URL:", file=sys.stderr)
+        print(json.dumps(found, indent=2)[:4000], file=sys.stderr)
+        return 1
     print(f"Open this URL and approve read-only Gmail access:\n{url}")
     webbrowser.open(url)
     complete(wait_for_session_id(), token)
     found = gateway.list_labels()
-    failed = any(
-        "error" in message or (message.get("result") or {}).get("isError")
-        for message in found
-    )
-    if elicitation_url(found) or failed:
-        print("Consent did not complete; listLabels still fails.", file=sys.stderr)
+    if not succeeded(found):
+        print("Consent did not complete; listLabels still fails:", file=sys.stderr)
+        print(json.dumps(found, indent=2)[:4000], file=sys.stderr)
         return 1
     print("Consent complete; listLabels succeeded.")
     return 0
