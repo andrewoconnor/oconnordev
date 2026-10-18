@@ -7,10 +7,13 @@ locals {
       records = ["10 mail.thundermail.com."]
     }
     "oconnor.dev_TXT" = {
-      name    = "oconnor.dev."
-      type    = "TXT"
-      ttl     = 300
-      records = ["v=spf1 include:spf.thundermail.com -all"]
+      name = "oconnor.dev."
+      type = "TXT"
+      ttl  = 300
+      records = [
+        "v=spf1 include:spf.thundermail.com -all",
+        "google-site-verification=IOTKLU1HKY0BJVrAqx6cz17AaIgZH-FT8Mgzb2B2wEs",
+      ]
     }
     "_dmarc.oconnor.dev_TXT" = {
       name    = "_dmarc.oconnor.dev."
