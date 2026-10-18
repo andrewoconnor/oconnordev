@@ -6,7 +6,7 @@ use crate::{
 };
 use base64::{Engine, engine::general_purpose::STANDARD};
 use http_body_util::{BodyExt, Full};
-use hyper::{Method, Request, body::Bytes};
+use hyper::{Method, Request, body::Bytes, client::conn::http1::SendRequest};
 use hyper_util::rt::TokioIo;
 use serde_json::{Map, Value, json};
 
@@ -50,12 +50,22 @@ pub fn utc(value: &str) -> Option<String> {
     ))
 }
 
-fn query(range: &Range) -> String {
+fn query(range: &Range, expand: bool) -> String {
     let (start, end) = (&range.start, &range.end);
+    let data = if expand {
+        format!(r#"<C:calendar-data><C:expand start="{start}" end="{end}"/></C:calendar-data>"#)
+    } else {
+        concat!(
+            r#"<C:calendar-data><C:comp name="VCALENDAR"><C:comp name="VEVENT">"#,
+            r#"<C:prop name="UID"/><C:prop name="DTSTART"/><C:prop name="RECURRENCE-ID"/>"#,
+            "</C:comp></C:comp></C:calendar-data>"
+        )
+        .into()
+    };
     format!(
         r#"<?xml version="1.0" encoding="utf-8"?>
 <C:calendar-query xmlns:D="DAV:" xmlns:C="urn:ietf:params:xml:ns:caldav">
-  <D:prop><C:calendar-data><C:expand start="{start}" end="{end}"/></C:calendar-data></D:prop>
+  <D:prop>{data}</D:prop>
   <C:filter><C:comp-filter name="VCALENDAR"><C:comp-filter name="VEVENT">
     <C:time-range start="{start}" end="{end}"/>
   </C:comp-filter></C:comp-filter></C:filter>
@@ -69,6 +79,74 @@ pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result
         .await
         .map_err(|_| "CalDAV connection failed")?;
     tokio::spawn(connection);
+    let originals = report(&mut sender, password, range, false).await?;
+    let mut found = report(&mut sender, password, range, true).await?;
+    for event in &mut found {
+        preserve_date_type(event, &originals);
+    }
+    found.sort_by(|a, b| a["start"].as_str().cmp(&b["start"].as_str()));
+    let truncated = found.len() > range.limit;
+    found.truncate(range.limit);
+    Ok(json!({"calendar":"default","events":found,"truncated":truncated}))
+}
+
+fn preserve_date_type(event: &mut Value, originals: &[Value]) {
+    let Some(uid) = event["uid"].as_str() else {
+        return;
+    };
+    let same_uid = |source: &&Value| source["uid"].as_str() == Some(uid);
+    let recurrence = event["recurrence_id"].as_str();
+    let source = originals
+        .iter()
+        .filter(same_uid)
+        .find(|source| {
+            let (Some(id), Some(expanded)) = (source["recurrence_id"].as_str(), recurrence) else {
+                return false;
+            };
+            expanded == id || (id.len() == 8 && expanded.starts_with(id))
+        })
+        .or_else(|| {
+            originals
+                .iter()
+                .filter(same_uid)
+                .find(|source| source.get("recurrence_id").is_none())
+        });
+    if source.is_none_or(|source| source["all_day"] != true) {
+        return;
+    }
+    let date = |key: &str| {
+        event[key]
+            .as_str()
+            .and_then(|value| value.strip_suffix("T000000Z"))
+            .filter(|date| date.len() == 8 && date.bytes().all(|b| b.is_ascii_digit()))
+            .map(str::to_owned)
+    };
+    let (start, end) = (date("start"), date("end"));
+    if start.is_none() || (event.get("end").is_some() && end.is_none()) {
+        return;
+    }
+    for (key, value) in [("start", start), ("end", end)] {
+        if let Some(value) = value {
+            event[key] = Value::String(value);
+        }
+    }
+    event["all_day"] = Value::Bool(true);
+    if let Some(map) = event.as_object_mut() {
+        map.remove("start_tzid");
+        map.remove("end_tzid");
+    }
+}
+
+async fn report(
+    sender: &mut SendRequest<Full<Bytes>>,
+    password: &str,
+    range: &Range,
+    expand: bool,
+) -> Result<Vec<Value>> {
+    sender
+        .ready()
+        .await
+        .map_err(|_| "CalDAV connection failed")?;
     let request = Request::builder()
         .method(Method::from_bytes(b"REPORT").expect("method"))
         .uri(PATH)
@@ -79,7 +157,7 @@ pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result
             "authorization",
             format!("Basic {}", STANDARD.encode(format!("{OWNER}:{password}"))),
         )
-        .body(Full::new(Bytes::from(query(range))))
+        .body(Full::new(Bytes::from(query(range, expand))))
         .map_err(|_| "CalDAV request invalid")?;
     let response = sender
         .send_request(request)
@@ -97,11 +175,7 @@ pub async fn events(endpoint: Endpoint, password: &str, range: &Range) -> Result
         .map_err(|_| "CalDAV response exceeded the transfer budget or failed")?
         .to_bytes();
     let text = std::str::from_utf8(&body).map_err(|_| "CalDAV response is not UTF-8")?;
-    let mut found = parse_multistatus(text)?;
-    found.sort_by(|a, b| a["start"].as_str().cmp(&b["start"].as_str()));
-    let truncated = found.len() > range.limit;
-    found.truncate(range.limit);
-    Ok(json!({"calendar":"default","events":found,"truncated":truncated}))
+    parse_multistatus(text)
 }
 
 fn parse_multistatus(text: &str) -> Result<Vec<Value>> {
@@ -292,6 +366,46 @@ BEGIN:VEVENT\r\nUID:b@example\r\nSUMMARY:Holiday\r\nDTSTART;VALUE=DATE:20261018\
             events[1],
             json!({"uid":"b@example","summary":"Holiday","start":"20261018","all_day":true})
         );
+    }
+
+    #[test]
+    fn all_day_override_keeps_its_timed_recurrence_identity() {
+        let originals = parse_events(
+            "BEGIN:VEVENT\nUID:series\nDTSTART:20261001T090000Z\nRRULE:FREQ=DAILY\nEND:VEVENT\nBEGIN:VEVENT\nUID:series\nRECURRENCE-ID:20261102T090000Z\nDTSTART;VALUE=DATE:20261102\nDTEND;VALUE=DATE:20261104\nEND:VEVENT\n",
+        );
+        let mut event = json!({"uid":"series","recurrence_id":"20261102T090000Z","start":"20261102T000000Z","end":"20261104T000000Z","all_day":false});
+        preserve_date_type(&mut event, &originals);
+        assert_eq!(event["all_day"], true);
+        assert_eq!(event["start"], "20261102");
+        assert_eq!(event["end"], "20261104");
+        assert_eq!(event["recurrence_id"], "20261102T090000Z");
+    }
+
+    #[test]
+    fn timed_override_of_date_series_is_not_converted_to_all_day() {
+        let originals = parse_events(
+            "BEGIN:VEVENT\nUID:series\nDTSTART;VALUE=DATE:20261001\nRRULE:FREQ=DAILY\nEND:VEVENT\nBEGIN:VEVENT\nUID:series\nRECURRENCE-ID;VALUE=DATE:20261102\nDTSTART:20261102T000000Z\nDTEND:20261103T000000Z\nEND:VEVENT\n",
+        );
+        let mut event = json!({"uid":"series","recurrence_id":"20261102T000000Z","start":"20261102T000000Z","end":"20261103T000000Z","all_day":false});
+        let before = event.clone();
+        preserve_date_type(&mut event, &originals);
+        assert_eq!(event, before);
+    }
+
+    #[test]
+    fn unmatched_or_non_midnight_events_are_left_unchanged() {
+        let originals =
+            parse_events("BEGIN:VEVENT\nUID:known\nDTSTART;VALUE=DATE:20261102\nEND:VEVENT\n");
+        for mut event in [
+            json!({"uid":"unknown","start":"20261102T000000Z","all_day":false}),
+            json!({"start":"20261102T000000Z","all_day":false}),
+            json!({"uid":"known","start":"20261101T230000Z","end":"20261102T230000Z","all_day":false}),
+            json!({"uid":"known","start":"20261102T000000Z","end":"20261102T230000Z","all_day":false}),
+        ] {
+            let before = event.clone();
+            preserve_date_type(&mut event, &originals);
+            assert_eq!(event, before);
+        }
     }
 
     #[test]
