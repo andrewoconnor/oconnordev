@@ -2,7 +2,6 @@ locals {
   gmail_target_name      = "gmail"
   gmail_manifest         = jsondecode(file("${local.adapter_root}/gmail-mcp-tools.json"))
   gmail_tools            = toset(local.gmail_manifest.tools)
-  gmail_openapi          = jsondecode(file("${path.module}/gmail-openapi.json"))
   gmail_operations       = flatten([for path in values(local.gmail_openapi.paths) : [for method, operation in path : { method = method, id = operation.operationId }]])
   gmail_scopes           = ["https://www.googleapis.com/auth/gmail.readonly"]
   gmail_return_url       = "http://localhost:9090/oauth2/callback"

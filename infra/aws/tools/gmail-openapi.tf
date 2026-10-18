@@ -1,0 +1,50 @@
+locals {
+  gmail_openapi = {
+    openapi = "3.0.3"
+    info = {
+      title       = "Gmail read-only"
+      version     = "1.0.0"
+      description = "Read-only subset of the Gmail API v1 for the owner's mailbox."
+    }
+    servers = [{ url = "https://gmail.googleapis.com" }]
+    paths = {
+      "/gmail/v1/users/me/labels" = {
+        get = {
+          operationId = "listLabels"
+          summary     = "List the owner's Gmail labels, including system labels such as INBOX."
+          responses   = local.gmail_json_response
+        }
+      }
+      "/gmail/v1/users/me/messages" = {
+        get = {
+          operationId = "listMessages"
+          summary     = "List message and thread IDs, newest first. Use getMessage to read one."
+          parameters = [
+            { name = "q", in = "query", description = "Gmail search query, for example \"from:alice newer_than:7d\"", schema = { type = "string" } },
+            { name = "labelIds", in = "query", description = "Only messages with this label ID, for example INBOX", schema = { type = "string" } },
+            { name = "maxResults", in = "query", description = "Maximum number of IDs to return, 1 to 100", schema = { type = "integer", minimum = 1, maximum = 100 } },
+            { name = "pageToken", in = "query", description = "nextPageToken from the previous response", schema = { type = "string" } },
+          ]
+          responses = local.gmail_json_response
+        }
+      }
+      "/gmail/v1/users/me/messages/{id}" = {
+        get = {
+          operationId = "getMessage"
+          summary     = "Read one message. format=metadata returns headers and snippet only; format=full also returns the base64url-encoded body parts."
+          parameters = [
+            { name = "id", in = "path", required = true, description = "Message ID from listMessages", schema = { type = "string" } },
+            { name = "format", in = "query", description = "metadata (default) or full", schema = { type = "string", enum = ["metadata", "full"], default = "metadata" } },
+          ]
+          responses = local.gmail_json_response
+        }
+      }
+    }
+  }
+  gmail_json_response = {
+    "200" = {
+      description = "Success"
+      content     = { "application/json" = { schema = { type = "object" } } }
+    }
+  }
+}

@@ -3,7 +3,7 @@
 ## Architecture
 
 `target-gmail.tf` defines a `gmail` OpenAPI target on the Hermes gateway. The
-spec in `infra/aws/tools/gmail-openapi.json` has three GET operations:
+spec in `infra/aws/tools/gmail-openapi.tf` has three GET operations:
 `listLabels`, `listMessages` and `getMessage`. Hermes sees them as
 `gmail-<operation>`. The gateway action is `gmail___<operation>`, with one Cedar
 permit for each.

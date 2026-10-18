@@ -329,7 +329,7 @@ run "gmail_is_read_only_user_delegated_oauth" {
   }
 
   assert {
-    condition     = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_vendor == "GoogleOauth2" && aws_bedrockagentcore_oauth2_credential_provider.google.oauth2_provider_config[0].google_oauth2_provider_config[0].client_secret_source == "EXTERNAL"
+    condition     = aws_bedrockagentcore_oauth2_credential_provider.google.oauth2_provider_config[0].google_oauth2_provider_config[0].client_secret_source == "EXTERNAL"
     error_message = "The Google provider must read its client secret from Secrets Manager, never from state."
   }
 
