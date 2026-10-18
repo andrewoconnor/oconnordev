@@ -19,21 +19,19 @@ no additional external-source Spacelift glob is required for them.
 
 ## Thundermail native Lambda
 
-`thundermail-runtime.tf` and `target-thundermail.tf` define an
-ARM64 Rust native Lambda alongside, not replacing, Microsoft365. The existing
-Cognito gateway invokes its exact ARN directly using `mcp.lambda` and inline
-schemas, with one Cedar read permit for each tool. No Function URL/HTTP/LWA or Node.
-The runtime alone may read the app-password secret. Terraform manages the secret
-metadata, never the value.
-The adapter exposes `thundermail-` names and forwards them as `thundermail___`
-actions.
+`thundermail-runtime.tf` and `target-thundermail.tf` define an ARM64 Rust Lambda
+that reads Thundermail mail over IMAP and the default calendar over CalDAV. The
+Cognito gateway invokes it directly as a native Lambda target (`mcp.lambda`), with
+inline schemas and one Cedar read permit for each tool. There is no Function URL,
+HTTP server, Lambda Web Adapter or Node. Only the runtime can read the
+app-password secret. Terraform manages the secret metadata, never the value. The
+adapter exposes `thundermail-` names and forwards them as `thundermail___` actions.
 
-`infra/aws/tools/lambdas/thundermail_mcp/` builds a pinned provided.al2023 bootstrap container for
-the existing shared ECR repository. Master CI publishes the image with the existing
-ECR-only publisher. `local.thundermail_image_digest` pins the deployed image.
-Thundermail mail and default-calendar reads use this AgentCore target. Outlook
-uses the Microsoft365 target; Gmail uses its separate read-only connection.
-See [the runbook](../runbooks/thundermail-mcp.md).
+`infra/aws/tools/lambdas/thundermail_mcp/` builds the image on a pinned
+`provided.al2023` base. Master CI publishes it to the shared `oconnordev-tools`
+repository, and `local.thundermail_image_digest` pins the deployed image. Outlook
+mail uses the Microsoft365 target. Gmail uses a separate read-only connection
+outside this repository. See [the runbook](../runbooks/thundermail-mcp.md).
 
 ## Google Auth ownership
 
