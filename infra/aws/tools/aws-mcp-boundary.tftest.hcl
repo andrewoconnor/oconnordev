@@ -320,12 +320,12 @@ run "enabled_when_the_security_gateway_is_resolved" {
     error_message = "The Cedar read policy must name the GitHub target action exactly."
   }
 }
-run "gmail_is_read_only_user_delegated_oauth" {
+run "google_is_read_only_user_delegated_oauth" {
   command = plan
 
   assert {
-    condition     = aws_bedrockagentcore_gateway_target.gmail.credential_provider_configuration[0].oauth[0].grant_type == "AUTHORIZATION_CODE" && aws_bedrockagentcore_gateway_target.gmail.credential_provider_configuration[0].oauth[0].scopes == toset(["https://www.googleapis.com/auth/gmail.readonly"])
-    error_message = "Gmail must use user-delegated OAuth with only the gmail.readonly scope."
+    condition     = aws_bedrockagentcore_gateway_target.google.credential_provider_configuration[0].oauth[0].grant_type == "AUTHORIZATION_CODE" && aws_bedrockagentcore_gateway_target.google.credential_provider_configuration[0].oauth[0].scopes == toset(["https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/gmail.readonly"])
+    error_message = "Google must use user-delegated OAuth with only the read-only Calendar and Gmail scopes."
   }
 
   assert {
@@ -334,8 +334,8 @@ run "gmail_is_read_only_user_delegated_oauth" {
   }
 
   assert {
-    condition     = length(aws_bedrockagentcore_policy.gmail_read) == 3 && alltrue([for k, v in aws_bedrockagentcore_policy.gmail_read : strcontains(v.definition[0].cedar[0].statement, "gmail___${k}")])
-    error_message = "Each Gmail tool needs exactly one scoped Cedar permit."
+    condition     = length(aws_bedrockagentcore_policy.google_read) == 5 && alltrue([for k, v in aws_bedrockagentcore_policy.google_read : strcontains(v.definition[0].cedar[0].statement, "google___${k}")])
+    error_message = "Each Google tool needs exactly one scoped Cedar permit."
   }
 
   assert {

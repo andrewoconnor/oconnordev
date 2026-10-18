@@ -1,7 +1,9 @@
 {
-  "client_tool_prefix": "gmail-",
+  "client_tool_prefix": "google-",
   "tools": [
     "getMessage",
+    "listCalendars",
+    "listEvents",
     "listLabels",
     "listMessages"
   ]

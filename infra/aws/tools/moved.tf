@@ -47,3 +47,8 @@ moved {
   from = aws_bedrockagentcore_gateway_target.microsoft365[0]
   to   = aws_bedrockagentcore_gateway_target.microsoft365
 }
+
+moved {
+  from = aws_iam_role_policy.gmail_target_credentials
+  to   = aws_iam_role_policy.google_target_credentials
+}

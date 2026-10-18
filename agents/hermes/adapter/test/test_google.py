@@ -4,15 +4,15 @@ import adapter_config
 
 from .test_support import EXPECTED_TOOLS, FakeTransport, make_forwarder, rpc
 
-RAW = {"getMessage", "listLabels", "listMessages"}
+RAW = {"getMessage", "listCalendars", "listEvents", "listLabels", "listMessages"}
 
 
-class GmailTests(unittest.TestCase):
+class GoogleTests(unittest.TestCase):
     def test_tools_route_to_gateway_actions_and_unknown_calls_are_refused(self):
-        gmail = next(t for t in adapter_config.TARGETS if t.name == "gmail")
-        self.assertEqual(gmail.tools, RAW)
-        self.assertEqual(gmail.prefix, "gmail___")
-        self.assertEqual(gmail.client_tools, {"gmail-" + name for name in RAW})
+        google = next(t for t in adapter_config.TARGETS if t.name == "google")
+        self.assertEqual(google.tools, RAW)
+        self.assertEqual(google.prefix, "google___")
+        self.assertEqual(google.client_tools, {"google-" + name for name in RAW})
         transport = FakeTransport()
         client = make_forwarder(transport)
         listed = {
@@ -20,14 +20,15 @@ class GmailTests(unittest.TestCase):
         }
         self.assertEqual(listed, EXPECTED_TOOLS)
         for raw in RAW:
-            client.handle(rpc("tools/call", {"name": "gmail-" + raw, "arguments": {}}))
+            client.handle(rpc("tools/call", {"name": "google-" + raw, "arguments": {}}))
             self.assertEqual(
-                transport.gateway_calls[-1][3]["params"]["name"], "gmail___" + raw
+                transport.gateway_calls[-1][3]["params"]["name"], "google___" + raw
             )
         for forbidden in [
             "sendMessage",
-            "gmail-sendMessage",
-            "gmail-trashMessage",
+            "google-sendMessage",
+            "google-insertEvent",
+            "gmail-listLabels",
             *RAW,
         ]:
             before = len(transport.gateway_calls)
