@@ -171,8 +171,35 @@ class AgentCoreForwarder(_ToolsListMixin):
             response, _ = self._send(forwarded, target_headers)
             if response is None or "id" not in message:
                 return None
-            return response
+            return _consent_result(response)
         except AdapterError as error:
             if "id" not in message:
                 return None
             return _json_rpc_error(message.get("id"), -32000, error.category)
+
+
+def _consent_result(response: dict[str, Any]) -> dict[str, Any]:
+    error = response.get("error")
+    if not isinstance(error, dict) or error.get("code") != -32042:
+        return response
+    data = error.get("data")
+    elicitations = data.get("elicitations") if isinstance(data, dict) else None
+    urls = [
+        item["url"]
+        for item in elicitations or []
+        if isinstance(item, dict)
+        and item.get("mode") == "url"
+        and isinstance(item.get("url"), str)
+        and item["url"].startswith("https://")
+    ]
+    if not urls:
+        return response
+    text = (
+        "Authorization required. Ask the user to open this link and approve "
+        f"access, then retry the same request: {urls[0]}"
+    )
+    return {
+        "jsonrpc": "2.0",
+        "id": response.get("id"),
+        "result": {"isError": True, "content": [{"type": "text", "text": text}]},
+    }

@@ -171,4 +171,5 @@ TARGETS = (
     _load_target("thundermail", "thundermail-mcp-tools.json"),
     _load_target("google", "google-mcp-tools.json"),
     _load_target("outlook", "outlook-mcp-tools.json"),
+    _load_target("schwab", "schwab-mcp-tools.json"),
 )

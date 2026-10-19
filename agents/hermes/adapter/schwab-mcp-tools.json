@@ -1,0 +1,12 @@
+{
+  "client_tool_prefix": "schwab-",
+  "tools": [
+    "getAccount",
+    "getAccountNumbers",
+    "getMarketHours",
+    "getPriceHistory",
+    "getQuotes",
+    "listAccounts",
+    "searchInstruments"
+  ]
+}

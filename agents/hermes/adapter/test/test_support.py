@@ -56,6 +56,15 @@ GOOGLE_TOOLS = {
     "google-listLabels",
     "google-listMessages",
 }
+SCHWAB_TOOLS = {
+    "schwab-getAccount",
+    "schwab-getAccountNumbers",
+    "schwab-getMarketHours",
+    "schwab-getPriceHistory",
+    "schwab-getQuotes",
+    "schwab-listAccounts",
+    "schwab-searchInstruments",
+}
 OUTLOOK_TOOLS = {
     "outlook-getMessage",
     "outlook-listCalendars",
@@ -70,6 +79,7 @@ EXPECTED_TOOLS = (
     | THUNDERMAIL_TOOLS
     | GOOGLE_TOOLS
     | OUTLOOK_TOOLS
+    | SCHWAB_TOOLS
 )
 UNOWNED_TARGETS = tuple(
     target
