@@ -1,4 +1,7 @@
 data "aws_iam_policy_document" "outlook_signing_key" {
+  # checkov:skip=CKV_AWS_109:Key policy, not an IAM identity policy. Resource "*" is the one key this policy is attached to; the root statement only delegates access to IAM policies.
+  # checkov:skip=CKV_AWS_111:Key policy, not an IAM identity policy. The account-root grant is the standard statement that lets IAM policies grant kms:Sign.
+  # checkov:skip=CKV_AWS_356:Key policy, not an IAM identity policy. Resource "*" in a key policy denotes this key only.
   statement {
     sid       = "AccountAdministersKey"
     effect    = "Allow"
