@@ -33,7 +33,7 @@ role to read only that secret and the other named credentials.
 6. Grant consent on the computer where your browser runs, with the adapter's
    `HERMES_AGENTCORE_*` variables and tools-account AWS credentials:
    ```sh
-   python3 scripts/bootstrap/google/consent.py
+   python3 scripts/bootstrap/oauth/consent.py
    ```
    The script calls `google___listLabels`. The gateway answers with a `-32042`
    URL elicitation. Approve read-only access in the browser. Google returns to

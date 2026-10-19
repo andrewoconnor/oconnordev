@@ -4,7 +4,7 @@
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to OpenTofu data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
 
-`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Microsoft365, Thundermail and Google targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
+`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Microsoft365, Outlook, Thundermail and Google targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
 ## Tools-account Lambdas
 
@@ -37,6 +37,14 @@ server or Lambda Web Adapter. Only the runtime can read the app-password secret.
 Terraform manages the secret metadata, never the value. The adapter exposes
 `thundermail-` names and forwards them as `thundermail___` actions. See
 [the runbook](../runbooks/thundermail-mcp.md).
+
+### Outlook
+
+`target-outlook.tf` defines an `outlook` OpenAPI target for five read-only
+Microsoft Graph mail and calendar operations. The gateway uses user-delegated
+OAuth through AgentCore Identity, which authenticates to Microsoft with a
+KMS-signed client assertion instead of a client secret. See
+[the runbook](../runbooks/outlook-mcp.md).
 
 ### Google
 

@@ -4,7 +4,7 @@ locals {
   google_tools           = toset(local.google_manifest.tools)
   google_operations      = flatten([for path in values(local.google_openapi.paths) : [for method, operation in path : { method = method, id = operation.operationId }]])
   google_scopes          = ["https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/gmail.readonly"]
-  google_return_url      = "http://localhost:9090/oauth2/callback"
+  oauth_return_url       = "http://localhost:9090/oauth2/callback"
   google_oauth_client_id = "693193037198-cgg4gr2q675dt3t18c74uhafgbrfdle3.apps.googleusercontent.com"
   google_oauth_secret_arns = compact([
     data.aws_secretsmanager_secret.google_oauth_client.arn,
@@ -34,17 +34,6 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "google" {
 }
 
 data "aws_iam_policy_document" "google_target_credentials" {
-  statement {
-    sid     = "GetUserBoundWorkloadAccessToken"
-    effect  = "Allow"
-    actions = ["bedrock-agentcore:GetWorkloadAccessTokenForJWT", "bedrock-agentcore:GetWorkloadAccessTokenForUserId"]
-
-    resources = [
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default",
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",
-    ]
-  }
-
   statement {
     sid     = "GetGoogleTokenFromAgentCoreIdentity"
     effect  = "Allow"
@@ -82,7 +71,7 @@ resource "aws_bedrockagentcore_gateway_target" "google" {
       provider_arn       = aws_bedrockagentcore_oauth2_credential_provider.google.credential_provider_arn
       scopes             = local.google_scopes
       grant_type         = "AUTHORIZATION_CODE"
-      default_return_url = local.google_return_url
+      default_return_url = local.oauth_return_url
     }
   }
 

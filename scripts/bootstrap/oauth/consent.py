@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Grant AgentCore one-time Google consent for the google gateway target.
+"""Grant AgentCore one-time OAuth consent for a 3LO gateway target.
 
 Uses the adapter's environment: HERMES_AGENTCORE_GATEWAY_URL,
 HERMES_AGENTCORE_COGNITO_TOKEN_URL, HERMES_AGENTCORE_COGNITO_CLIENT_ID and
 HERMES_AGENTCORE_COGNITO_CLIENT_SECRET. Needs AWS credentials for the tools
-account to call CompleteResourceTokenAuth. Pass --force to replace a stored
-Google token.
+account to call CompleteResourceTokenAuth. Pass --tool to choose the target
+(default google___listLabels; for Outlook use outlook___listMailFolders) and
+--force to replace a stored token.
 """
 
 from __future__ import annotations
@@ -112,14 +113,14 @@ class Gateway:
             {
                 "protocolVersion": "2025-11-25",
                 "capabilities": {"elicitation": {"url": {}}},
-                "clientInfo": {"name": "google-consent", "version": "1"},
+                "clientInfo": {"name": "agentcore-consent", "version": "1"},
             },
             1,
         )
         self.version = found[-1]["result"]["protocolVersion"]
 
-    def list_labels(self, force: bool = False) -> list[dict]:
-        params: dict = {"name": TOOL, "arguments": {}}
+    def list_labels(self, force: bool = False, tool: str = TOOL) -> list[dict]:
+        params: dict = {"name": tool, "arguments": {}}
         if force:
             params["_meta"] = {
                 "aws.bedrock-agentcore.gateway/credentialProviderConfiguration": {
@@ -196,24 +197,26 @@ def main() -> int:
     )
     gateway = Gateway(env["GATEWAY_URL"], token)
     gateway.initialize()
-    found = gateway.list_labels(force="--force" in sys.argv[1:])
+    arguments = sys.argv[1:]
+    tool = arguments[arguments.index("--tool") + 1] if "--tool" in arguments else TOOL
+    found = gateway.list_labels(force="--force" in arguments, tool=tool)
     url = elicitation_url(found)
     if url is None:
         if succeeded(found):
-            print("Google already has consent; listLabels succeeded.")
+            print(f"Consent already exists; {tool} succeeded.")
             return 0
-        print("listLabels failed without a consent URL:", file=sys.stderr)
+        print(f"{tool} failed without a consent URL:", file=sys.stderr)
         print(json.dumps(found, indent=2)[:4000], file=sys.stderr)
         return 1
-    print(f"Open this URL and approve read-only Gmail and Calendar access:\n{url}")
+    print(f"Open this URL and approve read-only access:\n{url}")
     webbrowser.open(url)
     complete(wait_for_session_id(), token)
-    found = gateway.list_labels()
+    found = gateway.list_labels(tool=tool)
     if not succeeded(found):
-        print("Consent did not complete; listLabels still fails:", file=sys.stderr)
+        print(f"Consent did not complete; {tool} still fails:", file=sys.stderr)
         print(json.dumps(found, indent=2)[:4000], file=sys.stderr)
         return 1
-    print("Consent complete; listLabels succeeded.")
+    print(f"Consent complete; {tool} succeeded.")
     return 0
 
 

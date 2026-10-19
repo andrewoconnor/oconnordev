@@ -1,0 +1,10 @@
+{
+  "client_tool_prefix": "outlook-",
+  "tools": [
+    "getMessage",
+    "listCalendars",
+    "listEvents",
+    "listMailFolders",
+    "listMessages"
+  ]
+}

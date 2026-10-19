@@ -36,3 +36,31 @@ class GoogleTests(unittest.TestCase):
                 "error", client.handle(rpc("tools/call", {"name": forbidden}))
             )
             self.assertEqual(len(transport.gateway_calls), before)
+
+    def test_outlook_tools_route_to_gateway_actions(self):
+        outlook = next(t for t in adapter_config.TARGETS if t.name == "outlook")
+        self.assertEqual(
+            outlook.tools,
+            {
+                "getMessage",
+                "listCalendars",
+                "listEvents",
+                "listMailFolders",
+                "listMessages",
+            },
+        )
+        self.assertEqual(outlook.prefix, "outlook___")
+        transport = FakeTransport()
+        client = make_forwarder(transport)
+        for raw in outlook.tools:
+            client.handle(
+                rpc("tools/call", {"name": "outlook-" + raw, "arguments": {}})
+            )
+            self.assertEqual(
+                transport.gateway_calls[-1][3]["params"]["name"], "outlook___" + raw
+            )
+        before = len(transport.gateway_calls)
+        self.assertIn(
+            "error", client.handle(rpc("tools/call", {"name": "outlook-sendMail"}))
+        )
+        self.assertEqual(len(transport.gateway_calls), before)
