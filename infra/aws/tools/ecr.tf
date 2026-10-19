@@ -20,7 +20,7 @@ resource "aws_ecr_repository_policy" "tools_images" {
       Effect    = "Allow"
       Principal = { Service = "lambda.amazonaws.com" }
       Action    = ["ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
-      Condition = { ArnLike = { "aws:SourceArn" = [local.microsoft365_function_arn, local.thundermail_function_arn] } }
+      Condition = { ArnLike = { "aws:SourceArn" = [local.thundermail_function_arn] } }
     }]
   })
 }

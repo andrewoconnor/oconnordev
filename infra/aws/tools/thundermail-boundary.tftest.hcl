@@ -156,7 +156,7 @@ run "thundermail_boundary" {
     error_message = "Native single ARM64 Lambda and inline four tools, not HTTP."
   }
   assert {
-    condition     = toset(jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Condition.ArnLike["aws:SourceArn"]) == toset([local.microsoft365_function_arn, local.thundermail_function_arn])
+    condition     = toset(jsondecode(aws_ecr_repository_policy.tools_images.policy).Statement[0].Condition.ArnLike["aws:SourceArn"]) == toset([local.thundermail_function_arn])
     error_message = "Extend existing shared pull grant only by the exact Thundermail ARN."
   }
 }

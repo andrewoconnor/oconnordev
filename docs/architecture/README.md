@@ -4,28 +4,19 @@
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to OpenTofu data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
 
-`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Microsoft365, Outlook, Thundermail and Google targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
+`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Outlook, Thundermail and Google targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
 ## Tools-account Lambdas
 
-Lambda sources live under `infra/aws/tools/lambdas/`: `spacelift_session_token/`,
-`microsoft365_mcp/` and `thundermail_mcp/`. The tools project root covers all
-three, so no extra Spacelift project glob is needed.
+Lambda sources live under `infra/aws/tools/lambdas/`: `spacelift_session_token/`
+and `thundermail_mcp/`. The tools project root covers both, so no extra Spacelift
+project glob is needed.
 
 `ecr.tf` defines the shared `oconnordev-tools` image repository, its Lambda pull
 policy and the image publisher role. On master, `tool-image.yml` builds and tests
-each image and publishes it to that repository. It does not deploy. Each
-image-based Lambda pins its deployed digest in a local:
-`local.microsoft365_image_digest` and `local.thundermail_image_digest`. To deploy a
-new image, change the local and apply the tools stack.
-
-### Microsoft365
-
-`microsoft365-runtime.tf` and `target-microsoft365.tf` define an arm64 Node Lambda
-that reads Outlook mail through Microsoft Graph. The gateway calls it as an MCP
-server target through an AWS_IAM Function URL and Lambda Web Adapter. The owner
-bootstrap helper is in `scripts/bootstrap/microsoft365/` and imports the runtime's
-envelope validator. See [the runbook](../runbooks/microsoft365-mcp.md).
+the Thundermail image and publishes it to that repository. It does not deploy.
+`local.thundermail_image_digest` pins the deployed digest. To deploy a new image,
+change the local and apply the tools stack.
 
 ### Thundermail
 
@@ -76,7 +67,7 @@ The bucket policies remain explicit policy documents attached directly to `aws_s
 
 ## AgentCore trust boundaries
 
-`tools` owns one Cognito-protected AgentCore Gateway, one execution role, and the ENFORCE policy engine. Cognito client-credentials authentication establishes the machine caller; Cedar policies authorize target-prefixed action names. M2M access tokens have an explicit 60-minute validity; ID/refresh-token settings are not configured for this flow. The adapter caches the returned `expires_in` lifetime and refreshes with its existing 60-second skew, or once after a gateway 401; extending validity does not force periodic token requests when idle. Shared gateway and authentication resources are in `gateway.tf` and `gateway-auth.tf`; target-specific credentials, target definitions, and Cedar rules are in `target-github.tf`, `target-aws.tf`, `target-spacelift.tf`, and `target-microsoft365.tf`. GitHub PAT and Spacelift credentials remain separate from gateway-wide IAM.
+`tools` owns one Cognito-protected AgentCore Gateway, one execution role, and the ENFORCE policy engine. Cognito client-credentials authentication establishes the machine caller; Cedar policies authorize target-prefixed action names. M2M access tokens have an explicit 60-minute validity; ID/refresh-token settings are not configured for this flow. The adapter caches the returned `expires_in` lifetime and refreshes with its existing 60-second skew, or once after a gateway 401; extending validity does not force periodic token requests when idle. Shared gateway and authentication resources are in `gateway.tf` and `gateway-auth.tf`; target-specific credentials, target definitions, and Cedar rules are in `target-github.tf`, `target-aws.tf`, `target-spacelift.tf`, `target-thundermail.tf`, `target-google.tf`, and `target-outlook.tf`. GitHub PAT and Spacelift credentials remain separate from gateway-wide IAM.
 
 The security-account gateway is a separate AWS_IAM trust boundary. Its resource policy admits the Hermes gateway role; its execution role's explicit read-deny policy remains directly inspectable. It does not use the Hermes OAuth Cedar engine.
 
