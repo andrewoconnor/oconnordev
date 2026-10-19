@@ -44,9 +44,13 @@ resource "aws_iam_role" "hermes_gateway" {
 
 data "aws_iam_policy_document" "hermes_gateway_core" {
   statement {
-    sid     = "GetGatewayWorkloadAccessToken"
-    effect  = "Allow"
-    actions = ["bedrock-agentcore:GetWorkloadAccessToken"]
+    sid    = "GetGatewayWorkloadAccessToken"
+    effect = "Allow"
+    actions = [
+      "bedrock-agentcore:GetWorkloadAccessToken",
+      "bedrock-agentcore:GetWorkloadAccessTokenForJWT",
+      "bedrock-agentcore:GetWorkloadAccessTokenForUserId",
+    ]
     resources = [
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default",
       "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",

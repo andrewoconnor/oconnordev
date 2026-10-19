@@ -46,6 +46,12 @@ mock_provider "aws" {
     }
   }
 
+  mock_resource "aws_kms_key" {
+    defaults = {
+      arn = "arn:aws:kms:us-east-1:421680664125:key/00000000-0000-0000-0000-000000000000"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::421680664125:role/mock"
@@ -341,5 +347,29 @@ run "google_is_read_only_user_delegated_oauth" {
   assert {
     condition     = contains(local.hermes_gateway_readable_secret_arns, data.aws_secretsmanager_secret.google_oauth_client.arn)
     error_message = "The gateway guardrail must allow reading only the named Google client secret."
+  }
+}
+
+run "outlook_is_read_only_oauth_with_kms_client_assertion" {
+  command = plan
+
+  assert {
+    condition     = aws_bedrockagentcore_gateway_target.outlook.credential_provider_configuration[0].oauth[0].grant_type == "AUTHORIZATION_CODE" && aws_bedrockagentcore_gateway_target.outlook.credential_provider_configuration[0].oauth[0].scopes == toset(["https://graph.microsoft.com/Calendars.Read", "https://graph.microsoft.com/Mail.Read", "offline_access"])
+    error_message = "Outlook must use user-delegated OAuth with only read-only mail and calendar scopes."
+  }
+
+  assert {
+    condition     = aws_bedrockagentcore_oauth2_credential_provider.outlook.oauth2_provider_config[0].custom_oauth2_provider_config[0].client_authentication_method == "PRIVATE_KEY_JWT" && aws_bedrockagentcore_oauth2_credential_provider.outlook.oauth2_provider_config[0].custom_oauth2_provider_config[0].private_key_jwt_config[0].signing_algorithm == "PS256"
+    error_message = "The Outlook provider must authenticate with a KMS-signed PS256 client assertion, not a client secret."
+  }
+
+  assert {
+    condition     = length(aws_bedrockagentcore_policy.outlook_read) == 5 && alltrue([for k, v in aws_bedrockagentcore_policy.outlook_read : strcontains(v.definition[0].cedar[0].statement, "outlook___${k}")])
+    error_message = "Each Outlook tool needs exactly one scoped Cedar permit."
+  }
+
+  assert {
+    condition     = aws_kms_key.outlook_signing.key_usage == "SIGN_VERIFY" && aws_kms_key.outlook_signing.customer_master_key_spec == "RSA_2048"
+    error_message = "The Outlook signing key must be an RSA signing key."
   }
 }

@@ -63,6 +63,13 @@ GOOGLE_TOOLS = {
     "google-listLabels",
     "google-listMessages",
 }
+OUTLOOK_TOOLS = {
+    "outlook-getMessage",
+    "outlook-listCalendars",
+    "outlook-listEvents",
+    "outlook-listMailFolders",
+    "outlook-listMessages",
+}
 EXPECTED_TOOLS = (
     GITHUB_TOOLS
     | AWS_TOOLS
@@ -70,6 +77,7 @@ EXPECTED_TOOLS = (
     | MICROSOFT365_TOOLS
     | THUNDERMAIL_TOOLS
     | GOOGLE_TOOLS
+    | OUTLOOK_TOOLS
 )
 UNOWNED_TARGETS = tuple(
     target

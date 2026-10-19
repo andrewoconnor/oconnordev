@@ -10,7 +10,7 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[3]
 spec = importlib.util.spec_from_file_location(
-    "google_consent", ROOT / "scripts/bootstrap/google/consent.py"
+    "oauth_consent", ROOT / "scripts/bootstrap/oauth/consent.py"
 )
 consent = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(consent)
@@ -34,7 +34,7 @@ ELICITATION = {
 }
 
 
-class GoogleConsentTests(unittest.TestCase):
+class OAuthConsentTests(unittest.TestCase):
     def test_reads_json_and_event_stream_responses(self):
         body = json.dumps(ELICITATION).encode()
         self.assertEqual(consent.messages(body, "application/json"), [ELICITATION])

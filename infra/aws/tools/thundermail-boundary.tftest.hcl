@@ -34,6 +34,12 @@ mock_provider "aws" {
     }
   }
 
+  mock_resource "aws_kms_key" {
+    defaults = {
+      arn = "arn:aws:kms:us-east-1:421680664125:key/00000000-0000-0000-0000-000000000000"
+    }
+  }
+
   mock_resource "aws_iam_role" {
     defaults = {
       arn = "arn:aws:iam::421680664125:role/mock"
