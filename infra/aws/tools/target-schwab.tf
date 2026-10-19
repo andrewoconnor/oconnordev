@@ -32,11 +32,10 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "schwab" {
 
       oauth_discovery {
         authorization_server_metadata {
-          issuer                      = "https://api.schwabapi.com"
-          authorization_endpoint      = "https://api.schwabapi.com/v1/oauth/authorize"
-          token_endpoint              = "https://api.schwabapi.com/v1/oauth/token"
-          response_types              = ["code"]
-          token_endpoint_auth_methods = ["client_secret_basic"]
+          issuer                 = "https://api.schwabapi.com"
+          authorization_endpoint = "https://api.schwabapi.com/v1/oauth/authorize"
+          token_endpoint         = "https://api.schwabapi.com/v1/oauth/token"
+          response_types         = ["code"]
         }
       }
     }
