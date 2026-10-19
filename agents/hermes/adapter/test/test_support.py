@@ -43,13 +43,6 @@ SPACELIFT_TOOLS = {
     "provider",
     "query",
 }
-MICROSOFT365_TOOLS = {
-    "list-mail-messages",
-    "get-mail-message",
-    "list-mail-folders",
-    "list-mail-child-folders",
-    "list-mail-folder-messages",
-}
 THUNDERMAIL_TOOLS = {
     "thundermail-imap_list_mailboxes",
     "thundermail-imap_search_messages",
@@ -74,7 +67,6 @@ EXPECTED_TOOLS = (
     GITHUB_TOOLS
     | AWS_TOOLS
     | SPACELIFT_TOOLS
-    | MICROSOFT365_TOOLS
     | THUNDERMAIL_TOOLS
     | GOOGLE_TOOLS
     | OUTLOOK_TOOLS

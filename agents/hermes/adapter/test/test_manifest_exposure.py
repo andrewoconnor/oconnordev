@@ -32,7 +32,6 @@ class TargetManifestTests(unittest.TestCase):
                 "github",
                 "aws",
                 "spacelift",
-                "microsoft365",
                 "thundermail",
                 "google",
                 "outlook",
@@ -131,7 +130,7 @@ class TargetManifestTests(unittest.TestCase):
 class ExposureTests(unittest.TestCase):
     def test_tools_list_exposes_every_targets_manifest_tools(self):
         self.assertEqual(exposed_names(make_forwarder()), EXPECTED_TOOLS)
-        self.assertEqual(len(EXPECTED_TOOLS), 42)
+        self.assertEqual(len(EXPECTED_TOOLS), 37)
 
     def test_extra_tools_are_not_exposed(self):
         transport = FakeTransport()

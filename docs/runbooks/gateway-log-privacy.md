@@ -37,8 +37,8 @@ No end-to-end no-mailbox-logging guarantee is made.
 
 Re-enabling body-bearing delivery affects every shared target. Pause mail access,
 obtain explicit owner privacy approval, review a separate IaC plan, and verify
-metadata after owner apply. Mail consent, runtime activation and live verification
-remain separately authorized operations; see [Microsoft365](microsoft365-mcp.md).
+metadata after owner apply. Mail consent and live verification remain separately authorized operations; see
+[Outlook](outlook-mcp.md) and [Google](google-mcp.md).
 
 References: [Gateway observability](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/observability-gateway-metrics.html),
 [delivery API](https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_CreateDelivery.html),
