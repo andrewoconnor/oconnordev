@@ -5,7 +5,7 @@ locals {
   outlook_operations      = flatten([for path in values(local.outlook_openapi.paths) : [for method, operation in path : { method = method, id = operation.operationId }]])
   outlook_scopes          = ["https://graph.microsoft.com/Calendars.Read", "https://graph.microsoft.com/Mail.Read", "offline_access"]
   outlook_client_id       = "94add076-3186-458b-a837-6d417bafc4b3"
-  outlook_cert_thumbprint = "vr1vT9cBCaEexLqlCPPG94I9Nvv5TtVi_u3nIsd5JAI"
+  outlook_cert_thumbprint = "vr1vT9cBCaEexLqlCPPG94I9Nvv5TtVi_u3nIsd5JAk"
 }
 
 resource "aws_bedrockagentcore_oauth2_credential_provider" "outlook" {
