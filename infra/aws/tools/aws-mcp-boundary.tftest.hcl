@@ -373,3 +373,27 @@ run "outlook_is_read_only_oauth_with_kms_client_assertion" {
     error_message = "The Outlook signing key must be an RSA signing key."
   }
 }
+
+run "schwab_is_read_only_oauth_with_hosted_consent" {
+  command = plan
+
+  assert {
+    condition     = aws_bedrockagentcore_gateway_target.schwab.credential_provider_configuration[0].oauth[0].grant_type == "AUTHORIZATION_CODE" && aws_bedrockagentcore_gateway_target.schwab.credential_provider_configuration[0].oauth[0].default_return_url == "${aws_lambda_function_url.oauth_callback.function_url}callback"
+    error_message = "Schwab must use user-delegated OAuth that returns to the hosted consent callback."
+  }
+
+  assert {
+    condition     = length(aws_bedrockagentcore_policy.schwab_read) == 7 && !anytrue([for path in keys(local.schwab_openapi.paths) : strcontains(path, "orders")])
+    error_message = "Schwab exposes seven read-only tools and no order endpoint."
+  }
+
+  assert {
+    condition     = aws_lambda_function_url.oauth_callback.authorization_type == "NONE" && aws_lambda_permission.oauth_callback_url.function_url_auth_type == "NONE" && aws_lambda_permission.oauth_callback_invoke.invoked_via_function_url
+    error_message = "The consent callback must be reachable by a browser redirect, and only through its Function URL."
+  }
+
+  assert {
+    condition     = contains(local.hermes_gateway_readable_secret_arns, data.aws_secretsmanager_secret.schwab_oauth_client.arn)
+    error_message = "The gateway guardrail must allow reading the named Schwab client secret."
+  }
+}
