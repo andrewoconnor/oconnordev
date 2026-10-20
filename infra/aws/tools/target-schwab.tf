@@ -3,7 +3,7 @@ locals {
   schwab_manifest    = jsondecode(file("${local.adapter_root}/schwab-mcp-tools.json"))
   schwab_tools       = toset(local.schwab_manifest.tools)
   schwab_operations  = flatten([for path in values(local.schwab_openapi.paths) : [for method, operation in path : { method = method, id = operation.operationId }]])
-  schwab_scopes      = ["api", "offline_access"]
+  schwab_scopes      = ["api"]
   schwab_app_key     = "9UXqjUwlrByk8rd5iOqH7pvlxFYJtWJcTNzHzfy336iDP2nx"
   schwab_secret_arns = compact([
     data.aws_secretsmanager_secret.schwab_oauth_client.arn,

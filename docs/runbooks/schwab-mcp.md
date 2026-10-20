@@ -9,8 +9,8 @@ spec in `infra/aws/tools/schwab-openapi.tf` has seven GET operations on
 no order endpoints. Hermes sees `schwab-<operation>`; the gateway action is
 `schwab___<operation>`, with one Cedar permit for each.
 
-The target uses user-delegated OAuth (`AUTHORIZATION_CODE`) with the `api` and
-`offline_access` scopes. The `hermes-schwab` credential provider is
+The target uses user-delegated OAuth (`AUTHORIZATION_CODE`) with the `api`
+scope. Schwab defines no other scope and rejects unknown ones. The `hermes-schwab` credential provider is
 `CustomOauth2` with Schwab's authorize and token endpoints and HTTP Basic client
 authentication. It reads the app secret from `/hermes/schwab/oauth-client-secret`.
 
