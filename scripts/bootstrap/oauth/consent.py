@@ -6,7 +6,8 @@ HERMES_AGENTCORE_COGNITO_TOKEN_URL, HERMES_AGENTCORE_COGNITO_CLIENT_ID and
 HERMES_AGENTCORE_COGNITO_CLIENT_SECRET. Needs AWS credentials for the tools
 account to call CompleteResourceTokenAuth. Pass --tool to choose the target
 (default google___listLabels; for Outlook use outlook___listMailFolders) and
---force to replace a stored token.
+--force to replace a stored token, and --local to return to this script instead
+of the target's hosted callback.
 """
 
 from __future__ import annotations
@@ -119,12 +120,19 @@ class Gateway:
         )
         self.version = found[-1]["result"]["protocolVersion"]
 
-    def list_labels(self, force: bool = False, tool: str = TOOL) -> list[dict]:
+    def list_labels(
+        self, force: bool = False, tool: str = TOOL, local: bool = False
+    ) -> list[dict]:
         params: dict = {"name": tool, "arguments": {}}
+        provider: dict = {}
         if force:
+            provider["forceAuthentication"] = True
+        if local:
+            provider["returnUrl"] = f"http://localhost:{PORT}{CALLBACK_PATH}"
+        if provider:
             params["_meta"] = {
                 "aws.bedrock-agentcore.gateway/credentialProviderConfiguration": {
-                    "oauthCredentialProvider": {"forceAuthentication": True}
+                    "oauthCredentialProvider": provider
                 }
             }
         return self.rpc("tools/call", params, 2)
@@ -199,7 +207,8 @@ def main() -> int:
     gateway.initialize()
     arguments = sys.argv[1:]
     tool = arguments[arguments.index("--tool") + 1] if "--tool" in arguments else TOOL
-    found = gateway.list_labels(force="--force" in arguments, tool=tool)
+    local = "--local" in arguments
+    found = gateway.list_labels(force="--force" in arguments, tool=tool, local=local)
     url = elicitation_url(found)
     if url is None:
         if succeeded(found):
