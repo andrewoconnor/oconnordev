@@ -6,7 +6,12 @@
 spec in `infra/aws/tools/schwab-openapi.tf` has seven GET operations on
 `https://api.schwabapi.com`: `getAccountNumbers`, `listAccounts`, `getAccount`,
 `getQuotes`, `getPriceHistory`, `getMarketHours` and `searchInstruments`. It has
-no order endpoints. Hermes sees `schwab-<operation>`; the gateway action is
+no order endpoints. The gateway adds `Content-Type: application/json` to every
+OpenAPI GET, and Schwab rejects such GETs with `400`. So the target's server is
+`hermes-schwab-proxy` (`schwab-proxy.tf`), a Lambda Function URL that forwards
+only GETs on `/trader/v1/accounts` and `/marketdata/v1/` paths to
+`api.schwabapi.com`, with only the caller's bearer token and
+`Accept: application/json`. Hermes sees `schwab-<operation>`; the gateway action is
 `schwab___<operation>`, with one Cedar permit for each.
 
 The target uses user-delegated OAuth (`AUTHORIZATION_CODE`) with the `api`

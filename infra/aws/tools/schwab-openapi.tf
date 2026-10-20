@@ -4,9 +4,9 @@ locals {
     info = {
       title       = "Schwab read-only"
       version     = "1.0.0"
-      description = "Read-only subset of the Schwab Trader API: accounts, positions and market data. Order endpoints are not included."
+      description = "Read-only subset of the Schwab Trader API: accounts, positions and market data. Order endpoints are not included. Calls go through hermes-schwab-proxy, which forwards GETs to api.schwabapi.com without the content-type header that Schwab rejects."
     }
-    servers = [{ url = "https://api.schwabapi.com" }]
+    servers = [{ url = trimsuffix(aws_lambda_function_url.schwab_proxy.function_url, "/") }]
     paths = {
       "/trader/v1/accounts/accountNumbers" = {
         get = {
