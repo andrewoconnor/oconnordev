@@ -60,7 +60,16 @@ def handle(event: dict, cognito, agentcore, identity_env: dict) -> dict:
             sessionUri=session,
             userIdentifier={"userToken": adapter_token(cognito, identity_env)},
         )
-    except Exception:
+    except Exception as error:
+        print(
+            json.dumps(
+                {
+                    "event": "consent_completion_failed",
+                    "error": type(error).__name__,
+                    "detail": str(error)[:500],
+                }
+            )
+        )
         return page(
             502,
             "Authorization failed",

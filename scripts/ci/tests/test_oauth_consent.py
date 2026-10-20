@@ -102,3 +102,22 @@ class OAuthConsentTests(unittest.TestCase):
                 )
                 worker.join(5)
         self.assertEqual(result["id"], "urn:abc")
+
+    def test_local_and_force_set_gateway_meta(self):
+        gateway = consent.Gateway("https://gateway.example/mcp", "jwt")
+        sent = []
+        gateway.rpc = lambda method, params, message_id: sent.append(params) or []
+        gateway.list_labels(force=True, tool="schwab___getQuotes", local=True)
+        provider = sent[0]["_meta"][
+            "aws.bedrock-agentcore.gateway/credentialProviderConfiguration"
+        ]["oauthCredentialProvider"]
+        self.assertEqual(sent[0]["name"], "schwab___getQuotes")
+        self.assertEqual(
+            provider,
+            {
+                "forceAuthentication": True,
+                "returnUrl": "http://localhost:9090/oauth2/callback",
+            },
+        )
+        gateway.list_labels()
+        self.assertNotIn("_meta", sent[1])

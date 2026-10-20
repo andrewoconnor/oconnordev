@@ -78,10 +78,18 @@ class OAuthCallbackTests(unittest.TestCase):
             self.assertEqual(agentcore.calls, [])
             urlopen.assert_not_called()
 
-    def test_failure_shows_generic_page(self):
-        response, _ = self.call(
-            {"rawPath": "/callback", "queryStringParameters": {"session_id": "urn:s"}},
-            AgentCore(fail=True),
-        )
+    def test_failure_shows_generic_page_and_logs_error_without_token(self):
+        with mock.patch("builtins.print") as printed:
+            response, _ = self.call(
+                {
+                    "rawPath": "/callback",
+                    "queryStringParameters": {"session_id": "urn:s"},
+                },
+                AgentCore(fail=True),
+            )
         self.assertEqual(response["statusCode"], 502)
         self.assertNotIn("denied", response["body"])
+        logged = json.loads(printed.call_args.args[0])
+        self.assertEqual(logged["error"], "RuntimeError")
+        self.assertEqual(logged["detail"], "denied")
+        self.assertNotIn("jwt", printed.call_args.args[0])
