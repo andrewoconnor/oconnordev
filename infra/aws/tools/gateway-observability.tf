@@ -38,11 +38,10 @@ resource "aws_cloudwatch_log_delivery_destination" "gateway_application_logs" {
   }
 }
 
-# APPLICATION_LOGS delivery is intentionally absent: Gateway vended logs include
-# MCP request/response bodies. Retain inert source/destination metadata and the
-# historical log group (seven-day default expiry), not a replacement payload sink.
-# Native metrics and the UserErrors alarm below do not depend on this delivery.
-# Owner apply/live verification: docs/runbooks/gateway-log-privacy.md.
+resource "aws_cloudwatch_log_delivery" "gateway_application_logs" {
+  delivery_source_name     = aws_cloudwatch_log_delivery_source.gateway_application_logs.name
+  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.gateway_application_logs.arn
+}
 
 resource "aws_cloudwatch_metric_alarm" "gateway_user_errors" {
   alarm_name          = "hermes-gateway-user-errors"
