@@ -8,7 +8,8 @@ account to call CompleteResourceTokenAuth. Pass --tool to choose the target
 (default google___listLabels; for Outlook use outlook___listMailFolders) and
 --force to replace a stored token, and --local to return to this script instead
 of the target's hosted callback. Pass --arguments with a JSON object to call
-a tool that needs parameters.
+a tool that needs parameters. With --local, --fresh-token completes the consent
+with a newly minted Cognito token instead of the one that started it.
 """
 
 from __future__ import annotations
@@ -232,7 +233,15 @@ def main() -> int:
         return 1
     print(f"Open this URL and approve read-only access:\n{url}")
     webbrowser.open(url)
-    complete(wait_for_session_id(), token)
+    session = wait_for_session_id()
+    if "--fresh-token" in arguments:
+        token = access_token(
+            env["COGNITO_TOKEN_URL"],
+            env["COGNITO_CLIENT_ID"],
+            env["COGNITO_CLIENT_SECRET"],
+        )
+        gateway.token = token
+    complete(session, token)
     found = gateway.list_labels(tool=tool, arguments=call)
     if not succeeded(found):
         print(f"Consent did not complete; {tool} still fails:", file=sys.stderr)
