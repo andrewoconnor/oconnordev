@@ -39,20 +39,15 @@ VARIANTS = {
 
 
 def aws(*args: str) -> str:
-    return subprocess.run(
-        [
-            "aws",
-            "bedrock-agentcore",
-            *args,
-            "--region",
-            "us-east-1",
-            "--output",
-            "json",
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout
+    command = ["aws", "bedrock-agentcore", *args, "--region", "us-east-1"]
+    result = subprocess.run(
+        [*command, "--output", "json"], capture_output=True, text=True
+    )
+    if result.returncode:
+        raise SystemExit(
+            f"aws bedrock-agentcore {args[0]} failed: {result.stderr.strip()}"
+        )
+    return result.stdout
 
 
 def main() -> int:
