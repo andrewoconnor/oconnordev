@@ -7,7 +7,8 @@ HERMES_AGENTCORE_COGNITO_CLIENT_SECRET. Needs AWS credentials for the tools
 account to call CompleteResourceTokenAuth. Pass --tool to choose the target
 (default google___listLabels; for Outlook use outlook___listMailFolders) and
 --force to replace a stored token, and --local to return to this script instead
-of the target's hosted callback.
+of the target's hosted callback. Pass --arguments with a JSON object to call
+a tool that needs parameters.
 """
 
 from __future__ import annotations
@@ -121,9 +122,13 @@ class Gateway:
         self.version = found[-1]["result"]["protocolVersion"]
 
     def list_labels(
-        self, force: bool = False, tool: str = TOOL, local: bool = False
+        self,
+        force: bool = False,
+        tool: str = TOOL,
+        local: bool = False,
+        arguments: dict | None = None,
     ) -> list[dict]:
-        params: dict = {"name": tool, "arguments": {}}
+        params: dict = {"name": tool, "arguments": arguments or {}}
         provider: dict = {}
         if force:
             provider["forceAuthentication"] = True
@@ -208,11 +213,19 @@ def main() -> int:
     arguments = sys.argv[1:]
     tool = arguments[arguments.index("--tool") + 1] if "--tool" in arguments else TOOL
     local = "--local" in arguments
-    found = gateway.list_labels(force="--force" in arguments, tool=tool, local=local)
+    call = (
+        json.loads(arguments[arguments.index("--arguments") + 1])
+        if "--arguments" in arguments
+        else {}
+    )
+    found = gateway.list_labels(
+        force="--force" in arguments, tool=tool, local=local, arguments=call
+    )
     url = elicitation_url(found)
     if url is None:
         if succeeded(found):
             print(f"Consent already exists; {tool} succeeded.")
+            print(json.dumps(found, indent=2)[:4000])
             return 0
         print(f"{tool} failed without a consent URL:", file=sys.stderr)
         print(json.dumps(found, indent=2)[:4000], file=sys.stderr)
@@ -220,7 +233,7 @@ def main() -> int:
     print(f"Open this URL and approve read-only access:\n{url}")
     webbrowser.open(url)
     complete(wait_for_session_id(), token)
-    found = gateway.list_labels(tool=tool)
+    found = gateway.list_labels(tool=tool, arguments=call)
     if not succeeded(found):
         print(f"Consent did not complete; {tool} still fails:", file=sys.stderr)
         print(json.dumps(found, indent=2)[:4000], file=sys.stderr)
