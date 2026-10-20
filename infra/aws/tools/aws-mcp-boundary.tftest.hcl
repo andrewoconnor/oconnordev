@@ -396,4 +396,9 @@ run "schwab_is_read_only_oauth_with_hosted_consent" {
     condition     = contains(local.hermes_gateway_readable_secret_arns, data.aws_secretsmanager_secret.schwab_oauth_client.arn)
     error_message = "The gateway guardrail must allow reading the named Schwab client secret."
   }
+
+  assert {
+    condition     = contains(aws_bedrockagentcore_workload_identity.gateway.allowed_resource_oauth2_return_urls, "${aws_lambda_function_url.oauth_callback.function_url}callback") && contains(aws_bedrockagentcore_workload_identity.gateway.allowed_resource_oauth2_return_urls, "http://localhost:9090/oauth2/callback")
+    error_message = "The gateway workload identity must allow both the hosted and the local consent return URLs."
+  }
 }

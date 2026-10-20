@@ -19,7 +19,9 @@ with a `-32042` consent link. The adapter returns the link to Hermes as a tool
 result, and Hermes shows it to you. After you sign in to Schwab, AgentCore
 redirects to the hosted callback in `oauth-callback.tf`. That Lambda mints a
 Cognito token for the adapter client and calls `CompleteResourceTokenAuth`, so
-no local script is needed. It never sees Schwab tokens.
+no local script is needed. It never sees Schwab tokens. AgentCore only redirects to return URLs that
+are registered on the gateway's workload identity; `gateway-workload-identity.tf`
+registers the hosted callback and `http://localhost:9090/oauth2/callback`.
 
 ## Setup
 
