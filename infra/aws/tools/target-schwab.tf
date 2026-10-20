@@ -4,7 +4,7 @@ locals {
   schwab_tools       = toset(local.schwab_manifest.tools)
   schwab_operations  = flatten([for path in values(local.schwab_openapi.paths) : [for method, operation in path : { method = method, id = operation.operationId }]])
   schwab_scopes      = ["api", "offline_access"]
-  schwab_app_key     = "pending-schwab-app-key"
+  schwab_app_key     = "9UXqjUwlrByk8rd5iOqH7pvlxFYJtWJcTNzHzfy336iDP2nx"
   schwab_secret_arns = compact([
     data.aws_secretsmanager_secret.schwab_oauth_client.arn,
     try(aws_bedrockagentcore_oauth2_credential_provider.schwab.client_secret_arn[0].secret_arn, ""),
