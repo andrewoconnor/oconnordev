@@ -97,6 +97,7 @@ resource "aws_bedrockagentcore_gateway" "hermes" {
   role_arn        = aws_iam_role.hermes_gateway.arn
   authorizer_type = "CUSTOM_JWT"
   protocol_type   = "MCP"
+  exception_level = "DEBUG"
 
   protocol_configuration {
     mcp {
