@@ -388,6 +388,11 @@ run "schwab_is_read_only_oauth_with_hosted_consent" {
   }
 
   assert {
+    condition     = local.schwab_openapi.servers[0].url == trimsuffix(aws_lambda_function_url.schwab_proxy.function_url, "/") && aws_lambda_function.schwab_proxy.reserved_concurrent_executions == 2
+    error_message = "Schwab calls must go through the header-cleaning proxy."
+  }
+
+  assert {
     condition     = aws_lambda_function_url.oauth_callback.authorization_type == "NONE" && aws_lambda_permission.oauth_callback_url.function_url_auth_type == "NONE" && aws_lambda_permission.oauth_callback_invoke.invoked_via_function_url
     error_message = "The consent callback must be reachable by a browser redirect, and only through its Function URL."
   }

@@ -95,6 +95,7 @@ fi
 "$CI_PYTHON" -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/spacelift_session_token -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/oauth_callback -p 'test_*.py' -v
+"$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/schwab_proxy -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s scripts/adapter/test -t . -v
 '''
