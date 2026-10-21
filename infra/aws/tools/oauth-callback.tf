@@ -27,22 +27,10 @@ resource "aws_iam_role" "oauth_callback" {
 
 data "aws_iam_policy_document" "oauth_callback" {
   statement {
-    sid       = "ReadAdapterClientSecret"
+    sid       = "CompleteSchwabConsent"
     effect    = "Allow"
-    actions   = ["cognito-idp:DescribeUserPoolClient"]
-    resources = [aws_cognito_user_pool.hermes.arn]
-  }
-
-  statement {
-    sid     = "CompleteGatewayConsent"
-    effect  = "Allow"
-    actions = ["bedrock-agentcore:CompleteResourceTokenAuth"]
-    resources = [
-      aws_bedrockagentcore_oauth2_credential_provider.schwab.credential_provider_arn,
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:token-vault/default",
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default",
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",
-    ]
+    actions   = ["bedrock-agentcore:CompleteResourceTokenAuth"]
+    resources = local.schwab_identity_scope
   }
 
   statement {
@@ -54,15 +42,15 @@ data "aws_iam_policy_document" "oauth_callback" {
 }
 
 resource "aws_iam_role_policy" "oauth_callback" {
-  name   = "complete-gateway-consent"
+  name   = "complete-schwab-consent"
   role   = aws_iam_role.oauth_callback.id
   policy = data.aws_iam_policy_document.oauth_callback.json
 }
 
 resource "aws_lambda_function" "oauth_callback" {
   # checkov:skip=CKV_AWS_116:Synchronous Function URL invocations only; there is no asynchronous event to retry.
-  # checkov:skip=CKV_AWS_117:The function calls public Cognito and AgentCore endpoints; a VPC would need NAT egress for no benefit.
-  # checkov:skip=CKV_AWS_173:Environment variables hold only the user pool ID, client ID, token URL and scope, not secrets.
+  # checkov:skip=CKV_AWS_117:The function calls the public AgentCore endpoint; a VPC would need NAT egress for no benefit.
+  # checkov:skip=CKV_AWS_173:The only environment variable is the Schwab owner user ID, not a secret.
   # checkov:skip=CKV_AWS_272:Code signing is not configured for this account; archive_file builds the package and source_code_hash tracks it.
   # checkov:skip=CKV_AWS_50:A single synchronous call per consent; tracing adds no diagnostic value.
   function_name                  = local.oauth_callback_function_name
@@ -78,10 +66,7 @@ resource "aws_lambda_function" "oauth_callback" {
 
   environment {
     variables = {
-      USER_POOL_ID = aws_cognito_user_pool.hermes.id
-      CLIENT_ID    = aws_cognito_user_pool_client.hermes.id
-      TOKEN_URL    = local.cognito_token_url
-      SCOPE        = aws_cognito_resource_server.hermes.scope_identifiers[0]
+      USER_ID = local.schwab_user_id
     }
   }
 
@@ -89,13 +74,13 @@ resource "aws_lambda_function" "oauth_callback" {
 }
 
 resource "aws_lambda_function_url" "oauth_callback" {
-  # checkov:skip=CKV_AWS_258:A browser redirect cannot carry AWS credentials. The function only completes consent sessions that the adapter's own Cognito identity started.
+  # checkov:skip=CKV_AWS_258:A browser redirect cannot carry AWS credentials. The function only binds AgentCore consent sessions to the Schwab owner user ID.
   function_name      = aws_lambda_function.oauth_callback.function_name
   authorization_type = "NONE"
 }
 
 resource "aws_lambda_permission" "oauth_callback_url" {
-  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function only completes consent sessions that the adapter's own Cognito identity started.
+  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function only binds AgentCore consent sessions to the Schwab owner user ID.
   statement_id           = "PublicFunctionUrl"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.oauth_callback.function_name
@@ -104,7 +89,7 @@ resource "aws_lambda_permission" "oauth_callback_url" {
 }
 
 resource "aws_lambda_permission" "oauth_callback_invoke" {
-  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function only completes consent sessions that the adapter's own Cognito identity started.
+  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function only binds AgentCore consent sessions to the Schwab owner user ID.
   statement_id             = "InvokeThroughFunctionUrl"
   action                   = "lambda:InvokeFunction"
   function_name            = aws_lambda_function.oauth_callback.function_name
@@ -113,6 +98,6 @@ resource "aws_lambda_permission" "oauth_callback_invoke" {
 }
 
 output "oauth_callback_return_url" {
-  description = "Hosted AgentCore 3LO return URL that completes consent without a local script."
+  description = "Hosted AgentCore 3LO return URL that completes Schwab consent."
   value       = local.oauth_callback_return_url
 }

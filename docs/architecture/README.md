@@ -9,7 +9,7 @@ The account map in `infra/aws/accounts.json` is the sole repository source for c
 ## Tools-account Lambdas
 
 Lambda sources live under `infra/aws/tools/lambdas/`: `spacelift_session_token/`,
-`thundermail_mcp/` and `oauth_callback/`. The tools project root covers all three,
+`thundermail_mcp/`, `schwab/` and `oauth_callback/`. The tools project root covers all four,
 so no extra Spacelift project glob is needed.
 
 `ecr.tf` defines the shared `oconnordev-tools` image repository, its Lambda pull
@@ -39,10 +39,12 @@ KMS-signed client assertion instead of a client secret. See
 
 ### Schwab
 
-`target-schwab.tf` defines a `schwab` OpenAPI target for seven read-only Schwab
-account and market data operations, with no order endpoints. Schwab consent
-expires after seven days. The adapter shows the gateway's consent link to
-Hermes, and the hosted callback in `oauth-callback.tf` completes the consent.
+`target-schwab.tf` defines a `schwab` Lambda target for seven read-only Schwab
+account and market data operations, with no order endpoints. The Lambda in
+`schwab-runtime.tf` gets the owner's Schwab token from AgentCore Identity under a
+fixed user ID. Schwab consent expires after seven days. The Lambda then returns
+a consent link to Hermes, and the hosted callback in `oauth-callback.tf`
+completes the consent.
 See [the runbook](../runbooks/schwab-mcp.md).
 
 ### Google

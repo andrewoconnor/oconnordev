@@ -2,8 +2,6 @@ locals {
   schwab_target_name = "schwab"
   schwab_manifest    = jsondecode(file("${local.adapter_root}/schwab-mcp-tools.json"))
   schwab_tools       = toset(local.schwab_manifest.tools)
-  schwab_operations  = flatten([for path in values(local.schwab_openapi.paths) : [for method, operation in path : { method = method, id = operation.operationId }]])
-  schwab_scopes      = ["api"]
   schwab_app_key     = "9UXqjUwlrByk8rd5iOqH7pvlxFYJtWJcTNzHzfy336iDP2nx"
   schwab_secret_arns = compact([
     data.aws_secretsmanager_secret.schwab_oauth_client.arn,
@@ -42,53 +40,40 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "schwab" {
   }
 }
 
-data "aws_iam_policy_document" "schwab_target_credentials" {
-  statement {
-    sid     = "GetSchwabTokenFromAgentCoreIdentity"
-    effect  = "Allow"
-    actions = ["bedrock-agentcore:GetResourceOauth2Token"]
-
-    resources = [
-      aws_bedrockagentcore_oauth2_credential_provider.schwab.credential_provider_arn,
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:token-vault/default",
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default",
-      "arn:${data.aws_partition.current.partition}:bedrock-agentcore:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:workload-identity-directory/default/workload-identity/${local.hermes_gateway_name}-*",
-    ]
-  }
-
-  statement {
-    sid       = "ReadSchwabOauthClientSecret"
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = local.schwab_secret_arns
-  }
-}
-
-resource "aws_iam_role_policy" "schwab_target_credentials" {
-  name   = "hermes-schwab-agentcore-credentials"
-  role   = aws_iam_role.hermes_gateway.id
-  policy = data.aws_iam_policy_document.schwab_target_credentials.json
-}
-
 resource "aws_bedrockagentcore_gateway_target" "schwab" {
   name               = local.schwab_target_name
   gateway_identifier = aws_bedrockagentcore_gateway.hermes.gateway_id
   description        = "Read-only Schwab Trader API accounts, positions and market data, with user-delegated OAuth through AgentCore Identity. No order endpoints."
 
   credential_provider_configuration {
-    oauth {
-      provider_arn       = aws_bedrockagentcore_oauth2_credential_provider.schwab.credential_provider_arn
-      scopes             = local.schwab_scopes
-      grant_type         = "AUTHORIZATION_CODE"
-      default_return_url = local.oauth_callback_return_url
-    }
+    gateway_iam_role {}
   }
 
   target_configuration {
     mcp {
-      open_api_schema {
-        inline_payload {
-          payload = jsonencode(local.schwab_openapi)
+      lambda {
+        lambda_arn = aws_lambda_function.schwab.arn
+
+        tool_schema {
+          dynamic "inline_payload" {
+            for_each = { for tool in local.schwab_tool_schemas : tool.name => tool }
+            content {
+              name        = inline_payload.key
+              description = inline_payload.value.description
+              input_schema {
+                type = "object"
+                dynamic "property" {
+                  for_each = inline_payload.value.inputSchema.properties
+                  content {
+                    name        = property.key
+                    type        = property.value.type
+                    description = property.value.description
+                    required    = contains(try(inline_payload.value.inputSchema.required, []), property.key)
+                  }
+                }
+              }
+            }
+          }
         }
       }
     }
@@ -96,14 +81,14 @@ resource "aws_bedrockagentcore_gateway_target" "schwab" {
 
   lifecycle {
     precondition {
-      condition     = alltrue([for operation in local.schwab_operations : operation.method == "get"]) && toset([for operation in local.schwab_operations : operation.id]) == local.schwab_tools && length(local.schwab_operations) == length(local.schwab_tools)
-      error_message = "The Schwab OpenAPI spec must contain only GET operations, and its operation IDs must equal the adapter manifest. Order endpoints must never be added."
+      condition     = toset([for tool in local.schwab_tool_schemas : tool.name]) == local.schwab_tools && length(local.schwab_tool_schemas) == length(local.schwab_tools) && alltrue([for tool in local.schwab_tool_schemas : (startswith(tool.path, "/trader/v1/accounts") || startswith(tool.path, "/marketdata/v1/")) && !strcontains(lower(tool.path), "order")])
+      error_message = "The Schwab tool schemas must equal the adapter manifest and use only account and market data paths. Order endpoints must never be added."
     }
   }
 
   depends_on = [
     aws_iam_role_policy.hermes_gateway_core,
-    aws_iam_role_policy.schwab_target_credentials,
+    aws_iam_role_policy.schwab_gateway_invoke,
     aws_iam_role_policy.hermes_gateway_policy_authorization,
   ]
 }

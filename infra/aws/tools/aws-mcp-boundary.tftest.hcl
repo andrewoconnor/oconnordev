@@ -374,36 +374,31 @@ run "outlook_is_read_only_oauth_with_kms_client_assertion" {
   }
 }
 
-run "schwab_is_read_only_oauth_with_hosted_consent" {
+run "schwab_is_read_only_with_owner_consent_in_agentcore_identity" {
   command = plan
 
   assert {
-    condition     = aws_bedrockagentcore_gateway_target.schwab.credential_provider_configuration[0].oauth[0].grant_type == "AUTHORIZATION_CODE" && aws_bedrockagentcore_gateway_target.schwab.credential_provider_configuration[0].oauth[0].default_return_url == "${aws_lambda_function_url.oauth_callback.function_url}callback"
-    error_message = "Schwab must use user-delegated OAuth that returns to the hosted consent callback."
+    condition     = length(aws_bedrockagentcore_gateway_target.schwab.credential_provider_configuration[0].gateway_iam_role) == 1 && aws_bedrockagentcore_gateway_target.schwab.target_configuration[0].mcp[0].lambda[0].lambda_arn == aws_lambda_function.schwab.arn
+    error_message = "The gateway must invoke the Schwab Lambda with its IAM role."
   }
 
   assert {
-    condition     = length(aws_bedrockagentcore_policy.schwab_read) == 7 && !anytrue([for path in keys(local.schwab_openapi.paths) : strcontains(path, "orders")])
+    condition     = length(aws_bedrockagentcore_policy.schwab_read) == 7 && !anytrue([for tool in local.schwab_tool_schemas : strcontains(lower(tool.path), "order")])
     error_message = "Schwab exposes seven read-only tools and no order endpoint."
   }
 
   assert {
-    condition     = local.schwab_openapi.servers[0].url == trimsuffix(aws_lambda_function_url.schwab_proxy.function_url, "/") && aws_lambda_function.schwab_proxy.reserved_concurrent_executions == 2
-    error_message = "Schwab calls must go through the header-cleaning proxy."
+    condition     = aws_lambda_function.schwab.environment[0].variables.USER_ID == aws_lambda_function.oauth_callback.environment[0].variables.USER_ID && aws_lambda_function.schwab.environment[0].variables.RETURN_URL == "${aws_lambda_function_url.oauth_callback.function_url}callback"
+    error_message = "The Schwab Lambda and the consent callback must use the same owner user ID, and consent must return to the hosted callback."
+  }
+
+  assert {
+    condition     = aws_bedrockagentcore_workload_identity.schwab.allowed_resource_oauth2_return_urls == toset(["${aws_lambda_function_url.oauth_callback.function_url}callback"]) && aws_bedrockagentcore_workload_identity.gateway.allowed_resource_oauth2_return_urls == toset(["http://localhost:9090/oauth2/callback"])
+    error_message = "Only the Schwab workload identity may return to the hosted callback; the gateway identity allows only the local return URL."
   }
 
   assert {
     condition     = aws_lambda_function_url.oauth_callback.authorization_type == "NONE" && aws_lambda_permission.oauth_callback_url.function_url_auth_type == "NONE" && aws_lambda_permission.oauth_callback_invoke.invoked_via_function_url
     error_message = "The consent callback must be reachable by a browser redirect, and only through its Function URL."
-  }
-
-  assert {
-    condition     = contains(local.hermes_gateway_readable_secret_arns, data.aws_secretsmanager_secret.schwab_oauth_client.arn)
-    error_message = "The gateway guardrail must allow reading the named Schwab client secret."
-  }
-
-  assert {
-    condition     = contains(aws_bedrockagentcore_workload_identity.gateway.allowed_resource_oauth2_return_urls, "${aws_lambda_function_url.oauth_callback.function_url}callback") && contains(aws_bedrockagentcore_workload_identity.gateway.allowed_resource_oauth2_return_urls, "http://localhost:9090/oauth2/callback")
-    error_message = "The gateway workload identity must allow both the hosted and the local consent return URLs."
   }
 }
