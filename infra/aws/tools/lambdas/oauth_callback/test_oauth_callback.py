@@ -4,19 +4,6 @@ from unittest import mock
 
 import oauth_callback
 
-ENV = {
-    "USER_POOL_ID": "us-east-1_pool",
-    "CLIENT_ID": "client",
-    "TOKEN_URL": "https://auth.example/oauth2/token",
-    "SCOPE": "hermes-mcp/invoke",
-}
-
-
-class Cognito:
-    def describe_user_pool_client(self, **kwargs):
-        assert kwargs == {"UserPoolId": "us-east-1_pool", "ClientId": "client"}
-        return {"UserPoolClient": {"ClientId": "client", "ClientSecret": "s3cret"}}
-
 
 class AgentCore:
     def __init__(self, fail=False):
@@ -28,39 +15,19 @@ class AgentCore:
             raise RuntimeError("denied")
 
 
-class TokenResponse:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-    def read(self):
-        return json.dumps({"access_token": "jwt"}).encode()
-
-
 class OAuthCallbackTests(unittest.TestCase):
-    def call(self, event, agentcore):
-        with mock.patch.object(
-            oauth_callback.urllib.request, "urlopen", return_value=TokenResponse()
-        ) as urlopen:
-            response = oauth_callback.handle(event, Cognito(), agentcore, ENV)
-        return response, urlopen
-
-    def test_binds_session_with_adapter_client_token(self):
+    def test_binds_session_to_the_owner_user_id(self):
         agentcore = AgentCore()
-        response, urlopen = self.call(
+        response = oauth_callback.handle(
             {"rawPath": "/callback", "queryStringParameters": {"session_id": "urn:s"}},
             agentcore,
+            "owner",
         )
         self.assertEqual(response["statusCode"], 200)
         self.assertEqual(
             agentcore.calls,
-            [{"sessionUri": "urn:s", "userIdentifier": {"userToken": "jwt"}}],
+            [{"sessionUri": "urn:s", "userIdentifier": {"userId": "owner"}}],
         )
-        request = urlopen.call_args.args[0]
-        self.assertEqual(request.full_url, ENV["TOKEN_URL"])
-        self.assertIn(b"grant_type=client_credentials", request.data)
         self.assertEqual(response["headers"]["cache-control"], "no-store")
 
     def test_rejects_other_paths_and_missing_sessions_without_calls(self):
@@ -73,23 +40,22 @@ class OAuthCallbackTests(unittest.TestCase):
             ),
         ]:
             agentcore = AgentCore()
-            response, urlopen = self.call(event, agentcore)
+            response = oauth_callback.handle(event, agentcore, "owner")
             self.assertEqual(response["statusCode"], status)
             self.assertEqual(agentcore.calls, [])
-            urlopen.assert_not_called()
 
-    def test_failure_shows_generic_page_and_logs_error_without_token(self):
+    def test_failure_shows_generic_page_and_logs_error(self):
         with mock.patch("builtins.print") as printed:
-            response, _ = self.call(
+            response = oauth_callback.handle(
                 {
                     "rawPath": "/callback",
                     "queryStringParameters": {"session_id": "urn:s"},
                 },
                 AgentCore(fail=True),
+                "owner",
             )
         self.assertEqual(response["statusCode"], 502)
         self.assertNotIn("denied", response["body"])
         logged = json.loads(printed.call_args.args[0])
         self.assertEqual(logged["error"], "RuntimeError")
         self.assertEqual(logged["detail"], "denied")
-        self.assertNotIn("jwt", printed.call_args.args[0])

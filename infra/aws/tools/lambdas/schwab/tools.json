@@ -1,0 +1,94 @@
+{
+  "tools": [
+    {
+      "name": "getAccountNumbers",
+      "path": "/trader/v1/accounts/accountNumbers",
+      "description": "List the owner's account numbers with their hashValue. Use hashValue as accountHash in getAccount.",
+      "inputSchema": { "type": "object", "properties": {} }
+    },
+    {
+      "name": "listAccounts",
+      "path": "/trader/v1/accounts",
+      "description": "List the owner's accounts with balances. Set fields=positions to include positions.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "fields": { "type": "string", "description": "positions to include positions" }
+        }
+      }
+    },
+    {
+      "name": "getAccount",
+      "path": "/trader/v1/accounts/{accountHash}",
+      "description": "Read one account's balances. Set fields=positions to include positions.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["accountHash"],
+        "properties": {
+          "accountHash": { "type": "string", "description": "hashValue from getAccountNumbers, not the plain account number" },
+          "fields": { "type": "string", "description": "positions to include positions" }
+        }
+      }
+    },
+    {
+      "name": "getQuotes",
+      "path": "/marketdata/v1/quotes",
+      "description": "Get quotes for one or more symbols.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["symbols"],
+        "properties": {
+          "symbols": { "type": "string", "description": "Comma-separated symbols, for example AAPL,MSFT,$SPX" },
+          "fields": { "type": "string", "description": "Comma-separated: quote, fundamental, extended, reference, regular. Default all." },
+          "indicative": { "type": "boolean", "description": "Include indicative quotes for ETFs" }
+        }
+      }
+    },
+    {
+      "name": "getPriceHistory",
+      "path": "/marketdata/v1/pricehistory",
+      "description": "Get price candles for one symbol. Dates are epoch milliseconds.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["symbol"],
+        "properties": {
+          "symbol": { "type": "string", "description": "Symbol, for example AAPL" },
+          "periodType": { "type": "string", "description": "day, month, year or ytd" },
+          "period": { "type": "integer", "description": "Number of periods" },
+          "frequencyType": { "type": "string", "description": "minute, daily, weekly or monthly" },
+          "frequency": { "type": "integer", "description": "Candle size in frequencyType units" },
+          "startDate": { "type": "integer", "description": "Start, epoch milliseconds" },
+          "endDate": { "type": "integer", "description": "End, epoch milliseconds" },
+          "needExtendedHoursData": { "type": "boolean", "description": "Include extended hours" },
+          "needPreviousClose": { "type": "boolean", "description": "Include the previous close" }
+        }
+      }
+    },
+    {
+      "name": "getMarketHours",
+      "path": "/marketdata/v1/markets",
+      "description": "Get market hours for one or more markets.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["markets"],
+        "properties": {
+          "markets": { "type": "string", "description": "Comma-separated: equity, option, bond, future, forex" },
+          "date": { "type": "string", "description": "Date as YYYY-MM-DD, default today" }
+        }
+      }
+    },
+    {
+      "name": "searchInstruments",
+      "path": "/marketdata/v1/instruments",
+      "description": "Look up instruments by symbol or description.",
+      "inputSchema": {
+        "type": "object",
+        "required": ["symbol", "projection"],
+        "properties": {
+          "symbol": { "type": "string", "description": "Symbol or search text" },
+          "projection": { "type": "string", "description": "symbol-search, symbol-regex, desc-search, desc-regex, search or fundamental" }
+        }
+      }
+    }
+  ]
+}

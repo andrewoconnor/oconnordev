@@ -12,7 +12,7 @@ locals {
   hermes_gateway_readable_secret_arns = concat([
     aws_secretsmanager_secret.github_machine_user_pat.arn,
     aws_secretsmanager_secret.spacelift_session_token.arn,
-  ], local.google_oauth_secret_arns, local.schwab_secret_arns)
+  ], local.google_oauth_secret_arns)
 }
 
 data "aws_iam_policy_document" "hermes_gateway_readonly_guardrails" {
