@@ -3,8 +3,8 @@
 FROM public.ecr.aws/lambda/provided:al2023@sha256:7a99afa4f62c87e039c95dc3e2d307114f35a148ba5e2eb67287a84082521e44 AS build
 RUN dnf install -y gcc glibc-devel binutils make tar gzip xz && dnf clean all
 WORKDIR /build
-RUN curl -fSL https://github.com/jdx/mise/releases/download/v2026.10.3/mise-v2026.10.3-linux-arm64-musl -o /usr/local/bin/mise \
-    && echo '1b849098a23ca0b7ec2733bddf243e9d29507779bba4e0e1101eec3c518bc542  /usr/local/bin/mise' | sha256sum -c - \
+RUN curl -fSL https://github.com/jdx/mise/releases/download/v2026.10.17/mise-v2026.10.17-linux-arm64-musl -o /usr/local/bin/mise \
+    && echo '86d4db8bb1277ce164d75c0ba12179830ab172c318598f878f8286d27978e4f2  /usr/local/bin/mise' | sha256sum -c - \
     && chmod 0755 /usr/local/bin/mise
 COPY mise.toml mise.lock ./
 ENV MISE_TRUSTED_CONFIG_PATHS=/build MISE_RUSTUP_HOME=/opt/rustup MISE_CARGO_HOME=/opt/cargo

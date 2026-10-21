@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[3]
 class OpenTofuVersionTests(unittest.TestCase):
     def test_runtime_and_lock_pins_match(self):
         version = tomllib.loads((ROOT / "mise.toml").read_text())["tools"]["opentofu"]
-        self.assertEqual(version, "1.13.1")
+        self.assertEqual(version, "1.13.2")
         lock = tomllib.loads((ROOT / "mise.lock").read_text())["tools"]["opentofu"]
         self.assertEqual({entry["version"] for entry in lock}, {version})
         source = (ROOT / "infra/spacelift/main.tf").read_text()
