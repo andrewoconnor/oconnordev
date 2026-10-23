@@ -34,6 +34,13 @@ data "aws_iam_policy_document" "oauth_callback" {
   }
 
   statement {
+    sid       = "ReadSchwabOauthClientSecret"
+    effect    = "Allow"
+    actions   = ["secretsmanager:GetSecretValue"]
+    resources = local.schwab_secret_arns
+  }
+
+  statement {
     sid       = "WriteOwnLogs"
     effect    = "Allow"
     actions   = ["logs:CreateLogStream", "logs:PutLogEvents"]
