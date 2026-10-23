@@ -1,6 +1,6 @@
 # Direct native Lambda; no HTTP listener, Function URL, Node or LWA.
 locals {
-  thundermail_image_digest  = "sha256:b23de54bf8574844503a33d4b9fd1c3ea27ac097ce6621d54d98691db3c3ed2c"
+  thundermail_image_digest  = "sha256:4e08cfcc9f56581fa4d270be1a8f72326bdd2253f156768f193d9969992fca17"
   thundermail_function_name = "hermes-thundermail-mcp"
   thundermail_function_arn  = "arn:${data.aws_partition.current.partition}:lambda:us-east-1:${data.aws_caller_identity.current.account_id}:function:${local.thundermail_function_name}"
 }
