@@ -27,8 +27,9 @@ returns an authorization link, and the Lambda returns it to Hermes as a tool
 error. If Schwab rejects a stored token, the Lambda requests a new link with
 `forceAuthentication`. After you sign in to Schwab, AgentCore redirects to the
 hosted callback `hermes-oauth-callback` (`oauth-callback.tf`). The callback
-calls `CompleteResourceTokenAuth` with the user ID `owner`. It never sees
-Schwab tokens. The `hermes-schwab` workload identity allows only this callback
+calls `CompleteResourceTokenAuth` with the user ID `owner`. AgentCore exchanges
+the code with the callback's credentials, so the callback role can read the app
+secret. The callback never sees Schwab tokens. The `hermes-schwab` workload identity allows only this callback
 as a return URL. A link is valid for 10 minutes.
 
 ## Setup
