@@ -94,6 +94,7 @@ else
   "$CI_PYTHON" -m pip install --disable-pip-version-check --only-binary=:all: --no-deps -r scripts/ci/requirements-test.txt
 fi
 "$CI_PYTHON" -m unittest discover -s agents/hermes/adapter/test -t agents/hermes/adapter -v
+"$CI_PYTHON" -m unittest discover -s agents/hermes/plugins/test -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/spacelift_session_token -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/oauth_callback -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/schwab -p 'test_*.py' -v
