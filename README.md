@@ -63,6 +63,7 @@ The production workflow publishes only that directory to the existing bucket.
 .
 ├── .github/workflows/        CI: Checkov, TFLint, adapter tests
 ├── agents/hermes/adapter/    AgentCore MCP adapter and target manifests
+├── agents/hermes/plugins/    Hermes plugins, such as the mail guard
 ├── docs/
 │   ├── architecture/        System boundaries and stack dependencies
 │   ├── decisions/           Architecture decision records
