@@ -22,7 +22,7 @@ resource "aws_bedrockagentcore_gateway_target" "thundermail" {
       lambda {
         lambda_arn = local.thundermail_function_arn
         tool_schema {
-          # AWS 6.66 SchemaDefinition supports type/properties/required/description,
+          # AWS 6.70 SchemaDefinition supports type/properties/required/description,
           # not additionalProperties, bounds, enum, default or nullable unions.
           # Runtime enforces full strict contract; adapter exposes owned schemas.
           dynamic "inline_payload" {
