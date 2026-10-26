@@ -83,7 +83,7 @@ class GCPDiscoveryTests(unittest.TestCase):
         self.assertIn('self.number == "693193037198"', source)
         self.assertIn('self.name == "oconnordev-tools"', source)
         self.assertIn('self.project_id == "adept-presence-510022-p7"', source)
-        self.assertIn('version = "8.7.0"', source)
+        self.assertIn('version = "8.8.1"', source)
 
     def test_mise_runs_discovery_mock_tests(self):
         import tomllib

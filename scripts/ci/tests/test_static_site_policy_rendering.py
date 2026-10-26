@@ -24,7 +24,7 @@ class StaticSitePolicyRenderingTests(unittest.TestCase):
         config = (
             """terraform {
  required_providers {
-  aws = { source = "hashicorp/aws", version = "~> 6.66.0" }
+  aws = { source = "hashicorp/aws", version = "~> 6.70.0" }
  }
 }
 provider "aws" {

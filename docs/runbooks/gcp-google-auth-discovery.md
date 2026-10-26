@@ -38,7 +38,7 @@ service-account keys are managed. The service-account oauth2ClientId is not an
 ordinary Gmail OAuth client ID. Absent labels/parent/billing account or metadata
 must not be guessed into configuration; inspect actual plan values and stop on drift.
 
-Google provider **8.7.0** is lockfile-pinned. All eight objects have
+Google provider **8.8.1** is lockfile-pinned. All eight objects have
 `prevent_destroy`; project, pool/provider and service account use ABANDON.
 This is state relinquishment behavior, not permission to remove configuration.
 Provider attribution/default labels are disabled/empty. `auto_create_network`
@@ -83,10 +83,10 @@ mise run validate
 The offline fixture copies actual configuration/lock except imports, which mock
 providers cannot execute. Eight mock creates prove configuration, not a live
 import/no-change plan. No credentials or inventory dumps belong in this repository.
-Google 8.7.0 does not manage ordinary Google Auth Platform consent/Audience/Data
+Google 8.8.1 does not manage ordinary Google Auth Platform consent/Audience/Data
 Access or Gmail OAuth-client settings; `google_iam_oauth_client` is Workforce
 Identity Federation, not that product. Do not invent resources or new consent.
 
 References: [native GCP integration](https://docs.spacelift.io/integrations/cloud-providers/gcp),
-[project IAM import](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/website/docs/r/google_project_iam.html.markdown),
-[service-account IAM import](https://github.com/hashicorp/terraform-provider-google/blob/v8.7.0/website/docs/r/google_service_account_iam.html.markdown).
+[project IAM import](https://github.com/hashicorp/terraform-provider-google/blob/v8.8.1/website/docs/r/google_project_iam.html.markdown),
+[service-account IAM import](https://github.com/hashicorp/terraform-provider-google/blob/v8.8.1/website/docs/r/google_service_account_iam.html.markdown).

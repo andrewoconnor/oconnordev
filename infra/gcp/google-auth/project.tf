@@ -2,7 +2,7 @@
 data "google_project" "google_auth" {
   project_id = "adept-presence-510022-p7"
 
-  # Google 8.7.0 rejects projects not in ACTIVE state in its data-source read.
+  # Google 8.8.1 rejects projects not in ACTIVE state in its data-source read.
   # It exports no lifecycle_state attribute; do not fabricate one here.
   lifecycle {
     postcondition {
