@@ -10,7 +10,7 @@ TOOLS = ROOT / "infra/aws/tools"
 
 def resource_types(text):
     """Match declarations, not resource names mentioned in explanatory comments."""
-    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r"(?ms)^[ \t]*/\*.*?\*/", "", text)
     text = re.sub(r"(?m)^\s*(?:#|//).*$", "", text)
     return re.findall(r'(?m)^\s*resource\s+"([^"]+)"\s+"[^"]+"\s*\{', text)
 
