@@ -25,52 +25,59 @@ def block(source, kind, name):
 
 class StaticSiteDeploymentTests(unittest.TestCase):
     def test_checks_once_and_deploys_exact_same_run_before_credentials(self):
+        shared = read(".github/workflows/site.yml")
+        check, deploy = shared.split("  deploy:", 1)
+        self.assertIn("  check:", check)
+        self.assertEqual(shared.count('mise run "build:$SITE"'), 1)
+        self.assertEqual(shared.count('mise run "test:$SITE"'), 1)
+        self.assertNotIn("id-token: write", check)
+        self.assertIn("needs: check", deploy)
+        self.assertEqual(shared.count("timeout-minutes:"), 2)
+        self.assertIn("environment: ${{ inputs.name }}-production", deploy)
+        self.assertNotIn("ref: master", shared)
+        self.assertEqual(shared.count("ref: ${{ github.sha }}"), 2)
+        self.assertRegex(check, r"actions/upload-artifact@[a-f0-9]{40}")
+        self.assertRegex(deploy, r"actions/download-artifact@[a-f0-9]{40}")
+        self.assertEqual(
+            shared.count("name: ${{ inputs.name }}-${{ github.sha }}"), 2
+        )
+        self.assertNotIn("run-id:", deploy)
+        self.assertNotIn("github-token:", deploy)
+        self.assertIn("needs.check.outputs.sha256", deploy)
+        self.assertLess(
+            deploy.index("site_artifact.py verify"),
+            deploy.index("configure-aws-credentials@"),
+        )
+        self.assertLess(
+            deploy.index("site_freshness.py"),
+            deploy.index("configure-aws-credentials@"),
+        )
+        self.assertIn('site_freshness.py "$SITE" "$EXPECTED_SHA"', deploy)
+        self.assertIn("github.ref == 'refs/heads/master'", deploy)
+        self.assertNotIn("pull_request_target:", shared)
+        self.assertNotIn("mise run build:", deploy)
+        self.assertNotIn("mise run lint:", deploy)
+        self.assertNotIn("mise run fmt:", deploy)
         for site in ("oconnordev", "drumrollworld"):
-            workflow = (ROOT / f".github/workflows/{site}-site.yml").read_text()
-            check, deploy = workflow.split("  deploy:", 1)
-            self.assertIn("  check:", check)
-            self.assertEqual(workflow.count(f"mise run build:{site}"), 1)
-            self.assertEqual(workflow.count(f"mise run test:{site}"), 1)
-            self.assertNotIn("id-token: write", check)
-            self.assertIn("needs: check", deploy)
-            self.assertEqual(workflow.count("timeout-minutes:"), 2)
-            self.assertIn(f"environment: {site}-production", deploy)
-            self.assertNotIn("ref: master", workflow)
-            self.assertEqual(workflow.count("ref: ${{ github.sha }}"), 2)
-            self.assertRegex(check, r"actions/upload-artifact@[a-f0-9]{40}")
-            self.assertRegex(deploy, r"actions/download-artifact@[a-f0-9]{40}")
-            self.assertEqual(workflow.count(f"name: {site}-${{{{ github.sha }}}}"), 2)
-            self.assertNotIn("run-id:", deploy)
-            self.assertNotIn("github-token:", deploy)
-            self.assertIn("needs.check.outputs.sha256", deploy)
-            self.assertLess(
-                deploy.index("site_artifact.py verify"),
-                deploy.index("configure-aws-credentials@"),
-            )
-            self.assertLess(
-                deploy.index("site_freshness.py"),
-                deploy.index("configure-aws-credentials@"),
-            )
-            self.assertIn(f'site_freshness.py {site} "$EXPECTED_SHA"', deploy)
-            self.assertIn("cancel-in-progress: false", workflow)
-            self.assertIn("github.ref == 'refs/heads/master'", deploy)
-            self.assertNotIn("pull_request_target:", workflow)
-            self.assertNotIn("mise run build:", deploy)
-            self.assertNotIn("mise run lint:", deploy)
-            self.assertNotIn("mise run fmt:", deploy)
-            for action in re.findall(r"uses:\s+(\S+)", workflow):
-                self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
+            caller = read(f".github/workflows/{site}-site.yml")
+            self.assertIn("uses: ./.github/workflows/site.yml", caller)
+            self.assertIn(f"name: {site}\n", caller)
+            self.assertIn("cancel-in-progress: false", caller)
+            self.assertNotIn("pull_request_target:", caller)
+            self.assertNotIn("runs-on:", caller)
 
     def test_account_guards_match_authoritative_accounts(self):
         accounts = json.loads((ROOT / "infra/aws/accounts.json").read_text())
+        self.assertEqual(
+            re.findall(
+                r'allowed-account-ids: "([0-9]+)"', read(".github/workflows/site.yml")
+            ),
+            [accounts["TOOLS"], accounts["PRODUCTION"]],
+        )
         for site in ("oconnordev", "drumrollworld"):
-            workflow = (ROOT / f".github/workflows/{site}-site.yml").read_text()
-            self.assertEqual(
-                re.findall(r'allowed-account-ids: "([0-9]+)"', workflow),
-                [accounts["TOOLS"], accounts["PRODUCTION"]],
-            )
             self.assertIn(
-                f"vars.{site.upper()}_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN", workflow
+                f"vars.{site.upper()}_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN",
+                read(f".github/workflows/{site}-site.yml"),
             )
 
     def test_publication_has_no_duplicate_sync_uploads(self):
@@ -83,13 +90,17 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertNotIn("build-meta.json", source)
 
     def test_every_action_is_pinned(self):
+        actions = re.findall(r"uses:\s+(\S+)", read(".github/workflows/site.yml"))
+        self.assertTrue(actions)
+        for action in actions:
+            self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
         for name in ("oconnordev", "drumrollworld"):
-            actions = re.findall(
-                r"uses:\s+(\S+)", read(f".github/workflows/{name}-site.yml")
+            self.assertEqual(
+                re.findall(
+                    r"uses:\s+(\S+)", read(f".github/workflows/{name}-site.yml")
+                ),
+                ["./.github/workflows/site.yml"],
             )
-            self.assertTrue(actions)
-            for action in actions:
-                self.assertRegex(action, r"^[^@]+@[0-9a-f]{40}$")
 
     def test_drumroll_role_trust_and_policy_are_site_scoped(self):
         source = read("infra/modules/static-site/deploy.tf")

@@ -1,0 +1,139 @@
+name: Static site
+
+on:
+  workflow_call:
+    inputs:
+      name:
+        type: string
+        required: true
+      broker_role_arn:
+        type: string
+        required: true
+      deploy_role_arn:
+        type: string
+        required: true
+      distribution_id:
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  MISE_LOCKED: '1'
+
+jobs:
+  check:
+    name: Lint, format, build and test
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      sha256: ${{ steps.package.outputs.sha256 }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: '2026.10.17'
+          github_token: ${{ github.token }}
+      - name: Check static-site formatting
+        run: mise run fmt:site
+      - name: Lint static sites
+        run: mise run lint:site
+      - name: Build the site
+        env:
+          SITE: ${{ inputs.name }}
+        run: mise run "build:$SITE"
+      - name: Test the site and the deployment boundary
+        env:
+          SITE: ${{ inputs.name }}
+        run: |
+          mise run "test:$SITE"
+          mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment scripts.ci.tests.test_tested_site_artifact scripts.ci.tests.test_site_publication scripts.ci.tests.test_site_freshness scripts.ci.tests.test_site_csp_ci -v
+
+      - name: Package tested public bytes
+        id: package
+        env:
+          SITE: ${{ inputs.name }}
+        run: |
+          DIGEST=$(mise exec -- python scripts/ci/site_artifact.py pack "apps/$SITE/dist" release/release.tar)
+          printf 'sha256=%s\n' "$DIGEST" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: ${{ inputs.name }}-${{ github.sha }}
+          path: release/release.tar
+          if-no-files-found: error
+          retention-days: 2
+
+  deploy:
+    name: Deploy tested release to S3 and invalidate CloudFront
+    if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: check
+    timeout-minutes: 15
+    environment: ${{ inputs.name }}-production
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+      - uses: jdx/mise-action@6be3c7ed4c21d4f76b208d351d95aac273ebb76d # v5.2.4
+        with:
+          version: '2026.10.17'
+          github_token: ${{ github.token }}
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: ${{ inputs.name }}-${{ github.sha }}
+          path: release
+      - name: Verify tested artifact before AWS credentials
+        env:
+          EXPECTED_DIGEST: ${{ needs.check.outputs.sha256 }}
+          SITE: ${{ inputs.name }}
+        run: mise exec -- python scripts/ci/site_artifact.py verify release/release.tar "$EXPECTED_DIGEST" "apps/$SITE/dist"
+      - name: Reject stale master before AWS credentials
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+          SITE: ${{ inputs.name }}
+        run: mise exec -- python scripts/ci/site_freshness.py "$SITE" "$EXPECTED_SHA"
+      - name: Require deployment configuration
+        env:
+          BROKER_ROLE_ARN: ${{ inputs.broker_role_arn }}
+          DEPLOY_ROLE_ARN: ${{ inputs.deploy_role_arn }}
+          DISTRIBUTION_ID: ${{ inputs.distribution_id }}
+        run: |
+          test -n "$BROKER_ROLE_ARN"
+          test -n "$DEPLOY_ROLE_ARN"
+          test -n "$DISTRIBUTION_ID"
+      - name: Assume TOOLS GitHub Actions broker with GitHub OIDC
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ inputs.broker_role_arn }}
+          aws-region: us-east-1
+          role-session-name: ${{ inputs.name }}-site-broker-${{ github.run_id }}
+          role-duration-seconds: 900
+          allowed-account-ids: "421680664125"
+      - name: Assume PRODUCTION site deploy role from TOOLS broker
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ inputs.deploy_role_arn }}
+          aws-region: us-east-1
+          role-session-name: ${{ inputs.name }}-site-${{ github.run_id }}
+          role-duration-seconds: 900
+          role-chaining: true
+          role-skip-session-tagging: true
+          allowed-account-ids: "767397796791"
+      - name: Publish tested bytes once with explicit cache metadata
+        env:
+          SITE: ${{ inputs.name }}
+        run: mise exec -- bash scripts/ci/publish_site.sh "apps/$SITE/dist" "$SITE-web"
+      - name: Invalidate CloudFront
+        env:
+          DISTRIBUTION_ID: ${{ inputs.distribution_id }}
+        run: mise exec -- aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"

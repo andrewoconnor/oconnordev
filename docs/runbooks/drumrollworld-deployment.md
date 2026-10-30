@@ -42,7 +42,7 @@ noncurrent versions expire after 30 days and incomplete multipart uploads after
 loss, privileged version deletion or expired versions.
 
 The workflow excludes `images/*` and prior `assets/*` from root sync/deletion.
-See `.github/workflows/drumrollworld-site.yml` for the complete publication
+See `.github/workflows/site.yml` for the complete publication
 commands, including cache metadata and deletion-only root reconciliation.
 
 AWS CLI excludes matching destination objects from deletion. The deploy role
