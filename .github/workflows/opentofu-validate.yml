@@ -1,9 +1,6 @@
 name: OpenTofu validation
 
 on:
-  push:
-    branches:
-      - 'hermes/**'
   pull_request:
     branches:
       - master
