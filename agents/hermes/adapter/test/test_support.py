@@ -80,6 +80,18 @@ EXPECTED_TOOLS = (
     | GOOGLE_TOOLS
     | OUTLOOK_TOOLS
     | SCHWAB_TOOLS
+    | {
+        "plaid-" + name
+        for name in [
+            "listItems",
+            "getAccounts",
+            "getTransactions",
+            "getItemStatus",
+            "getRecurringTransactions",
+            "getLiabilities",
+            "getHoldings",
+        ]
+    }
 )
 UNOWNED_TARGETS = tuple(
     target
