@@ -2,7 +2,7 @@ name: Thundermail image
 
 on:
   push:
-    branches: [master, 'hermes/**']
+    branches: [master]
     paths:
       - 'infra/aws/tools/lambdas/thundermail_mcp/**'
       - 'mise.toml'
