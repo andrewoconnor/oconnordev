@@ -26,6 +26,7 @@ def verify(site, tested):
         "mise.lock",
         "biome.json",
         f".github/workflows/{site}-site.yml",
+        ".github/workflows/site.yml",
         f"infra/aws/{site}/site.tf",
         "infra/modules/static-site/",
     ]

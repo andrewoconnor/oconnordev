@@ -54,6 +54,7 @@ class FreshnessTests(unittest.TestCase):
                 "mise.lock",
                 "biome.json",
                 ".github/workflows/drumrollworld-site.yml",
+                ".github/workflows/site.yml",
                 "scripts/drumrollworld/shared.mjs",
                 "infra/modules/static-site/delivery.tf",
                 "infra/aws/drumrollworld/site.tf",
