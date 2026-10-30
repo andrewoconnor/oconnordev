@@ -1,0 +1,189 @@
+{
+  "client_tool_prefix": "plaid-",
+  "gateway_action_prefix": "plaid___",
+  "tools": [
+    "listItems",
+    "getAccounts",
+    "getTransactions",
+    "getItemStatus",
+    "getRecurringTransactions",
+    "getLiabilities",
+    "getHoldings"
+  ],
+  "toolSchemas": [
+    {
+      "name": "listItems",
+      "description": "List configured Item aliases, institution names and consented products without credentials.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {},
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getAccounts",
+      "description": "Read accounts and balances for one existing Item.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "Configured Item alias; discover with listItems.",
+            "enum": [
+              "capital-one",
+              "usaa",
+              "amex",
+              "empower"
+            ]
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getTransactions",
+      "description": "Read one dated transaction page. Pass next_offset unchanged to the next call; no stored history.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "Configured Item alias; discover with listItems.",
+            "enum": [
+              "capital-one",
+              "usaa",
+              "amex",
+              "empower"
+            ]
+          },
+          "startDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Inclusive start date, YYYY-MM-DD."
+          },
+          "endDate": {
+            "type": "string",
+            "format": "date",
+            "description": "Inclusive end date, YYYY-MM-DD; not before startDate."
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 500,
+            "default": 100,
+            "description": "Page count, 1 through 500; default 100."
+          },
+          "offset": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 2147483647,
+            "default": 0,
+            "description": "Exact provider offset, nonnegative; default 0."
+          }
+        },
+        "required": [
+          "item",
+          "startDate",
+          "endDate"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getItemStatus",
+      "description": "Read Item error, freshness and consent metadata without credentials.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "Configured Item alias; discover with listItems.",
+            "enum": [
+              "capital-one",
+              "usaa",
+              "amex",
+              "empower"
+            ]
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getRecurringTransactions",
+      "description": "Read recurring transactions with transactions consent; Plaid recurring entitlement is also required. Does not initialize products.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "Configured Item alias; discover with listItems.",
+            "enum": [
+              "capital-one",
+              "usaa",
+              "amex",
+              "empower"
+            ]
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getLiabilities",
+      "description": "Read liabilities only for an Item already consented to liabilities.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "Configured Item alias; discover with listItems.",
+            "enum": [
+              "capital-one",
+              "usaa",
+              "amex",
+              "empower"
+            ]
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "additionalProperties": false
+      }
+    },
+    {
+      "name": "getHoldings",
+      "description": "Read holdings only for an Item already consented to investments.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "item": {
+            "type": "string",
+            "description": "Configured Item alias; discover with listItems.",
+            "enum": [
+              "capital-one",
+              "usaa",
+              "amex",
+              "empower"
+            ]
+          }
+        },
+        "required": [
+          "item"
+        ],
+        "additionalProperties": false
+      }
+    }
+  ]
+}
