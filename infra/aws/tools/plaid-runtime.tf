@@ -15,7 +15,7 @@ data "archive_file" "plaid" {
   type        = "zip"
   source_dir  = "${local.repo_root}/infra/aws/tools/lambdas/plaid"
   output_path = "${path.module}/.terraform-archives/plaid.zip"
-  excludes    = ["test_*.py", "**/__pycache__/**", "**/*.pyc"]
+  excludes    = ["tools.json", "test_*.py", "**/__pycache__/**", "**/*.pyc"]
 }
 
 resource "aws_cloudwatch_log_group" "plaid" {

@@ -2,7 +2,10 @@
 
 `plaid` is a native AgentCore Lambda target. The ARM Python ZIP runtime reads
 `/hermes/plaid/credentials` from Secrets Manager on each call. IaC creates only
-that container, not its value. The dedicated role can read that exact secret and
+that container, not its value. Reads are deliberately uncached, including
+`listItems`, so owner credential/configuration updates take effect on the next
+invocation. `listItems` avoids Plaid calls, not the Secrets Manager read.
+The dedicated role can read that exact secret and
 write its own fourteen-day Lambda logs. The Gateway receives only exact-function
 invoke permission, not Plaid secret access. There is no Function URL, AgentCore
 Identity/OAuth provider, database, container, VPC or NAT for Plaid.
@@ -37,6 +40,12 @@ Provider tools return the sanitized native Plaid object. `getItemStatus` retains
 safe Item error codes, consent metadata and provider freshness, adding
 `configured_products`. Credential/token-like keys, raw error descriptions and
 credential values echoed under unexpected keys are removed/redacted recursively.
+Key-pattern filtering deliberately fails closed; matching future provider fields
+are also omitted. Removals are not logged, to avoid retaining provider field names
+or values. Consumers must not treat an omitted field as a zero or an empty value.
+Bootstrap and runtime both reject duplicate JSON keys and nonfinite constants.
+The deployed ZIP contains only `plaid.py`; `tools.json` is used by Terraform and
+adapter catalog validation, not loaded by the runtime.
 Failures return generic errors plus safe Plaid error codes/request IDs when present;
 the runtime does not log payloads, credentials or raw exceptions.
 

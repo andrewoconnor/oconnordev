@@ -4,6 +4,25 @@ import copy
 import json
 
 
+def strict_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate JSON key")
+        result[key] = value
+    return result
+
+
+def invalid_constant(value):
+    raise ValueError("Nonfinite JSON constant")
+
+
+def decode(raw):
+    return json.loads(
+        raw, object_pairs_hook=strict_object, parse_constant=invalid_constant
+    )
+
+
 def metadata(bundle: dict) -> dict:
     return {
         "items": [
@@ -33,7 +52,7 @@ def read_bundle(client, secret_id: str) -> dict:
         ):
             raise ValueError("Existing secret version could not be read") from None
         return {}
-    return json.loads(result["SecretString"])
+    return decode(result["SecretString"])
 
 
 def import_items(
@@ -166,7 +185,7 @@ def main(argv: list[str] | None = None) -> int:
                 raise ValueError("Item file must have owner-only permissions")
             if args.items_file.stat().st_size > 65536:
                 raise ValueError("Item file exceeds credential size limit")
-            items = json.loads(args.items_file.read_text())
+            items = decode(args.items_file.read_text())
             secret = os.environ.get("PLAID_CLIENT_SECRET", "")
             bundle = build_bundle(items, args.client_id, secret)
             if not args.apply:

@@ -101,14 +101,20 @@ class OverviewTests(unittest.TestCase):
     def test_cli_help_does_not_require_credentials(self):
         import subprocess
         import sys
+        import tempfile
 
-        result = subprocess.run(
-            [sys.executable, str(Path(__file__).with_name("overview.py")), "--help"],
-            capture_output=True,
-            text=True,
-            cwd="/opt/data",
-            check=False,
-        )
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).resolve().with_name("overview.py")),
+                    "--help",
+                ],
+                capture_output=True,
+                text=True,
+                cwd=directory,
+                check=False,
+            )
         self.assertEqual(result.returncode, 0)
         self.assertIn("--checkout", result.stdout)
 

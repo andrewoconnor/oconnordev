@@ -126,14 +126,21 @@ class ImportTests(unittest.TestCase):
             for key, value in os.environ.items()
             if not key.startswith(("PLAID_", "AWS_"))
         }
-        result = subprocess.run(
-            [sys.executable, str(Path(__file__).with_name("plaid.py")), "--help"],
-            capture_output=True,
-            text=True,
-            env=env,
-            cwd="/opt/data",
-            check=False,
-        )
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(Path(__file__).resolve().with_name("plaid.py")),
+                    "--help",
+                ],
+                capture_output=True,
+                text=True,
+                env=env,
+                cwd=directory,
+                check=False,
+            )
         self.assertEqual(result.returncode, 0)
         self.assertIn("--apply", result.stdout)
         self.assertIn("verify", result.stdout)
@@ -205,6 +212,27 @@ class ImportTests(unittest.TestCase):
                 old["items"]["unknown"] = old["items"].pop("amex")
             with self.subTest(broken=broken), self.assertRaises(ValueError):
                 module.build_bundle([incoming], "test-client", "test-secret", old)
+
+    def test_bundle_parser_rejects_duplicate_keys_and_nonfinite_values(self):
+        from unittest.mock import Mock
+
+        spec = importlib.util.spec_from_file_location(
+            "plaid_bootstrap", Path(__file__).with_name("plaid.py")
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        for raw in [
+            '{"items":{},"items":{}}',
+            '{"items":{"usaa":{"products":[],"products":[]}}}',
+            '{"items":NaN}',
+            '{"items":Infinity}',
+        ]:
+            client = Mock()
+            client.get_secret_value.return_value = {"SecretString": raw}
+            with self.subTest(raw=raw), self.assertRaises(ValueError):
+                module.read_bundle(client, "/hermes/plaid/credentials")
+            client.put_secret_value.assert_not_called()
 
 
 if __name__ == "__main__":
