@@ -38,9 +38,7 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(shared.count("ref: ${{ github.sha }}"), 2)
         self.assertRegex(check, r"actions/upload-artifact@[a-f0-9]{40}")
         self.assertRegex(deploy, r"actions/download-artifact@[a-f0-9]{40}")
-        self.assertEqual(
-            shared.count("name: ${{ inputs.name }}-${{ github.sha }}"), 2
-        )
+        self.assertEqual(shared.count("name: ${{ inputs.name }}-${{ github.sha }}"), 2)
         self.assertNotIn("run-id:", deploy)
         self.assertNotIn("github-token:", deploy)
         self.assertIn("needs.check.outputs.sha256", deploy)
