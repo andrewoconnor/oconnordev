@@ -141,7 +141,7 @@ def _load_target(
     owned = None
     if schemas is not None:
         if (
-            name != "thundermail"
+            name not in {"thundermail", "plaid"}
             or not isinstance(schemas, list)
             or len(schemas) != len(tools)
             or {t.get("name") for t in schemas} != tools
@@ -149,8 +149,8 @@ def _load_target(
                 t.get("inputSchema", {}).get("additionalProperties") is not False
                 for t in schemas
             )
-            or action_prefix != "thundermail___"
-            or client_tool_prefix != "thundermail-"
+            or action_prefix != f"{name}___"
+            or client_tool_prefix != f"{name}-"
         ):
             raise AdapterError("invalid_owned_tool_schemas")
         owned = {t["name"]: t for t in schemas}
@@ -172,4 +172,5 @@ TARGETS = (
     _load_target("google", "google-mcp-tools.json"),
     _load_target("outlook", "outlook-mcp-tools.json"),
     _load_target("schwab", "schwab-mcp-tools.json"),
+    _load_target("plaid", "plaid-mcp-tools.json"),
 )

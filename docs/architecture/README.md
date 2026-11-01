@@ -4,12 +4,12 @@
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to OpenTofu data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
 
-`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Outlook, Thundermail, Google and Schwab targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
+`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Outlook, Thundermail, Google, Schwab and Plaid targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
 
 ## Tools-account Lambdas
 
 Lambda sources live under `infra/aws/tools/lambdas/`: `spacelift_session_token/`,
-`thundermail_mcp/`, `schwab/` and `oauth_callback/`. The tools project root covers all four,
+`thundermail_mcp/`, `schwab/`, `plaid/` and `oauth_callback/`. The tools project root covers them,
 so no extra Spacelift project glob is needed.
 
 `ecr.tf` defines the shared `oconnordev-tools` image repository, its Lambda pull
@@ -47,6 +47,15 @@ a consent link to Hermes, and the hosted callback in `oauth-callback.tf`
 completes the consent.
 See [the runbook](../runbooks/schwab-mcp.md).
 
+### Plaid
+
+`plaid-runtime.tf` and `target-plaid.tf` define an ARM Python ZIP Lambda with
+local Item discovery and six fixed production read POSTs. Only its dedicated
+role reads the owner-managed Secrets Manager container; the Gateway can invoke
+only the exact function. There are no model-exposed consent or mutation tools.
+See [the runbook](../runbooks/plaid-mcp.md), including the shared payload-logging
+privacy prerequisite and target-before-adapter activation order.
+
 ### Google
 
 `target-google.tf` defines a `google` OpenAPI target for five read-only Gmail and
@@ -77,7 +86,7 @@ The bucket policies remain explicit policy documents attached directly to `aws_s
 
 ## AgentCore trust boundaries
 
-`tools` owns one Cognito-protected AgentCore Gateway, one execution role, and the ENFORCE policy engine. Cognito client-credentials authentication establishes the machine caller; Cedar policies authorize target-prefixed action names. M2M access tokens have an explicit 60-minute validity; ID/refresh-token settings are not configured for this flow. The adapter caches the returned `expires_in` lifetime and refreshes with its existing 60-second skew, or once after a gateway 401; extending validity does not force periodic token requests when idle. Shared gateway and authentication resources are in `gateway.tf` and `gateway-auth.tf`; target-specific credentials, target definitions, and Cedar rules are in `target-github.tf`, `target-aws.tf`, `target-spacelift.tf`, `target-thundermail.tf`, `target-google.tf`, `target-outlook.tf`, and `target-schwab.tf`. GitHub PAT and Spacelift credentials remain separate from gateway-wide IAM.
+`tools` owns one Cognito-protected AgentCore Gateway, one execution role, and the ENFORCE policy engine. Cognito client-credentials authentication establishes the machine caller; Cedar policies authorize target-prefixed action names. M2M access tokens have an explicit 60-minute validity; ID/refresh-token settings are not configured for this flow. The adapter caches the returned `expires_in` lifetime and refreshes with its existing 60-second skew, or once after a gateway 401; extending validity does not force periodic token requests when idle. Shared gateway and authentication resources are in `gateway.tf` and `gateway-auth.tf`; target-specific credentials, target definitions, and Cedar rules are in `target-github.tf`, `target-aws.tf`, `target-spacelift.tf`, `target-thundermail.tf`, `target-google.tf`, `target-outlook.tf`, `target-schwab.tf`, and `target-plaid.tf`. GitHub PAT and Spacelift credentials remain separate from gateway-wide IAM.
 
 The security-account gateway is a separate AWS_IAM trust boundary. Its resource policy admits the Hermes gateway role; its execution role's explicit read-deny policy remains directly inspectable. It does not use the Hermes OAuth Cedar engine.
 
