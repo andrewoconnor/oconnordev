@@ -1,4 +1,4 @@
-"""Offline source contract for temporary Gateway delivery via the existing log group."""
+"""Offline source contract for disabled Gateway payload delivery."""
 
 import re
 import unittest
@@ -16,24 +16,11 @@ def resource_types(text):
 
 
 class GatewayLogPrivacyTests(unittest.TestCase):
-    def test_only_the_restored_delivery_exists_without_replacement_sinks(self):
+    def test_no_delivery_or_replacement_sinks(self):
         types = resource_types("\n".join(p.read_text() for p in TOOLS.glob("*.tf")))
-        self.assertEqual(types.count("aws_cloudwatch_log_delivery"), 1)
+        self.assertNotIn("aws_cloudwatch_log_delivery", types)
         self.assertNotIn("aws_cloudwatch_log_subscription_filter", types)
         self.assertNotIn("aws_cloudwatch_log_destination", types)
-
-    def test_delivery_uses_existing_source_and_destination(self):
-        text = (TOOLS / "gateway-observability.tf").read_text()
-        self.assertIn(
-            "delivery_source_name     = "
-            "aws_cloudwatch_log_delivery_source.gateway_application_logs.name",
-            text,
-        )
-        self.assertIn(
-            "delivery_destination_arn = "
-            "aws_cloudwatch_log_delivery_destination.gateway_application_logs.arn",
-            text,
-        )
 
     def test_comments_are_not_active_resource_declarations(self):
         self.assertEqual(
