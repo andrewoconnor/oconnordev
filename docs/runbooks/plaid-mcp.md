@@ -57,9 +57,10 @@ and top-level `next_offset` (integer while more data exists, otherwise null).
 Use that exact next offset, not a guessed page number. Provider changes during
 paging can change totals; this is a read view, not a durable snapshot.
 
-All four existing Items currently consent only to `transactions`. Liabilities
-requires configured `liabilities`; holdings requires `investments`. Recurring
-requires `transactions` and may additionally require Plaid recurring entitlement.
+All four Items currently have only `transactions` in their configured products.
+The product gate denies liabilities and holdings without configured `liabilities`
+and `investments`, respectively, regardless of provider consent or billing.
+Recurring requires `transactions` and may additionally require Plaid entitlement.
 No tool initializes a product, creates Link sessions, expands consent, updates
 credentials or removes Items. Owner-only consent/Link lifecycle administration
 is separate from these model-exposed reads.
