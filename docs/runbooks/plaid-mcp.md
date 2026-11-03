@@ -66,13 +66,11 @@ is separate from these model-exposed reads.
 
 ## Owner activation
 
-1. **Approve the privacy/retention decision before any live Plaid invocation.**
-   Shared Gateway application body logging is active and can retain financial
-   responses even though Lambda emits no payload logs. Review
-   [Gateway log privacy](gateway-log-privacy.md). Explicitly approve that exposure
-   and retention, or separately review/apply/verify stopping payload delivery
-   before activation. This integration does not change shared logging. Stopping
-   future delivery does not delete historical logs; deletion needs separate approval.
+1. **Verify privacy before any live Plaid invocation.** Confirm that the applied
+   shared Gateway has no application-log delivery connection, including any
+   additional deliveries; see [Gateway log privacy](gateway-log-privacy.md).
+   Stopping future delivery does not delete historical logs or external copies.
+   Lambda emits no payload logs, but other logging paths may still retain data.
 2. Review the TOOLS plan and apply the empty secret container, runtime, native
    target and its seven scope-bound Cedar permits with the normal owner deployment
    process. Do not deploy the new adapter checkout yet. Applying infrastructure

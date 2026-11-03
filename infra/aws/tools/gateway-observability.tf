@@ -38,11 +38,6 @@ resource "aws_cloudwatch_log_delivery_destination" "gateway_application_logs" {
   }
 }
 
-resource "aws_cloudwatch_log_delivery" "gateway_application_logs" {
-  delivery_source_name     = aws_cloudwatch_log_delivery_source.gateway_application_logs.name
-  delivery_destination_arn = aws_cloudwatch_log_delivery_destination.gateway_application_logs.arn
-}
-
 resource "aws_cloudwatch_metric_alarm" "gateway_user_errors" {
   alarm_name          = "hermes-gateway-user-errors"
   alarm_description   = "Repeated AgentCore Gateway 4xx responses, including rejected authentication or policy decisions."
