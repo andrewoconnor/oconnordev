@@ -64,70 +64,52 @@ No tool initializes a product, creates Link sessions, expands consent, updates
 credentials or removes Items. Owner-only consent/Link lifecycle administration
 is separate from these model-exposed reads.
 
-## Owner activation
+## Operations and owner lifecycle
 
-1. **Verify privacy before any live Plaid invocation.** Confirm that the applied
-   shared Gateway has no application-log delivery connection, including any
-   additional deliveries; see [Gateway log privacy](gateway-log-privacy.md).
-   Stopping future delivery does not delete historical logs or external copies.
-   Lambda emits no payload logs, but other logging paths may still retain data.
-2. Review the TOOLS plan and apply the empty secret container, runtime, native
-   target and its seven scope-bound Cedar permits with the normal owner deployment
-   process. Do not deploy the new adapter checkout yet. Applying infrastructure
-   does not import credentials or authorize live financial reads.
-3. From a trusted owner shell, supply `PLAID_CLIENT_SECRET` through a secure
-   environment source; do not put its value in arguments, shell history, chat or
-   IaC. Reuse the existing production Items without new consent. The owner-only
-   import helper validates the owner-only Item file, merges stored Items and
-   checks the TOOLS account (`421680664125`). Preview, then explicitly write:
+Before live reads, verify that the applied shared Gateway has no application-log
+delivery connections. Follow [Gateway log privacy](gateway-log-privacy.md) to
+check all deliveries and logging paths. Lambda does not log payloads, credentials
+or raw exceptions; other logging paths may retain sensitive data.
 
-   ```sh
-   python3 scripts/bootstrap/plaid.py import --secret-id /hermes/plaid/credentials --items-file /path/to/.plaid_items.json --client-id YOUR_CLIENT_ID
-   python3 scripts/bootstrap/plaid.py import --secret-id /hermes/plaid/credentials --items-file /path/to/.plaid_items.json --client-id YOUR_CLIENT_ID --apply
-   python3 scripts/bootstrap/plaid.py verify --secret-id /hermes/plaid/credentials
-   ```
+Manage the TOOLS infrastructure through a reviewed plan. Apply the native target
+and its seven Cedar permits before deploying an adapter revision that expects
+those tools: adapter catalog validation is strict. Read back the Gateway catalog
+and permits and verify the adapter catalog includes all seven `plaid-` tools.
+Infrastructure applies do not populate the secret or authorize financial reads.
 
-   Import is dry-run by default. Verify checks stored schema and reports only
-   aliases/products; it does not prove live Plaid access. Secret JSON is strictly:
+The owner manages credentials and Item configuration from a trusted shell. The
+runtime role cannot write secrets or mutate Plaid data. Set `PLAID_CLIENT_SECRET`
+through a secure environment source, never in arguments, shell history, chat or
+IaC. The bootstrap helper checks the TOOLS account, validates the owner-supplied
+Item file and merges stored Items. Import is dry-run by default; review the
+preview before explicitly applying and verifying:
 
-   ```json
-   {"client_id":"...","secret":"...","items":{"capital-one":{"access_token":"...","institution_name":"Capital One","products":["transactions"]},"usaa":{"access_token":"...","institution_name":"USAA","products":["transactions"]},"amex":{"access_token":"...","institution_name":"Amex","products":["transactions"]},"empower":{"access_token":"...","institution_name":"Empower","products":["transactions"]}}}
-   ```
+```sh
+python3 scripts/bootstrap/plaid.py import --secret-id /hermes/plaid/credentials --items-file /path/to/owner-items.json --client-id YOUR_CLIENT_ID
+python3 scripts/bootstrap/plaid.py import --secret-id /hermes/plaid/credentials --items-file /path/to/owner-items.json --client-id YOUR_CLIENT_ID --apply
+python3 scripts/bootstrap/plaid.py verify --secret-id /hermes/plaid/credentials
+```
 
-4. Read back the applied Gateway catalog and permits: exactly the seven
-   `plaid___` actions must exist alongside all existing targets. Only then deploy
-   the new adapter revision with the normal adapter deployment process and verify
-   its complete catalog, including all seven `plaid-` tools. Shipping this code
-   does not switch the active adapter; strict catalog equality makes deploying
-   the adapter before the target unsafe for existing clients.
-5. With explicit live-read approval, check `plaid-listItems`, accounts, Item status
-   and a bounded transaction page, including a nonzero offset. Compare totals and
-   balances with the preserved owner baseline. Check unknown tools/arguments are
-   denied. Unsupported liabilities/holdings must fail locally without provider
-   calls. Recurring entitlement failures must not trigger consent expansion.
-6. For an aggregate-only transaction overview, use
-   `python3 scripts/plaid/overview.py --checkout /path/to/deployed/adapter-checkout --start YYYY-MM-DD --end YYYY-MM-DD`.
-   The helper uses that checkout's isolated stdio adapter and only its four
-   Gateway environment variables, not Plaid/AWS credentials. Optional `--output`
-   creates a new owner-only file. It reads complete pages and checks totals;
-   it does not establish full recurring/category/baseline-analysis parity.
+Verification checks the stored schema and reports aliases and products, not live
+provider access. The secret contains `client_id`, `secret`, and an `items` map;
+each Item has an `access_token`, `institution_name`, and `products`. Credential
+repair and rotation are owner-only operations. Account reauthentication, Link
+administration and consent changes are owner-only and not exposed as model tools.
 
-Offline mocked Python and OpenTofu tests prove runtime dispatch, sanitization,
-pagination and rendered infrastructure boundaries, not deployed IAM, ARM Lambda
-execution, live Plaid entitlement, log suppression or production data parity.
-Retain the external owner baseline and local fallback; local retirement and
-upstream credential revocation require a separate explicit decision.
+With explicit approval for live financial reads, check Item discovery, accounts,
+Item status and a bounded transaction page including a nonzero offset. Unsupported
+products must fail without provider calls; recurring entitlement errors do not
+authorize expanding consent. Mocked tests do not prove deployed IAM, Lambda
+execution, provider entitlement or live logging configuration.
 
-## Rollback and credential lifecycle
+For an aggregate-only transaction overview, run
+`python3 scripts/plaid/overview.py --checkout /path/to/adapter-checkout --start YYYY-MM-DD --end YYYY-MM-DD`.
+The helper uses the checkout's isolated stdio adapter and its four Gateway
+environment variables, not Plaid or AWS credentials. Optional `--output` creates
+a new owner-only file. It reads complete pages and checks totals.
 
-Restore the prior adapter revision first so its strict catalog no longer expects
-Plaid. Then remove the Plaid target, Cedar permits and Gateway invocation grant
-through a reviewed TOOLS plan if needed. Do not remove unrelated targets or
-change shared logging as part of rollback. Preserve the secret and its recovery
-window unless the owner explicitly requests deletion. Runtime role has no secret
-write or Plaid mutation permissions. Credential repair/rotation is an owner-only
-import with readback; account reauthentication or new Link administration is an
-owner-only follow-up, not a chat tool.
-
-Costs include the Secrets Manager container, requests, Lambda invocation and
-CloudWatch/Gateway usage; lack of a database or NAT does not mean zero cost.
+For removal, review the TOOLS plan and coordinate adapter catalog changes with
+target and permit changes. Do not remove unrelated targets or change shared
+logging. Preserve the secret and its recovery window unless the owner explicitly
+requests deletion. Costs include Secrets Manager, requests, Lambda invocation and
+CloudWatch/Gateway usage.
