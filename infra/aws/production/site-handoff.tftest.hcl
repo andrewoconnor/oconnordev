@@ -33,8 +33,7 @@ mock_provider "aws" {
 }
 
 variables {
-  spacelift_run_id           = "offline-delivery-test"
-  import_thundermail_records = false
+  spacelift_run_id = "offline-delivery-test"
 }
 
 

@@ -7,7 +7,7 @@ PRODUCTION = ROOT / "infra/aws/production"
 
 
 class ThundermailDnsAdoptionTests(unittest.TestCase):
-    def test_adoption_configuration_exists_and_uses_declarative_imports(self):
+    def test_records_are_managed_without_import_directives(self):
         path = PRODUCTION / "thundermail-records.tf"
         self.assertTrue(
             path.is_file(),
@@ -15,14 +15,12 @@ class ThundermailDnsAdoptionTests(unittest.TestCase):
         )
         source = path.read_text()
         self.assertIn('resource "aws_route53_record" "thundermail"', source)
-        self.assertIn("to       = aws_route53_record.thundermail[each.key]", source)
-        self.assertIn('id       = "Z02434432RXWI3WCMIEA2_${each.key}"', source)
-        self.assertIn(
-            "for_each = var.import_thundermail_records ? "
-            "local.thundermail_records : {}",
-            source,
-        )
-        self.assertIn("default     = true", source)
+        self.assertIn("for_each = local.thundermail_records", source)
+        self.assertIn("zone_id = aws_route53_zone.oconnordev.zone_id", source)
+        for field in ("name", "type", "ttl", "records"):
+            self.assertRegex(source, rf"(?m)^\s*{field}\s*=\s*each\.value\.{field}\s*$")
+        self.assertNotRegex(source, r"(?m)^\s*import\s*\{")
+        self.assertNotIn("import_thundermail_records", source)
         self.assertNotIn("allow_overwrite", source)
         self.assertNotIn('resource "aws_route53_zone"', source)
 

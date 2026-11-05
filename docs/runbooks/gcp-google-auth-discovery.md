@@ -49,23 +49,18 @@ Existing project Checkov exceptions describe preservation scope, not hardening.
 ## Owner plan gates
 
 Use the existing native stack, exact reviewed revision and refreshed saved-plan
-JSON. Import identities are explicit in `imports.tf`; existing state addresses
-must resolve to the same objects. No guessed import IDs or missing-read defaults.
+JSON. Existing state addresses must resolve to the same objects.
+Do not use guessed import IDs or missing-read defaults.
 
 ```sh
 python3 scripts/ci/verify_gcp_discovery_plan.py \
   --plan-json /path/to/actual-proposed-plan.json --expected-imports 0
 ```
 
-An owner-reviewed reconciliation of the two existing native read memberships
-may use `--expected-imports 2` only after verifying those exact grants and every
-other managed object is a no-op. This is an unresolved live-plan gate, not a
-claim of completed state reconciliation. For steady state require zero imports,
-adds, changes and destroys, no unknown/deferred/incomplete plan, failed checks
-or non-no-op resource drift. Keep exact address/identity checks and import blocks.
-Account IAM import IDs require full `projects/PROJECT/serviceAccounts/EMAIL`,
-then space-separated role/member; project IAM uses project ID. Pool/provider
-import paths use project ID while computed names use project number.
+Require zero imports, adds, changes and destroys, no unknown, deferred or
+incomplete plan, failed checks or non-no-op resource drift. Keep exact
+address and identity checks. Investigate any missing state or unexpected change
+before applying; do not guess identities.
 
 Stop on permissions/API errors; do not broaden IAM or enable services. Only the
 owner approves/applies. After apply require a fresh zero-import/no-change plan.
@@ -80,9 +75,8 @@ mise run test:python
 mise run validate
 ```
 
-The offline fixture copies actual configuration/lock except imports, which mock
-providers cannot execute. Eight mock creates prove configuration, not a live
-import/no-change plan. No credentials or inventory dumps belong in this repository.
+The offline fixture copies actual configuration and its lockfile. Eight mock
+creates prove configuration, not a live no-change plan. No credentials or inventory dumps belong in this repository.
 Google 8.8.1 does not manage ordinary Google Auth Platform consent/Audience/Data
 Access or Gmail OAuth-client settings; `google_iam_oauth_client` is Workforce
 Identity Federation, not that product. Do not invent resources or new consent.

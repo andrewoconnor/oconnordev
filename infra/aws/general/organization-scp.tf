@@ -9,15 +9,3 @@ resource "aws_organizations_policy_attachment" "deny_leave_and_close_account_roo
   policy_id = aws_organizations_policy.deny_leave_and_close_account.id
   target_id = aws_organizations_organization.oconnordev.roots[0].id
 }
-
-# The policy already exists in the live organization and is attached to its root.
-# Import both objects into General state instead of creating a duplicate policy.
-import {
-  to = aws_organizations_policy.deny_leave_and_close_account
-  id = "p-3x6rql11"
-}
-
-import {
-  to = aws_organizations_policy_attachment.deny_leave_and_close_account_root
-  id = "r-qmpg:p-3x6rql11"
-}

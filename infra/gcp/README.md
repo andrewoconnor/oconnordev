@@ -15,6 +15,6 @@ not key material, signing or token minting.
 Use the [operations runbook](../../docs/runbooks/gcp-google-auth-discovery.md)
 for exact identities, narrow scope and owner-only real-plan gates. Configuration
 and offline tests do not prove live state reconciliation. `mise run test:opentofu-gcp`
-uses isolated mock configuration without import blocks; its mock creates are not
-live plan evidence. Preserve imports and provider locks; keep secrets/inventory
+uses isolated mock configuration; its mock creates are not
+live plan evidence. Preserve provider locks; keep secrets/inventory
 dumps outside Git.

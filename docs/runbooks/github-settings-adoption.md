@@ -114,19 +114,13 @@ resolve the dedicated App/context; do not change authentication or skip refresh.
    empty. Confirm the exact reviewed revision is what Spacelift plans.
 2. Have the user complete the dedicated App approval above; verify existing
    state addresses and producer dependency inputs through the existing stack.
-3. Review a refreshed Spacelift plan from that exact head. When all eleven settings are absent from state,
-   require **11 imports, zero creates, zero updates, zero deletes/replacements**.
-   The existing variables must have no actions. Check every import ID/address
-   against the table and inspect before/after values, especially squash-only merge
-   methods and bypass actors. Already-imported instances may reduce the import
-   count only when exact state addresses/objects have been verified.
-4. Abort on any drift, replacement, unexpected resource, lost parameter, hidden
-   read failure, new label/topic value, or changed variable. Refresh evidence and
-   review a separate correction; do not use `ignore_changes`, defaults, targeting,
-   `-refresh=false`, or guessed values to make adoption appear safe.
-5. Only the user may approve/apply the import-only plan. Afterwards verify the 11
-   exact addresses in the existing stack and a fresh no-change plan. Declarative
-   import blocks may remain: they do not reimport objects already at the address.
+3. Review a refreshed Spacelift plan from that exact head. Verify all eleven
+   exact state addresses against the table and require no creates, updates,
+   deletes or replacements. Inspect before/after values, especially squash-only
+   merge methods and bypass actors. The existing variables must have no actions.
+4. Abort on drift, replacement, unexpected resources, hidden read failures, or
+   changed values. Do not use `ignore_changes`, targeting, `-refresh=false`, or
+   guessed values to make a plan appear safe. Only the owner approves changes.
 
 No local `tofu import`, live plan with borrowed credentials, apply, deploy, GitHub
 write, or AWS write is part of local validation. A passing offline check is not a
@@ -176,7 +170,6 @@ mise exec -- checkov --directory infra/github/oconnordev --framework terraform
 
 Tests evaluate production HCL with OpenTofu mock-provider plans and the exact
 locked schema, compare observed label fields and every pull-request parameter,
-reject additional rules/bypasses, reconcile import addresses/counts, and protect
-untouched input/provider/wiring files. Import blocks are stripped only in temporary
-offline fixtures and separately contract-tested. Those synthetic create plans
+reject additional rules/bypasses, and protect untouched input/provider/wiring
+files. Those synthetic create plans
 exercise configuration, **not live import behavior or a zero-change live plan**.

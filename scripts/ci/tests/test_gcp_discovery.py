@@ -46,9 +46,6 @@ class GCPDiscoveryTests(unittest.TestCase):
         root = ROOT / "infra/gcp/google-auth"
         source = (root / "project.tf").read_text()
         self.assertIn('resource "google_project" "google_auth"', source)
-        imports = (root / "imports.tf").read_text()
-        self.assertIn("to = google_project.google_auth", imports)
-        self.assertIn('id = "adept-presence-510022-p7"', imports)
         self.assertIn("prevent_destroy = true", source)
         self.assertIn('deletion_policy = "ABANDON"', source)
         self.assertIn("ignore_changes = [auto_create_network]", source)

@@ -380,7 +380,6 @@ def verify_read_access_plan(plan: dict[str, Any], expected_imports: int = 2) -> 
     ):
         raise ValueError("Wrong exact read membership/import set")
     # Reuse all historical identity, trust, drift, checks and no-op guards.
-    # Historical import blocks stay idempotent: no bootstrap/project re-imports.
     verify_bootstrap_plan(
         {
             **plan,
@@ -401,7 +400,7 @@ def verify_read_access_plan(plan: dict[str, Any], expected_imports: int = 2) -> 
 
 
 def run_offline_tests() -> None:
-    """Copy actual configuration, omitting only unsupported mock import blocks."""
+    """Run isolated mock tests against the actual configuration."""
     import os
     import shutil
     import tempfile
@@ -412,7 +411,7 @@ def run_offline_tests() -> None:
     ) as directory:
         fixture = Path(directory)
         for path in source.iterdir():
-            if path.name != "imports.tf" and (
+            if (
                 path.suffix == ".tf"
                 or path.name.endswith(".tftest.hcl")
                 or path.name == ".terraform.lock.hcl"

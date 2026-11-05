@@ -71,11 +71,6 @@ resource "aws_ssoadmin_managed_policy_attachment" "administrator_access" {
   managed_policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
 
-moved {
-  from = aws_ssoadmin_account_assignment.administrators_security["482921124454"]
-  to   = aws_ssoadmin_account_assignment.administrators["OCONNORDEV-SECURITY"]
-}
-
 resource "aws_ssoadmin_account_assignment" "administrators" {
   for_each = local.identity_center_accounts
 

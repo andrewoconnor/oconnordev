@@ -93,15 +93,3 @@ resource "aws_route53_record" "thundermail" {
   ttl     = each.value.ttl
   records = each.value.records
 }
-
-variable "import_thundermail_records" {
-  description = "Adopt existing mail records; disabled only for offline provider mocks."
-  type        = bool
-  default     = true
-}
-
-import {
-  for_each = var.import_thundermail_records ? local.thundermail_records : {}
-  to       = aws_route53_record.thundermail[each.key]
-  id       = "Z02434432RXWI3WCMIEA2_${each.key}"
-}
