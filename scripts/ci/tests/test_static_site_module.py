@@ -44,11 +44,8 @@ class StaticSiteModuleTests(unittest.TestCase):
         self.assertNotIn("site_state_handoff_guard", source)
         self.assertNotIn("site_state_handoff_complete", source)
         self.assertFalse((ROOT / "infra/aws/oconnordev/site-handoff.tf").exists())
-        drum = (ROOT / "infra/aws/drumrollworld/moved.tf").read_text()
-        self.assertIn("from = aws_cloudfront_distribution.drumrollworld", drum)
-        self.assertRegex(
-            drum, r"to\s*=\s*module\.site\.aws_cloudfront_distribution\.site"
-        )
+        drum = (ROOT / "infra/aws/drumrollworld/site.tf").read_text()
+        self.assertIn('module "site"', drum)
 
     def test_shared_module_changes_select_both_consumers(self):
         import sys

@@ -50,11 +50,6 @@ resource "github_issue_label" "observed" {
   }
 }
 
-import {
-  for_each = local.repository_labels
-  to       = github_issue_label.observed[each.key]
-  id       = "oconnordev:${each.key}"
-}
 
 resource "github_repository_ruleset" "master" {
   repository  = "oconnordev"
@@ -90,11 +85,6 @@ resource "github_repository_ruleset" "master" {
   }
 }
 
-import {
-  to = github_repository_ruleset.master
-  id = "oconnordev:24274432"
-}
-
 # Standalone resources avoid unreadable github_repository administration defaults.
 resource "github_branch_default" "observed" {
   repository      = "oconnordev"
@@ -107,11 +97,6 @@ resource "github_branch_default" "observed" {
   }
 }
 
-import {
-  to = github_branch_default.observed
-  id = "oconnordev"
-}
-
 # Authoritative for topics only; observed complete empty list, not unknown.
 resource "github_repository_topics" "observed" {
   repository = "oconnordev"
@@ -120,9 +105,4 @@ resource "github_repository_topics" "observed" {
   lifecycle {
     prevent_destroy = true
   }
-}
-
-import {
-  to = github_repository_topics.observed
-  id = "oconnordev"
 }

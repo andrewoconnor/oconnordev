@@ -21,14 +21,3 @@ resource "aws_iam_role_policy_attachment" "spacelift" {
   role       = aws_iam_role.spacelift.name
   policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
 }
-
-
-import {
-  to = aws_iam_role.spacelift
-  id = "spacelift"
-}
-
-import {
-  to = aws_iam_role_policy_attachment.spacelift
-  id = "spacelift/arn:aws:iam::aws:policy/AdministratorAccess"
-}

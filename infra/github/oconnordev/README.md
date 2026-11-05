@@ -52,5 +52,4 @@ Unsupported settings remain externally owned: no broad `github_repository`,
 collaborator set, merge defaults, hooks, Pages, Actions policy/secrets or workflow
 resources. Inherent owner access is not an importable collaborator grant.
 The [native settings reads](../../../docs/runbooks/github-settings-read.md)
-are partial; unknown/null fields are not guessed defaults. Preserve import blocks,
-provider locks and state addresses; only the owner approves live plans/applies.
+are partial; unknown/null fields are not guessed defaults. Preserve provider locks and state addresses; only the owner approves live plans/applies.

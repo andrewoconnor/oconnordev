@@ -34,11 +34,9 @@ class StaticSiteCompatibilityTests(unittest.TestCase):
                 self.assertFalse((ROOT / "scripts/infra" / name).exists())
 
     def test_drumroll_moves_include_indexed_certificate_and_dns_instances(self):
-        import re
-
-        repo = Path(__file__).resolve().parents[2]
-        moves_source = (repo / "infra/aws/drumrollworld/moved.tf").read_text()
-        moves = re.findall(r"from\s*=\s*([^\s]+)\s+to\s*=\s*([^\s]+)", moves_source)
+        moves = json.loads(
+            (ROOT / "scripts/infra/drumroll-state-address-fixture.json").read_text()
+        )
         self.assertEqual(len(moves), 16)
         fixture = self.root / "drum-plans"
         fixture.mkdir()

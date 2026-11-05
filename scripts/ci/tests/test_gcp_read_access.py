@@ -167,11 +167,6 @@ class ReadAccessTests(unittest.TestCase):
             "google_project_service",
         ):
             self.assertNotIn(forbidden, source)
-        imports = (root / "imports.tf").read_text()
-        self.assertEqual(imports.count("import {"), 8)
-        for address, identity in IDS.items():
-            self.assertIn(f"to = {address}", imports)
-            self.assertIn(f'id = "{identity}"', imports)
 
 
 if __name__ == "__main__":

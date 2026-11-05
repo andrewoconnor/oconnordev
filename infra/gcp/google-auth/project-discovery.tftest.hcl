@@ -1,4 +1,3 @@
-# Offline fixture only: runner copies production configuration except imports.tf.
 # OpenTofu 1.13 mocks cannot import. This is NOT a live/no-change import plan.
 mock_provider "google" {
   mock_resource "google_iam_workload_identity_pool" {
