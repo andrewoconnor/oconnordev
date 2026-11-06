@@ -14,13 +14,14 @@ mise run lint
 mise run validate
 mise run workflow-lint
 mise run lint:python
+mise run lint:shell
 mise run fmt:site
 mise run lint:site
 mise run checkov
 mise run test
 ```
 
-`mise.toml` is the source of CLI versions: OpenTofu, TFLint, actionlint,
+`mise.toml` is the source of CLI versions: OpenTofu, TFLint, actionlint, ShellCheck,
 Python, Ruff, Biome, Node.js, Checkov, and the AWS CLI. CI installs the same
 locked tools through `jdx/mise-action`; it does not separately install Biome or Checkov or
 rely on the runner's AWS CLI. Checkov uses the Aqua standalone release, so its

@@ -39,6 +39,10 @@ git ls-files -z -- '*.py' | xargs -0 ruff check
 git ls-files -z -- '*.py' | xargs -0 ruff format --check
 """
 
+[tasks."lint:shell"]
+description = "Lint every tracked first-party shell script with ShellCheck"
+run = "git ls-files -z -- '*.sh' ':(exclude)apps/drumrollworld/third-party/**' | xargs -0 shellcheck"
+
 [tasks."fmt:site"]
 description = "Check both static sites' HTML, CSS, and JavaScript formatting"
 run = "biome format apps/oconnordev/ apps/drumrollworld/"
