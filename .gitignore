@@ -52,3 +52,5 @@ __pycache__/
 # Resume local dependencies and generated release
 /apps/oconnordev/node_modules
 /apps/oconnordev/dist/
+
+.quiz_start_ts
