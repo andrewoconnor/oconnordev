@@ -46,5 +46,8 @@ jobs:
       - name: Check Python lint and formatting
         run: mise run lint:python
 
+      - name: Lint shell scripts
+        run: mise run lint:shell
+
       - name: Run unit and OpenTofu boundary tests
         run: mise run test
