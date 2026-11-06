@@ -16,6 +16,6 @@
     "playwright": "1.64.0"
   },
   "overrides": {
-    "three": "$three"
+    "three": "0.186.1"
   }
 }
