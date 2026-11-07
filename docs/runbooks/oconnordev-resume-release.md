@@ -11,7 +11,7 @@ mise run lint:site
 mise run build:oconnordev
 mise run test:oconnordev
 mise exec -- python -m unittest scripts.ci.tests.test_static_site_deployment -v
-mise run workflow-lint
+mise run lint:workflow
 ```
 
 The build performs `npm ci --ignore-scripts` against the committed lockfile.

@@ -72,7 +72,7 @@ separate review, backups and identity readback with protections retained.
 ```sh
 mise run test:opentofu-gcp
 mise run test:python
-mise run validate
+mise run validate:opentofu
 ```
 
 The offline fixture copies actual configuration and its lockfile. Eight mock

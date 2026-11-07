@@ -15,41 +15,52 @@ node = "26.12.1"
 lockfile = true
 
 [tasks.fmt]
+description = "Run every format check"
+depends = ["fmt:opentofu", "fmt:python", "fmt:site"]
+
+[tasks."fmt:opentofu"]
 description = "Check OpenTofu formatting across all roots"
 run = "tofu fmt -check -recursive"
 
-[tasks.lint]
-description = "Lint every OpenTofu root with TFLint and every workflow with actionlint"
-depends = ["workflow-lint"]
-run = ['tflint --init --config="$PWD/.tflint.hcl"', 'tflint -f compact --recursive --config="$PWD/.tflint.hcl"']
-
-[tasks.validate]
-description = "Initialize and validate every affected OpenTofu root"
-run = "python3 scripts/ci/validate_opentofu.py"
-
-[tasks.workflow-lint]
-description = "Lint GitHub Actions workflow files"
-run = "actionlint .github/workflows/*.yml"
-
-[tasks."lint:python"]
-description = "Lint and format-check every tracked Python file with Ruff"
-run = """
-set -eu
-git ls-files -z -- '*.py' | xargs -0 ruff check
-git ls-files -z -- '*.py' | xargs -0 ruff format --check
-"""
-
-[tasks."lint:shell"]
-description = "Lint every tracked first-party shell script with ShellCheck"
-run = "git ls-files -z -- '*.sh' ':(exclude)apps/drumrollworld/third-party/**' | xargs -0 shellcheck"
+[tasks."fmt:python"]
+description = "Check formatting of every tracked Python file with Ruff"
+run = "git ls-files -z -- '*.py' | xargs -0 ruff format --check"
 
 [tasks."fmt:site"]
 description = "Check both static sites' HTML, CSS, and JavaScript formatting"
 run = "biome format apps/oconnordev/ apps/drumrollworld/"
 
+[tasks.lint]
+description = "Run every linter"
+depends = ["lint:opentofu", "lint:python", "lint:shell", "lint:site", "lint:workflow"]
+
+[tasks."lint:opentofu"]
+description = "Lint every OpenTofu root with TFLint"
+run = ['tflint --init --config="$PWD/.tflint.hcl"', 'tflint -f compact --recursive --config="$PWD/.tflint.hcl"']
+
+[tasks."lint:python"]
+description = "Lint every tracked Python file with Ruff"
+run = "git ls-files -z -- '*.py' | xargs -0 ruff check"
+
+[tasks."lint:shell"]
+description = "Lint every tracked first-party shell script with ShellCheck"
+run = "git ls-files -z -- '*.sh' ':(exclude)apps/drumrollworld/third-party/**' | xargs -0 shellcheck"
+
 [tasks."lint:site"]
 description = "Lint both static sites' HTML, CSS, and JavaScript"
 run = "biome lint --error-on-warnings apps/oconnordev/ apps/drumrollworld/"
+
+[tasks."lint:workflow"]
+description = "Lint GitHub Actions workflow files with actionlint"
+run = "actionlint .github/workflows/*.yml"
+
+[tasks."validate:opentofu"]
+description = "Initialize and validate every affected OpenTofu root"
+run = "python3 scripts/ci/validate_opentofu.py"
+
+[tasks."scan:iac"]
+description = "Scan the repository with Checkov and produce console and SARIF results"
+run = "checkov --directory . --output cli --output sarif --output-file-path console,results.sarif"
 
 [tasks."build:oconnordev"]
 description = "Build a minimal resume release with a continuous PDF and local preview"
@@ -78,10 +89,6 @@ run = [
   "node --test scripts/drumrollworld/test/*.test.mjs",
   "SITES=drumrollworld node scripts/security/static-site-headers.test.cjs",
 ]
-
-[tasks.checkov]
-description = "Scan the repository and produce console and SARIF results"
-run = "checkov --directory . --output cli --output sarif --output-file-path console,results.sarif"
 
 [tasks."test:python"]
 description = "Run adapter, rotation, gateway smoke, and CI path-selection unit tests"

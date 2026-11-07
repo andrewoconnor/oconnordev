@@ -11,15 +11,14 @@ mise trust
 mise install --locked
 mise run fmt
 mise run lint
-mise run validate
-mise run workflow-lint
-mise run lint:python
-mise run lint:shell
-mise run fmt:site
-mise run lint:site
-mise run checkov
+mise run validate:opentofu
+mise run scan:iac
 mise run test
 ```
+
+Tasks are named `<action>:<area>`, such as `lint:python`. `fmt` and `lint` run
+every `fmt:*` and `lint:*` task; run one directly to check a single area.
+`mise tasks ls` lists them all.
 
 `mise.toml` is the source of CLI versions: OpenTofu, TFLint, actionlint, ShellCheck,
 Python, Ruff, Biome, Node.js, Checkov, and the AWS CLI. CI installs the same
@@ -30,13 +29,13 @@ Keep application/library dependencies in their existing dependency files, not
 in mise. Git, Bash, and standard POSIX utilities are host prerequisites; Hermes
 is the externally managed runtime for the opt-in live adapter smoke test.
 
-`mise run checkov` preserves a failing exit code for findings and writes
+`mise run scan:iac` runs Checkov, preserves a failing exit code for findings and writes
 `results.sarif` for CI upload. It scans the whole repository, including infrastructure and workflows. `mise run test:python` runs only the offline Python tests;
 `mise run test` also initializes providers and runs OpenTofu boundary tests.
 The Python test task installs the pinned test-only Cedar engine wheel from
 `scripts/ci/requirements-test.txt`; initial dependency setup may need network,
 while authorization tests themselves are offline.
-`mise run validate` chooses affected roots in CI and all roots locally.
+`mise run validate:opentofu` chooses affected roots in CI and all roots locally.
 Deployment commands require the existing AWS role chain and are not part of
 local validation; installing the AWS CLI grants no credentials.
 
@@ -105,7 +104,7 @@ Operational commands live under `scripts/`, separate from application libraries:
   `agents/hermes/adapter/` and `agents/hermes/adapter/test/`; operational tests
   live under `scripts/adapter/test/`.
 - `scripts/ci/`: choose affected OpenTofu roots and run validation; use
-  `mise run validate` and `mise run test:python` for validation and offline tests.
+  `mise run validate:opentofu` and `mise run test:python` for validation and offline tests.
 - `scripts/drumrollworld/`: build thumbnails and globe textures, validate published
   assets, and test asset pipelines. See the DrumrollWorld deployment runbook;
   `mise run test:drumrollworld` runs site and asset-pipeline tests.
