@@ -4,12 +4,13 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
-    groups:
-      actions:
-        patterns:
-          - "*"
-    open-pull-requests-limit: 2
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
+    cooldown:
+      default-days: 3
+    open-pull-requests-limit: 5
     commit-message:
       prefix: build
   - package-ecosystem: npm
@@ -39,11 +40,16 @@ updates:
   - package-ecosystem: cargo
     directory: /infra/aws/tools/lambdas/thundermail_mcp
     schedule:
-      interval: monthly
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/New_York
+    cooldown:
+      default-days: 3
     groups:
       cargo:
         patterns:
           - "*"
-    open-pull-requests-limit: 2
+    open-pull-requests-limit: 5
     commit-message:
       prefix: build
