@@ -134,7 +134,7 @@ test("pinned Three and owned no-eval Basis assets match provenance hashes and lo
   assert.ok(direct.three && direct["globe.gl"] && direct.esbuild);
   for (const [name, version] of Object.entries(direct)) {
     assert.ok(semver.valid(version) === version, `${name} must be an exact version`);
-    assert.equal(lock.packages[`node_modules/${name}`].version, version, name);
+    assert.equal(lock.packages[`node_modules/${name}`]?.version, version, name);
     assert.equal(JSON.parse(read(`node_modules/${name}/package.json`)).version, version, name);
   }
   assert.equal(pkg.overrides.three, "$three");
@@ -170,6 +170,18 @@ test("pinned Three and owned no-eval Basis assets match provenance hashes and lo
   assert.ok(basisApi.has("KTX2File") && basisApi.has("transcodeImage"));
   for (const name of basisApi) {
     assert.ok(ownedWasm.includes(Buffer.from(`\0${name}\0`)), `owned Basis lacks ${name}`);
+  }
+  for (const [file, hash] of Object.entries({
+    "basis_transcoder.js": "8478b5b6d6b74e7d3082b89f6417321d8d1dc0307f2b30d4484bb11b441696a1",
+    "basis_transcoder.wasm": "6cf17dc889352c42e9acf8897107978d127005fe3386c36a0e3845e27967630a",
+  })) {
+    assert.equal(
+      createHash("sha256")
+        .update(read(`node_modules/three/examples/jsm/libs/basis/${file}`))
+        .digest("hex"),
+      hash,
+      `Three ships a different ${file}; rebuild the owned no-eval Basis pair for its Basis release`,
+    );
   }
   for (const file of ["basis_transcoder.js", "basis_transcoder.wasm"]) {
     const owned =
