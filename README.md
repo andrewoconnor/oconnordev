@@ -155,8 +155,9 @@ cd agents/hermes/adapter
 
 Install the SDK only in an isolated test environment (for example `mcp==1.30.0`);
 it is not an adapter runtime dependency. The test separately checks the daemon's
-strict object-root contract: that SDK release and managed SDK 2.0.0 accept broader
-dictionaries themselves, so neither is evidence of a strict SDK model.
+strict object-root contract: that SDK release and the managed SDK pinned in
+`scripts/ci/requirements-thundermail-sdk.txt` accept broader dictionaries
+themselves, so neither is evidence of a strict SDK model.
 
 The [native GitHub settings-read runbook](docs/runbooks/github-settings-read.md)
 describes partial ruleset/collaborator/label coverage, permission review, secure
