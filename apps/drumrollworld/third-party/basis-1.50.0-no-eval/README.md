@@ -7,7 +7,9 @@ https://github.com/BinomialLLC/basis_universal/tree/051ad6d8a64bb95a79e8601c3170
 
 This pair is pinned to the Basis release family expected by the application.
 Do not mix this WASM with Three's shipped JS or vice versa. The npm lockfile
-separately pins the browser libraries.
+separately pins the browser libraries. `build.test.js` pins the SHA-256 of
+Three's shipped Basis pair, so a Three update that changes those files fails
+until this pair is rebuilt for the new Basis release.
 
 ## Rebuild
 

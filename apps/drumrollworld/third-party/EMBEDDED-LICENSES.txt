@@ -1,4 +1,4 @@
-Embedded third-party components distributed inside three@0.186.1
+Embedded third-party components distributed inside three
 License texts vendored for an offline, reproducible build.
 These source references identify license text revisions, not component binary versions.
 

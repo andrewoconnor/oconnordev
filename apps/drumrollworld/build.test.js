@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
+import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 import { decodeBasisWasm } from "./basis-assets.js";
@@ -124,15 +126,27 @@ test("build validator rejects remote or bare executable dependency imports", asy
 test("pinned Three and owned no-eval Basis assets match provenance hashes and local preloads", () => {
   const pkg = JSON.parse(read("package.json"));
   const lock = JSON.parse(read("package-lock.json"));
-  assert.equal(pkg.dependencies.three, "0.186.1");
-  assert.equal(pkg.dependencies["globe.gl"], "2.46.2");
-  assert.equal(pkg.devDependencies.esbuild, "0.28.2");
-  assert.equal(pkg.overrides.three, pkg.dependencies.three);
+  const semver = createRequire(
+    process.env.npm_execpath ??
+      join(dirname(process.execPath), "../lib/node_modules/npm/bin/npm-cli.js"),
+  )("semver");
+  const direct = { ...pkg.dependencies, ...pkg.devDependencies };
+  assert.ok(direct.three && direct["globe.gl"] && direct.esbuild);
+  for (const [name, version] of Object.entries(direct)) {
+    assert.ok(semver.valid(version) === version, `${name} must be an exact version`);
+    assert.equal(lock.packages[`node_modules/${name}`]?.version, version, name);
+    assert.equal(JSON.parse(read(`node_modules/${name}/package.json`)).version, version, name);
+  }
+  assert.equal(pkg.overrides.three, "$three");
   const threePackages = Object.keys(lock.packages).filter((key) =>
     /(?:^|\/)node_modules\/three$/.test(key),
   );
   assert.deepEqual(threePackages, ["node_modules/three"]);
-  assert.equal(lock.packages["node_modules/three"].version, pkg.dependencies.three);
+  for (const [key, entry] of Object.entries(lock.packages)) {
+    for (const range of [entry.dependencies?.three, entry.peerDependencies?.three]) {
+      if (range) assert.ok(semver.satisfies(pkg.dependencies.three, range), `${key}: ${range}`);
+    }
+  }
   const basis = "/assets/basis-1.50.0-no-eval/";
   const hashes = Object.fromEntries(
     read("third-party/basis-1.50.0-no-eval/SHA256SUMS")
@@ -145,6 +159,30 @@ test("pinned Three and owned no-eval Basis assets match provenance hashes and lo
       }),
   );
   assert.ok(read("main.js").toString().includes(`setTranscoderPath("${basis}")`));
+  const ownedWasm = decodeBasisWasm(
+    read("third-party/basis-1.50.0-no-eval/basis_transcoder.wasm.base64").toString(),
+  );
+  const loader = read("node_modules/three/examples/jsm/loaders/KTX2Loader.js").toString();
+  const basisApi = new Set(
+    [...loader.matchAll(/\b(?:BasisModule|ktx2File)\.(\w+)/g)].map(([, name]) => name),
+  );
+  basisApi.delete("delete");
+  assert.ok(basisApi.has("KTX2File") && basisApi.has("transcodeImage"));
+  for (const name of basisApi) {
+    assert.ok(ownedWasm.includes(Buffer.from(`\0${name}\0`)), `owned Basis lacks ${name}`);
+  }
+  for (const [file, hash] of Object.entries({
+    "basis_transcoder.js": "8478b5b6d6b74e7d3082b89f6417321d8d1dc0307f2b30d4484bb11b441696a1",
+    "basis_transcoder.wasm": "6cf17dc889352c42e9acf8897107978d127005fe3386c36a0e3845e27967630a",
+  })) {
+    assert.equal(
+      createHash("sha256")
+        .update(read(`node_modules/three/examples/jsm/libs/basis/${file}`))
+        .digest("hex"),
+      hash,
+      `Three ships a different ${file}; rebuild the owned no-eval Basis pair for its Basis release`,
+    );
+  }
   for (const file of ["basis_transcoder.js", "basis_transcoder.wasm"]) {
     const owned =
       file === "basis_transcoder.wasm"
@@ -166,6 +204,9 @@ test("pinned Three and owned no-eval Basis assets match provenance hashes and lo
   const meta = JSON.parse(read(".build/build-meta.json"));
   assert.ok(meta.inputs["data.js"]);
   assert.ok(meta.inputs["node_modules/globe.gl/dist/globe.gl.mjs"]);
+  for (const lib of ["ktx-parse.module.js", "zstddec.module.js"]) {
+    assert.ok(meta.inputs[`node_modules/three/examples/jsm/libs/${lib}`], lib);
+  }
   assert.equal(Object.keys(meta.inputs).filter((key) => key.endsWith("/three.core.js")).length, 1);
 });
 
