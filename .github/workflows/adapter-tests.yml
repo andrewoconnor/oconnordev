@@ -47,11 +47,20 @@ jobs:
           version: '2026.10.17'
           github_token: ${{ github.token }}
 
-      - name: Check Python lint and formatting
+      - name: Check Python formatting
+        run: mise run fmt:python
+
+      - name: Lint Python
         run: mise run lint:python
 
       - name: Lint shell scripts
         run: mise run lint:shell
+
+      - name: Check Rust formatting
+        run: mise run fmt:rust
+
+      - name: Lint Rust
+        run: mise run lint:rust
 
       - name: Run unit and OpenTofu boundary tests
         run: mise run test

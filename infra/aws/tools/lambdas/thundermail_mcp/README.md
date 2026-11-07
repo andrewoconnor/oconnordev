@@ -90,7 +90,8 @@ python extract_upstream.py /path/to/mail-mcp "$(mise which rustfmt)"
 
 ## Verification
 
-`mise run test:thundermail-rust` runs format, clippy and the locked tests. The
-wire tests drive the real AWS SDK serializer and an IMAP fixture over loopback,
-with no AWS or real mail. The image workflow runs `native_smoke.py` against the
-built image, then publishes it to ECR without deployment.
+`mise run fmt:rust`, `mise run lint:rust` and `mise run test:rust` run format,
+clippy and the locked tests. The wire tests drive the real AWS SDK serializer and
+an IMAP fixture over loopback, with no AWS or real mail. The image workflow runs
+`native_smoke.py` against the built image, then publishes it to ECR without
+deployment.

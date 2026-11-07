@@ -225,9 +225,8 @@ tested artifacts; a workflow merge does not apply IAM or GitHub environments.
 ## Validation and post-apply checks
 
 Run `mise install --locked`, `mise run build:drumrollworld`,
-`mise run test:drumrollworld`, `mise run fmt:site`, `mise run lint:site`,
-`mise run workflow-lint`, `mise run fmt`, `mise run lint:python`,
-`mise run lint`, `mise run validate`, `mise run test`, and `mise run checkov`.
+`mise run test:drumrollworld`, `mise run fmt`, `mise run lint`,
+`mise run validate:opentofu`, `mise run test`, and `mise run scan:iac`.
 The tests cover workflow branch/permission/path gates, exact generated-output
 wiring, image preservation, pinned actions, and actual IAM JSON rendered by the
 locked AWS provider without AWS calls. Biome configuration is shared by both

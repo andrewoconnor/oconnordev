@@ -44,7 +44,9 @@ binary is `/var/runtime/bootstrap`.
 
 ```sh
 mise install rust
-mise run test:thundermail-rust
+mise run fmt:rust
+mise run lint:rust
+mise run test:rust
 mise run test:thundermail-sdk
 ```
 

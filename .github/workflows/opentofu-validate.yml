@@ -42,10 +42,10 @@ jobs:
         run: tofu version
 
       - name: Check OpenTofu formatting
-        run: mise run fmt
+        run: mise run fmt:opentofu
 
       - name: Lint workflow files
-        run: mise run workflow-lint
+        run: mise run lint:workflow
 
       - name: Validate changed OpenTofu roots
-        run: mise run validate
+        run: mise run validate:opentofu

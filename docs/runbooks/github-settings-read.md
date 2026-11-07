@@ -155,6 +155,7 @@ routing and manifest headers; mocked OpenTofu tests prove permit/catalog
 wiring, empty allowlist denial and the unchanged EXTERNAL source:
 
 ```sh
+mise run fmt:python
 mise run lint:python
 mise run test:python
 mise run test:opentofu-boundary
