@@ -15,23 +15,19 @@ updates:
   - package-ecosystem: npm
     directory: /apps/oconnordev
     schedule:
-      interval: monthly
-    groups:
-      npm:
-        patterns:
-          - "*"
-    open-pull-requests-limit: 2
+      interval: daily
+    cooldown:
+      default-days: 1
+    open-pull-requests-limit: 5
     commit-message:
       prefix: build
   - package-ecosystem: npm
     directory: /apps/drumrollworld
     schedule:
-      interval: monthly
-    groups:
-      npm:
-        patterns:
-          - "*"
-    open-pull-requests-limit: 2
+      interval: daily
+    cooldown:
+      default-days: 1
+    open-pull-requests-limit: 5
     commit-message:
       prefix: build
   - package-ecosystem: cargo

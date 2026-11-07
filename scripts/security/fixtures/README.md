@@ -31,12 +31,12 @@ mise exec -- node apps/drumrollworld/node_modules/playwright/cli.js install chro
 mise run test:drumrollworld
 ```
 
-The npm lock pins Playwright 1.64.0 and therefore Chrome Headless Shell
-156.0.8078.4, revision 1248. CI installs that browser (and its required system
+Each site's npm lock pins Playwright and therefore its Chrome Headless Shell
+revision. CI installs that browser (and its required system
 libraries) during the build task; there is no ambient system-Chromium fallback.
 On hosts that override `PLAYWRIGHT_BROWSERS_PATH` with a shared/locked runtime
 cache, set it to a private writable cache before installing and testing.
-For resume, use `build:oconnordev` and `test:oconnordev`; its existing Playwright
-pin is identical. `SITES` limits the runner to the built site, so DrumrollWorld
+For resume, use `build:oconnordev` and `test:oconnordev` with the browser from
+the `apps/oconnordev` Playwright pin. `SITES` limits the runner to the built site, so DrumrollWorld
 checks do not install/build the resume. Tests themselves use only loopback and
 abort any external browser requests.

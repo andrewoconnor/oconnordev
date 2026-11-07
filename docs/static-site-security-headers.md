@@ -14,7 +14,7 @@ URLs, forms, embedding, third-party origins, wildcards, blob or data URLs.
 The browser regression recomputes the JSON-LD hash from the generated HTML.
 
 DrumrollWorld uses `script-src 'self' 'wasm-unsafe-eval'`, with **no JavaScript
-unsafe-eval exception**. Three 0.186.1's shipped Basis runtime dynamically creates
+unsafe-eval exception**. Three's shipped Basis runtime dynamically creates
 embind invokers with `Function`, so replacing only its policy would break KTX2.
 The app instead publishes an owned, matched JS/WASM pair rebuilt from unmodified
 Basis Universal v1.50.0 (`051ad6d8a64bb95a79e8601c317055fd1782ad3e`), using
