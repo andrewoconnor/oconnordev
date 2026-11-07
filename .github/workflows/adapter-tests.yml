@@ -56,5 +56,11 @@ jobs:
       - name: Lint shell scripts
         run: mise run lint:shell
 
+      - name: Check Rust formatting
+        run: mise run fmt:rust
+
+      - name: Lint Rust
+        run: mise run lint:rust
+
       - name: Run unit and OpenTofu boundary tests
         run: mise run test
