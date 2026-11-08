@@ -39,6 +39,10 @@ while authorization tests themselves are offline.
 Deployment commands require the existing AWS role chain and are not part of
 local validation; installing the AWS CLI grants no credentials.
 
+The dependency review workflow fails any pull request that adds or updates a
+dependency with a known vulnerability of any severity, in runtime or development
+scope. It reads the dependency graph, so it covers every manifest GitHub parses.
+
 When adding or updating a CLI, pin its version in `mise.toml`, run `mise lock`
 to refresh `mise.lock`, and commit both files. Existing lock targets cover
 Linux x64 and macOS x64/arm64; Checkov's macOS arm64 release uses Rosetta.

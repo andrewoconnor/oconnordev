@@ -1,18 +1,14 @@
-// Opt-in real-browser regression. Reuses installed Playwright/Chromium and
-// genuine KTX2/JPEG fixtures; no downloads, installs or cloud writes here.
-// KTX2_FIXTURE=/path/to/genuine.ktx2 JPEG_FIXTURE=/path/to/image.jpg
-// CHROMIUM=/path/to/chrome-headless-shell node scripts/drumrollworld/test/background-browser.cjs
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const http = require("node:http");
 const path = require("node:path");
-const { chromium } = require(
-  process.env.PLAYWRIGHT_MODULE || "../../../apps/oconnordev/node_modules/playwright",
-);
+const { readFixtures } = require("../../security/fixture-reader.cjs");
 const root = path.resolve(__dirname, "../../..");
+const { chromium } = require(path.join(root, "apps/drumrollworld/node_modules/playwright"));
 const dist = path.join(root, "apps/drumrollworld/dist");
-const ktx = fs.readFileSync(process.env.KTX2_FIXTURE);
-const jpeg = fs.readFileSync(process.env.JPEG_FIXTURE);
+const fixtures = readFixtures(path.join(root, "scripts/security/fixtures"));
+const ktx = fixtures["kodim23.ktx2"];
+const image = fixtures["kodim18_64x64.png"];
 assert.deepEqual(
   ktx.subarray(0, 12),
   Buffer.from([0xab, 0x4b, 0x54, 0x58, 0x20, 0x32, 0x30, 0xbb, 0x0d, 0x0a, 0x1a, 0x0a]),
@@ -29,34 +25,56 @@ const mime = {
 };
 async function scenario(browser, mode, expected) {
   const requests = [];
-  let releaseInitial, releaseBackground;
-  const initialGate = new Promise((r) => {
-    releaseInitial = r;
-  });
-  const backgroundGate = new Promise((r) => {
-    releaseBackground = r;
-  });
-  let active = 0,
+  const held = [];
+  const arrivalWaiters = [];
+  let served = 0,
+    answered = 0,
     peak = 0;
+  const arrived = (count) =>
+    requests.length >= count
+      ? Promise.resolve()
+      : new Promise((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error(`${mode}: expected ${count} KTX2 requests`)),
+            30000,
+          );
+          arrivalWaiters.push({
+            count,
+            resolve: () => {
+              clearTimeout(timer);
+              resolve();
+            },
+          });
+        });
+  const release = (items) => {
+    for (const item of items) {
+      held.splice(held.indexOf(item), 1);
+      served++;
+      answered++;
+      item.release();
+    }
+  };
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, "http://localhost").pathname;
     res.setHeader("Content-Security-Policy", csp);
     if (url.endsWith(".ktx2")) {
       requests.push(url);
-      active++;
-      peak = Math.max(peak, active);
-      if (url.includes("earthnormal2k")) await initialGate;
-      if (mode === "zoom" && /earth(map|normal|spec)4k/.test(url)) await backgroundGate;
-      await new Promise((r) => setTimeout(r, 80));
-      active--;
-      res.setHeader("Content-Type", "image/ktx2");
+      for (const waiter of arrivalWaiters.filter((w) => requests.length >= w.count)) {
+        arrivalWaiters.splice(arrivalWaiters.indexOf(waiter), 1);
+        waiter.resolve();
+      }
       if (mode === "fallback") {
+        answered++;
         res.statusCode = 404;
         res.end("unavailable");
-      } else res.end(ktx);
+        return;
+      }
+      await new Promise((resolve) => held.push({ url, release: resolve }));
+      res.setHeader("Content-Type", "image/ktx2");
+      res.end(ktx);
     } else if (url.startsWith("/images/")) {
-      res.setHeader("Content-Type", "image/jpeg");
-      res.end(jpeg);
+      res.setHeader("Content-Type", "image/png");
+      res.end(image);
     } else {
       const file = path.join(dist, url === "/" ? "index.html" : url);
       if (!fs.existsSync(file)) {
@@ -73,6 +91,8 @@ async function scenario(browser, mode, expected) {
   const context = await browser.newContext({
     viewport: mode === "phone" ? { width: 390, height: 844 } : { width: 1440, height: 900 },
   });
+  const errors = [];
+  let page;
   try {
     await context.addInitScript(
       ({ mode }) => {
@@ -93,9 +113,28 @@ async function scenario(browser, mode, expected) {
           Object.defineProperty(navigator, "connection", { value: { saveData: true } });
         window.transcodes = [];
         window.violations = [];
+        window.ktxFetches = [];
+        window.appIdleCallbacks = 0;
         document.addEventListener("securitypolicyviolation", (e) =>
           window.violations.push(e.effectiveDirective),
         );
+        const fetchOriginal = window.fetch;
+        window.fetch = function (input, init) {
+          const url = new URL(typeof input === "string" ? input : input.url, location.href);
+          if (url.pathname.endsWith(".ktx2")) window.ktxFetches.push(url.pathname);
+          return fetchOriginal.call(this, input, init);
+        };
+        const idleOriginal = window.requestIdleCallback;
+        window.requestIdleCallback = function (...args) {
+          window.appIdleCallbacks++;
+          return idleOriginal.apply(this, args);
+        };
+        window.settle = () =>
+          new Promise((resolve) =>
+            idleOriginal(() => requestAnimationFrame(() => setTimeout(resolve)), {
+              timeout: 10000,
+            }),
+          );
         const WorkerOriginal = Worker;
         window.Worker = class extends WorkerOriginal {
           constructor(...args) {
@@ -109,50 +148,56 @@ async function scenario(browser, mode, expected) {
       },
       { mode },
     );
-    const page = await context.newPage();
-    const errors = [];
+    page = await context.newPage();
     page.on("pageerror", (e) => errors.push(String(e)));
     await page.route("**/*", (route) =>
       route.request().url().startsWith(origin) ? route.continue() : route.abort(),
     );
+    const quiesce = async () => {
+      await page.waitForFunction((count) => window.transcodes.length === count, served);
+      await page.evaluate(() => window.settle());
+      const started = await page.evaluate(() => window.ktxFetches.length);
+      peak = Math.max(peak, started - answered);
+      assert.ok(started - answered <= 4, `${mode}: bounded network concurrency, got ${peak}`);
+      await arrived(started);
+    };
     await page.goto(origin, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(() => document.querySelector("canvas"));
-    // Let three initial textures finish while the normal map is held open.
-    await page.waitForTimeout(700);
-    assert.equal(requests.length, 4, `${mode}: no background fetch before first tier settles`);
-    releaseInitial();
-    if (mode === "zoom") {
-      await page.waitForFunction(() => window.transcodes.length >= 4);
-      for (let i = 0; i < 100 && !requests.some((p) => p.includes("earthmap4k")); i++)
-        await page.waitForTimeout(50);
-      assert.ok(requests.some((p) => p.includes("earthmap4k")));
-      await page.mouse.move(1050, 450);
-      for (let i = 0; i < 8; i++) {
-        await page.mouse.wheel(0, -600);
-        await page.waitForTimeout(100);
-      }
-      assert.ok(
-        !requests.some((p) => p.includes("earthmap10k")),
-        "zoom cannot overlap the held 4k tier",
+    await arrived(4);
+    if (mode === "fallback") await quiesce();
+    else {
+      release(held.filter((item) => !item.url.includes("earthnormal2k")));
+      await quiesce();
+      assert.deepEqual(
+        held.map((item) => item.url),
+        ["/images/globe/earthnormal2k.ktx2"],
+        `${mode}: no background fetch before first tier settles`,
       );
-      releaseBackground();
+      assert.equal(requests.length, 4, `${mode}: no background fetch before first tier settles`);
     }
-    await page
-      .waitForFunction((n) => window.transcodes.length === n, expected, { timeout: 30000 })
-      .catch(async (e) => {
-        console.error({
-          mode,
-          requests,
-          errors,
-          transcodes: await page.evaluate(() => window.transcodes),
-          violations: await page.evaluate(() => window.violations),
-        });
-        throw e;
-      });
+    let zoomed = false;
+    while (held.length) {
+      if (mode === "zoom" && !zoomed && held.some((item) => item.url.includes("earthmap4k"))) {
+        zoomed = true;
+        await page.mouse.move(1050, 450);
+        for (let i = 0; i < 8; i++) await page.mouse.wheel(0, -600);
+        await quiesce();
+        assert.ok(
+          !requests.some((p) => p.includes("earthmap10k")),
+          "zoom cannot overlap the held 4k tier",
+        );
+      }
+      release([...held]);
+      await quiesce();
+    }
+    assert.equal(mode === "zoom", zoomed, `${mode}: zoom ran only in zoom mode`);
+    if (mode !== "fallback" && mode !== "save-data")
+      assert.ok(
+        (await page.evaluate(() => window.appIdleCallbacks)) > 0,
+        `${mode}: background upgrades must still start from requestIdleCallback`,
+      );
     await page.waitForFunction(() => !document.getElementById("loadingScreen"));
-    await page.waitForTimeout(800);
     assert.equal(await page.evaluate(() => window.transcodes.length), expected);
-    assert.equal(peak <= 4, true, `${mode}: bounded network concurrency, got ${peak}`);
+    assert.deepEqual((await page.evaluate(() => window.ktxFetches)).sort(), [...requests].sort());
     assert.deepEqual(await page.evaluate(() => window.violations), []);
     assert.deepEqual(errors, []);
     assert.equal(await page.locator("#globeUnavailable").count(), 0);
@@ -185,16 +230,25 @@ async function scenario(browser, mode, expected) {
       pageErrors: errors.length,
       cspViolations: 0,
     };
+  } catch (error) {
+    console.error({
+      mode,
+      requests,
+      held: held.map((item) => item.url),
+      errors,
+      transcodes: await page?.evaluate(() => window.transcodes).catch(() => null),
+      violations: await page?.evaluate(() => window.violations).catch(() => null),
+    });
+    throw error;
   } finally {
-    releaseInitial();
-    releaseBackground();
+    release([...held]);
     await context.close();
+    server.closeAllConnections();
     await new Promise((r) => server.close(r));
   }
 }
 (async () => {
   const browser = await chromium.launch({
-    executablePath: process.env.CHROMIUM,
     headless: true,
     args: ["--no-sandbox", "--use-angle=swiftshader", "--enable-unsafe-swiftshader"],
   });

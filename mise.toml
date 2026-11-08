@@ -98,6 +98,7 @@ description = "Check the generated self-hosted DrumrollWorld release"
 run = [
   "npm --prefix apps/drumrollworld run test",
   "node --test scripts/drumrollworld/test/*.test.mjs",
+  "node scripts/drumrollworld/test/background-browser.cjs",
   "SITES=drumrollworld node scripts/security/static-site-headers.test.cjs",
 ]
 
