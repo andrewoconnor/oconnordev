@@ -60,6 +60,7 @@ test("production PDF is one continuous readable page containing every resume cla
       "https://www.linkedin.com/in/andrewvoconnor",
       "https://drumroll.world/",
       "https://www.credly.com/badges/8348bfc9-7864-4b23-8d73-ad4183853982",
+      "https://www.credly.com/badges/0c1eccf0-7810-4969-9b7d-caf87a9d8640",
     ]) {
       assert.ok(links.includes(url), `Missing PDF link: ${url}`);
     }

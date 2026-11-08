@@ -53,7 +53,10 @@ test("resume has semantic headings and valid lists without changing baseline con
   assert.equal((await page.locator("h1").innerText()).trim(), "Andrew Vincent O'Connor");
   assert.equal(await page.locator("section > h2").count(), 7);
   assert.equal(await page.locator("h3.block-title").count(), 20);
-  assert.equal(await page.getByRole("heading", { name: "Red Hat Certified Engineer (RHCE)" }).count(), 1);
+  assert.equal(
+    await page.getByRole("heading", { name: "Red Hat Certified Engineer (RHCE)" }).count(),
+    1,
+  );
   assert.equal(await page.locator("#experience .block-content > ul").count(), 7);
   assert.equal(await page.locator("ul > :not(li), ul ul:not(li > ul)").count(), 0);
   assert.equal(await page.locator("#experience p").count(), 0);
