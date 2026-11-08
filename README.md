@@ -41,7 +41,9 @@ local validation; installing the AWS CLI grants no credentials.
 
 The dependency review workflow fails any pull request that adds or updates a
 dependency with a known vulnerability of any severity, in runtime or development
-scope. It reads the dependency graph, so it covers every manifest GitHub parses.
+scope. It reads the dependency graph, which parses the npm, Cargo, pip and
+workflow files. It only checks what a pull request changes; Dependabot alerts
+report new advisories for dependencies already on `master`.
 
 When adding or updating a CLI, pin its version in `mise.toml`, run `mise lock`
 to refresh `mise.lock`, and commit both files. Existing lock targets cover

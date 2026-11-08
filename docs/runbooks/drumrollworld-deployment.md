@@ -162,20 +162,26 @@ vendored, hash-checked fixtures in `scripts/security/fixtures/`.
 The local server holds every KTX2 response until the test releases it, so the
 test controls when each texture finishes and uses no fixed sleeps. Before each
 check, it waits until every released texture is transcoded, then for a browser
-idle callback and an animation frame. Any upgrade or zoom decision the page made
-has then already started its fetch.
+idle callback and an animation frame. That checkpoint comes after any idle
+callback the page registered earlier, so any upgrade the page decided on has
+already started its fetch. The test counts the page's `requestIdleCallback`
+calls and fails if background upgrades stop using them, because the checkpoint
+only proves that ordering for idle-scheduled work.
 
-The test holds the first normal map to prove higher tiers cannot start early,
-holds the background 4k tier while real mouse-wheel zoom queues 10k, and
-requires exact completed worker transcodes: desktop 14, phone 11, Save-Data 4,
-JPEG fallback 0 and prioritized zoom 11. Every mode requires at most 4 open KTX2
-requests, zero page errors and zero CSP violations. It fails if background
-upgrades stop using `requestIdleCallback`, because its idle checkpoint depends on
-that. Desktop and zoom emulate a 16384 capability to exercise the 10k scheduling
-path on SwiftShader; the fixture dimensions stay tiny, so this does **not** prove
-production 10k memory or performance. The security browser regression also keeps
-exact hardware-dependent transcode counts and its explicit no-eval and
-foreign-script attacks.
+For every tier, the test releases all but one texture and requires that no new
+fetch starts, then releases the last one and requires every next-tier fetch to
+start after all released textures are transcoded. The background 4k tier stays
+held while real mouse-wheel zoom queues 10k. A wrapper around `fetch` tracks the
+peak number of open KTX2 requests for the whole run, which must stay at or
+below 4. The test fails with a message if more than 4 tiers are requested.
+
+Every mode requires exact completed worker transcodes (desktop 14, phone 11,
+Save-Data 4, JPEG fallback 0 and prioritized zoom 11), zero page errors and zero
+CSP violations. Desktop and zoom emulate a 16384 capability to exercise the 10k
+scheduling path on SwiftShader; the fixture dimensions stay tiny, so this does
+**not** prove production 10k memory or performance. The security browser
+regression also keeps exact hardware-dependent transcode counts and its explicit
+no-eval and foreign-script attacks.
 
 ## Compression and real 404 behavior
 
