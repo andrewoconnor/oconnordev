@@ -170,46 +170,16 @@
             <div class="block-subtitle"> March 2024 - Present | Imagen Technologies </div>
             <div class="block-content">
               <ul>
-                <li
-                  >Own secure deployment, reliability, performance, and cloud infrastructure for
-                  FDA-approved AI medical devices processing PHI in HIPAA, SOC 2, HITRUST, and FDA
-                  quality-controlled environments.</li
-                >
-                <li
-                  >Architected a petabyte-scale GCP medical image de-identification pipeline using
-                  Cloud Dataflow, batched SQL updates, right-sized workers, and Parquet manifests;
-                  reduced run costs ~75% from ~$356K to ~$90K while supporting compliant AI training
-                  data preparation.</li
-                >
-                <li
-                  >Productionized fine-tuned vLLM inference on AWS by packaging 100GB+ Docker
-                  images, publishing via GitHub Actions, and deploying isolated SageMaker model
-                  containers with no public internet exposure for PHI-bearing inference traffic.</li
-                >
-                <li
-                  >Provisioned secure 256-GPU NVIDIA H100 Slurm training infrastructure on GCP with
-                  private subnet isolation, firewall controls, encrypted shared storage, access/job
-                  logging, and Terraform-managed infrastructure for production AI research.</li
-                >
-                <li
-                  >Established enterprise AI governance and coding-agent safety controls across
-                  Claude, Claude Code, GitHub Copilot, and Cursor by deploying Claude Apps Gateway,
-                  enforcing engineer-level spend limits and access controls, requiring read-only
-                  credentials and PR/Atlantis workflows, and blocking secrets, PHI, destructive
-                  Terraform, and mutating AWS CLI actions.</li
-                >
-                <li
-                  >Introduced governed Terraform-based IaC for previously manually managed GCP
-                  environments, using EKS-hosted Atlantis and GCP Workload Identity Federation to
-                  enforce PR review, least-privilege access, and keyless cross-cloud
-                  deployments.</li
-                >
-                <li
-                  >Strengthened ML/cloud vulnerability and supply-chain security with AWS
-                  Inspector/ECR scanning, Snyk, Dependabot, Terraform/IaC scanning, CVE remediation,
-                  hardened AMIs/containers/EC2 instances, immutable patching pipelines, and
-                  SHA-pinned GitHub Actions.</li
-                >
+                <li>Own secure deployment and reliability for FDA-cleared, AI-powered medical imaging systems processing PHI across AWS and GCP.</li>
+                <li>Delivered a 1.67 PB medical-image de-identification pipeline in six weeks ahead of a critical funding milestone, cutting processing costs 75% ($356K to $90K).</li>
+                <li>Reduced secure customer-gateway onboarding for a medical-AI platform from a multi-day, specialist-dependent process to under an hour from ticket to production. Redesigned the encrypted connection architecture around a shared entry point, eliminating an AWS scaling constraint, and codified end-to-end provisioning for execution by AI agents.</li>
+                <li>Reduced cross-team infrastructure change contention by splitting two production accounts’ monolithic Terraform states (5,500+ resources), migrating resources into service-level states and cutting PRs blocked by other teams’ open changes from 42% to 28%; codified the migration as an executable runbook for AI coding agents.</li>
+                <li>Enabled parallel Atlantis plans across 40+ Terraform projects, cutting multi-project plan times up to 50% and saving 45+ engineer-hours of CI wait.</li>
+                <li>Introduced Terraform governance and keyless Workload Identity Federation for previously manually managed GCP infrastructure, enabling reviewed, repeatable cross-cloud changes.</li>
+                <li>Established enterprise AI coding-agent governance with scoped access, spend limits, PHI safeguards, and reviewed infrastructure change workflows.</li>
+                <li>Built a secure 256-H100 Slurm training cluster on GCP, using isolated networks, encrypted shared storage (Lustre), and job logging to remove distributed-training checkpoint bottlenecks.</li>
+                <li>Productionized PHI-sensitive vLLM inference via private SageMaker endpoints and automated delivery of 100GB+ model containers.</li>
+                <li>Owned SRE operational continuity through staffing and leadership transitions, coordinating with the VP of Engineering and onboarding a new engineer.</li>
               </ul>
             </div>
           </div>
@@ -218,39 +188,13 @@
             <div class="block-subtitle"> August 2022 - March 2024 | Imagen Technologies </div>
             <div class="block-content">
               <ul>
-                <li
-                  >Created reusable Terraform modules adopted across 20+ AWS accounts to standardize
-                  CloudWatch dashboards, GitHub Actions OIDC federation, AWS Lambda infrastructure,
-                  and AWS Verified Access endpoints for the broader engineering organization.</li
-                >
-                <li
-                  >Led OIDC-based AWS authentication rollout across ~10 GitHub Actions repos,
-                  replacing stored AWS keys with short-lived federated credentials,
-                  repo/branch-restricted IAM trust policies, least-privilege access, branch
-                  protection, CODEOWNERS, required reviews, and separated Terraform plan/apply
-                  workflows.</li
-                >
-                <li
-                  >Implemented zero-trust access for sensitive internal applications using AWS
-                  Verified Access and Okta, replacing VPN-based access for Tableau and Terraform
-                  drift detection tools used by approximately 20–30 users.</li
-                >
-                <li
-                  >Built centralized observability, alerting, uptime dashboards, and incident
-                  runbooks for ~30 production systems across 3–4 teams using CloudWatch,
-                  Okta-secured access, and PagerDuty, improving incident visibility and MTTR.</li
-                >
-                <li
-                  >Supported security investigations by helping the security team locate and analyze
-                  relevant CloudWatch Insights, CloudTrail, AWS Security Hub, and production
-                  telemetry logs.</li
-                >
-                <li
-                  >Automated AWS operational workflows with Step Functions, Lambda, and Systems
-                  Manager for EC2 patching and production operations; extended Terraform CI/CD
-                  across AWS/GCP, modernized the EKS delivery platform to reduce cost by ~83%, and
-                  built immutable image pipelines for reliable releases and patch management.</li
-                >
+                <li>Modernized the EKS delivery platform, reducing its infrastructure cost by ~83% while retaining automated deployment capabilities.</li>
+                <li>Created reusable Terraform modules adopted across 20+ AWS accounts, standardizing observability, Lambda infrastructure, CI/CD identity, and secure application access.</li>
+                <li>Replaced stored AWS keys across ~10 GitHub Actions repositories with short-lived OIDC credentials, repo/branch-scoped IAM trust policies, and reviewed plan/apply workflows.</li>
+                <li>Established centralized monitoring, alerting, dashboards, and runbooks for ~30 production systems across 3–4 teams, improving incident visibility and response consistency.</li>
+                <li>Replaced VPN-based access to sensitive internal applications with AWS Verified Access and Okta for approximately 20–30 users.</li>
+                <li>Automated production patching and operational workflows with Lambda, Step Functions, and Systems Manager, including immutable image pipelines for repeatable releases.</li>
+                <li>Strengthened cloud/ML software supply chains with vulnerability and IaC scanning, immutable patching, CVE remediation, and SHA-pinned GitHub Actions.</li>
               </ul>
             </div>
           </div>
@@ -453,6 +397,9 @@
       <section id="certifications">
         <h2 class="section-title"> Certs </h2>
         <div class="section-content">
+          <div class="block">
+            <h3 class="block-title"> Red Hat Certified Engineer (RHCE) </h3>
+          </div>
           <div class="block">
             <h3 class="block-title"> AWS Certified Solutions Architect - Associate </h3>
             <div class="block-content">
