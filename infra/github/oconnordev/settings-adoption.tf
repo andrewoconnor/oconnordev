@@ -1,4 +1,4 @@
-# Preservation-only adoption; evidence: docs/assets/github-settings-observed.json.
+# Adopted from docs/assets/github-settings-observed.json; required status checks are added policy.
 # Singular resources leave any unlisted labels externally owned.
 locals {
   repository_labels = {
@@ -35,6 +35,18 @@ locals {
       description = "This will not be worked on"
     }
   }
+
+  github_actions_app_id = 15368
+  required_status_checks = [
+    "Agent and infrastructure unit tests",
+    "Block known-vulnerable dependency changes",
+    "Checkov scan",
+    "Format, workflow lint, and affected-root validation",
+    "TFLint",
+    "Thundermail image / Build and smoke-test",
+    "drumrollworld / Lint, format, build and test",
+    "oconnordev / Lint, format, build and test",
+  ]
 }
 
 resource "github_issue_label" "observed" {
@@ -77,6 +89,17 @@ resource "github_repository_ruleset" "master" {
       require_last_push_approval        = false
       required_approving_review_count   = 0
       required_review_thread_resolution = false
+    }
+    required_status_checks {
+      strict_required_status_checks_policy = false
+
+      dynamic "required_check" {
+        for_each = toset(local.required_status_checks)
+        content {
+          context        = required_check.value
+          integration_id = local.github_actions_app_id
+        }
+      }
     }
   }
 

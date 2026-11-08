@@ -18,17 +18,6 @@ on:
   pull_request:
     branches:
       - master
-    paths:
-      - "apps/oconnordev/**"
-      - "infra/aws/*/site.tf"
-      - "infra/modules/static-site/**"
-      - "scripts/security/**"
-      - ".github/workflows/oconnordev-site.yml"
-      - ".github/workflows/site.yml"
-      - "biome.json"
-      - "scripts/ci/**"
-      - "mise.toml"
-      - "mise.lock"
   workflow_dispatch:
 
 permissions:

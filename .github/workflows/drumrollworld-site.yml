@@ -20,19 +20,6 @@ on:
   pull_request:
     branches:
       - master
-    paths:
-      - "apps/drumrollworld/**"
-      - "infra/aws/*/site.tf"
-      - "infra/modules/static-site/**"
-      - "scripts/security/**"
-      - "scripts/drumrollworld/**"
-      - "docs/assets/drumrollworld-published-assets.json"
-      - ".github/workflows/drumrollworld-site.yml"
-      - ".github/workflows/site.yml"
-      - "biome.json"
-      - "scripts/ci/**"
-      - "mise.toml"
-      - "mise.lock"
   workflow_dispatch:
 
 permissions:

@@ -11,12 +11,6 @@ on:
       - '.github/workflows/tool-image.yml'
   pull_request:
     branches: [master]
-    paths:
-      - 'infra/aws/tools/lambdas/thundermail_mcp/**'
-      - 'mise.toml'
-      - 'mise.lock'
-      - '.github/workflows/thundermail-image.yml'
-      - '.github/workflows/tool-image.yml'
   workflow_dispatch:
 
 permissions:
@@ -28,6 +22,7 @@ concurrency:
 
 jobs:
   image:
+    name: Thundermail image
     uses: ./.github/workflows/tool-image.yml
     permissions:
       contents: read

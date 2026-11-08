@@ -21,6 +21,7 @@ permissions:
 
 jobs:
   check:
+    name: Build and smoke-test
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 25
     permissions:
@@ -63,6 +64,7 @@ jobs:
           retention-days: 2
 
   publish:
+    name: Publish to ECR
     if: github.ref == 'refs/heads/master' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: check
     runs-on: ubuntu-24.04-arm

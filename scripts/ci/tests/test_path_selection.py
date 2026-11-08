@@ -1,3 +1,4 @@
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -103,20 +104,44 @@ class OpenTofuRootSelectionTests(unittest.TestCase):
         )
 
 
+def workflow_check_names(workflow):
+    names = []
+    jobs = workflow.split("\njobs:\n", 1)[1]
+    for job_id, body in re.findall(r"^  ([\w-]+):\n((?:(?:    .*)?\n)*)", jobs, re.M):
+        name = re.search(r"^    name: (.+)$", body, re.M)
+        label = name.group(1).strip().strip("'\"") if name else job_id
+        uses = re.search(r"^    uses: \./(\S+)$", body, re.M)
+        if uses:
+            called = (REPO_ROOT / uses.group(1)).read_text(encoding="utf-8")
+            names += [f"{label} / {inner}" for inner in workflow_check_names(called)]
+        else:
+            names.append(label)
+    return names
+
+
 class RequiredWorkflowTriggerTests(unittest.TestCase):
-    def test_required_workflows_run_for_workflow_only_pull_requests(self):
-        workflows = (
-            ".github/workflows/opentofu-validate.yml",
-            ".github/workflows/adapter-tests.yml",
-            ".github/workflows/tflint.yml",
-            ".github/workflows/checkov.yml",
+    def test_every_required_check_runs_on_every_pull_request(self):
+        settings = REPO_ROOT / "infra/github/oconnordev/settings-adoption.tf"
+        listed = re.search(
+            r"required_status_checks = \[(.*?)\]",
+            settings.read_text(encoding="utf-8"),
+            re.S,
         )
-        for relative_path in workflows:
-            with self.subTest(workflow=relative_path):
-                content = (REPO_ROOT / relative_path).read_text(encoding="utf-8")
-                trigger_header = content.split("\npermissions:", 1)[0]
-                self.assertIn("pull_request:", trigger_header)
-                self.assertNotIn("paths:", trigger_header)
+        required = re.findall(r'"([^"]+)"', listed.group(1))
+        self.assertTrue(required)
+        producers = {}
+        for path in sorted((REPO_ROOT / ".github/workflows").glob("*.yml")):
+            content = path.read_text(encoding="utf-8")
+            trigger = re.search(r"^  pull_request:\n((?:    .*\n)*)", content, re.M)
+            if trigger:
+                for context in workflow_check_names(content):
+                    producer = (path.name, trigger.group(1))
+                    producers.setdefault(context, []).append(producer)
+        for context in required:
+            with self.subTest(check=context):
+                self.assertEqual(len(producers.get(context, [])), 1, context)
+                name, trigger = producers[context][0]
+                self.assertNotIn("paths", trigger, f"{name} must run on every PR")
 
 
 if __name__ == "__main__":
