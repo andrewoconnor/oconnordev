@@ -27,9 +27,9 @@ class CspCiTests(unittest.TestCase):
                 commands,
             )
             workflow = (ROOT / f".github/workflows/{site}-site.yml").read_text()
-            self.assertEqual(workflow.count('"infra/aws/*/site.tf"'), 2)
-            self.assertEqual(workflow.count('"scripts/security/**"'), 2)
-            self.assertEqual(workflow.count('".github/workflows/site.yml"'), 2)
+            self.assertEqual(workflow.count('"infra/aws/*/site.tf"'), 1)
+            self.assertEqual(workflow.count('"scripts/security/**"'), 1)
+            self.assertEqual(workflow.count('".github/workflows/site.yml"'), 1)
             self.assertNotIn("static-site-headers.test.cjs", workflow)
         shared = (ROOT / ".github/workflows/site.yml").read_text()
         self.assertEqual(shared.count('mise run "test:$SITE"'), 1)

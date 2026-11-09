@@ -9,8 +9,6 @@ on:
   pull_request:
     branches:
       - master
-    paths-ignore:
-      - "**.md"
 
   # Allows you to run this workflow manually from the Actions tab.
   workflow_dispatch:
@@ -24,6 +22,7 @@ concurrency:
 
 jobs:
   test:
+    name: Agent and infrastructure unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:

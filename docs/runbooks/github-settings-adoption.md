@@ -42,8 +42,17 @@ with `rename = false` and `wait_for_rename = false`.
 The ruleset retains `name = master`, branch target, active enforcement,
 `include = ["~DEFAULT_BRANCH"]`, `exclude = []`, deletion/non-fast-forward rules,
 and the pull-request rule with **`allowed_merge_methods = ["squash"]`**. All five
-observed pull-request review booleans/count values remain false/zero. No other
-rules or reviewer requirements are introduced. Zero optional `bypass_actors`
+observed pull-request review booleans/count values remain false/zero. No reviewer
+requirements are introduced.
+
+The ruleset also requires the status checks in `local.required_status_checks`.
+That rule is policy added after the observation, not part of it. Each check must
+come from the GitHub Actions app (integration ID 15368), and branches do not need
+to be up to date with `master` before merging. GitHub leaves a required check
+pending forever when its workflow never starts, so every required check comes from
+a workflow whose `pull_request` trigger has no path filters.
+`scripts/ci/tests/test_path_selection.py` fails if a listed check has no such
+producer. Zero optional `bypass_actors`
 blocks represent the explicit empty observed array; this provider's schema does
 not accept a `bypass_actors = []` argument. Its source expansion returns an empty
 slice rather than null for zero actors. No bypass permission is granted to the
@@ -115,9 +124,10 @@ resolve the dedicated App/context; do not change authentication or skip refresh.
 2. Have the user complete the dedicated App approval above; verify existing
    state addresses and producer dependency inputs through the existing stack.
 3. Review a refreshed Spacelift plan from that exact head. Verify all eleven
-   exact state addresses against the table and require no creates, updates,
-   deletes or replacements. Inspect before/after values, especially squash-only
-   merge methods and bypass actors. The existing variables must have no actions.
+   exact state addresses against the table and require that every create,
+   update, delete or replacement matches a change in the reviewed commit.
+   Inspect before/after values, especially squash-only merge methods, required
+   status checks and bypass actors. The existing variables must have no actions.
 4. Abort on drift, replacement, unexpected resources, hidden read failures, or
    changed values. Do not use `ignore_changes`, targeting, `-refresh=false`, or
    guessed values to make a plan appear safe. Only the owner approves changes.

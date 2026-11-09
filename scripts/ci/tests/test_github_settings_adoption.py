@@ -21,6 +21,17 @@ CAPTURE = json.loads(
     ).read_text()
 )
 INIT = ["tofu", "init", "-backend=false", "-input=false", "-lockfile=readonly"]
+GITHUB_ACTIONS_APP_ID = 15368
+REQUIRED_STATUS_CHECKS = (
+    "Agent and infrastructure unit tests",
+    "Block known-vulnerable dependency changes",
+    "Checkov scan",
+    "Format, workflow lint, and affected-root validation",
+    "TFLint",
+    "Thundermail image / Build and smoke-test",
+    "drumrollworld / Lint, format, build and test",
+    "oconnordev / Lint, format, build and test",
+)
 
 
 class GitHubSettingsAdoptionTests(unittest.TestCase):
@@ -200,12 +211,30 @@ class GitHubSettingsAdoptionTests(unittest.TestCase):
             if key not in {"deletion", "non_fast_forward"}:
                 checks.append(f"!coalesce({rules}.{key}, false)")
         for key in schema["block_types"]:
-            if key != "pull_request":
+            if key not in {"pull_request", "required_status_checks"}:
                 checks.append(f"length({rules}.{key}) == 0")
         checks.append(f"length({rules}.pull_request[0].required_reviewers) == 0")
         self.assertEqual(OBSERVED["repository_metadata"]["default_branch"], "master")
         self.assertEqual(OBSERVED["topics"], [])
         self.offline_plan(source, checks)
+
+    def test_required_status_checks_are_policy_added_after_observation(self):
+        observed_rules = {rule["type"] for rule in OBSERVED["rulesets"][0]["rules"]}
+        self.assertNotIn("required_status_checks", observed_rules)
+        source = (CONFIG / "settings-adoption.tf").read_text()
+        block = "github_repository_ruleset.master.rules[0].required_status_checks"
+        expected = json.dumps(json.dumps(sorted(REQUIRED_STATUS_CHECKS)))
+        self.offline_plan(
+            source,
+            [
+                f"length({block}) == 1",
+                f"!{block}[0].strict_required_status_checks_policy",
+                f"sort([for check in {block}[0].required_check : check.context]) "
+                f"== tolist(jsondecode({expected}))",
+                f"alltrue([for check in {block}[0].required_check : "
+                f"check.integration_id == {GITHUB_ACTIONS_APP_ID}])",
+            ],
+        )
 
     def test_labels_preserve_inventory_and_import_exact_names(self):
         source = (CONFIG / "settings-adoption.tf").read_text()
