@@ -50,7 +50,7 @@ jobs:
           load: true
           tags: ${{ env.IMAGE }}
           cache-from: type=gha,scope=${{ inputs.name }}-image
-          cache-to: type=gha,mode=max,scope=${{ inputs.name }}-image
+          cache-to: ${{ github.ref == 'refs/heads/master' && format('type=gha,mode=max,scope={0}-image', inputs.name) || '' }}
       - name: Verify architecture
         run: test "$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "$IMAGE")" = linux/arm64
       - name: Test image
