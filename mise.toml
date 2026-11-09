@@ -50,7 +50,7 @@ run = "git ls-files -z -- '*.py' | xargs -0 ruff check"
 [tasks."lint:rust"]
 description = "Lint Thundermail Rust with clippy, denying warnings"
 dir = "infra/aws/tools/lambdas/thundermail_mcp"
-env = { CARGO_BUILD_JOBS = "1", CARGO_INCREMENTAL = "0" }
+env = { CARGO_INCREMENTAL = "0" }
 run = "cargo clippy --locked --all-targets -- -D warnings"
 
 [tasks."lint:shell"]
@@ -169,7 +169,7 @@ depends = ["test:python", "test:opentofu-boundary", "test:opentofu-delivery", "t
 [tasks."test:rust"]
 description = "Run Thundermail's locked Rust tests; no cloud/credentials"
 dir = "infra/aws/tools/lambdas/thundermail_mcp"
-env = { CARGO_BUILD_JOBS = "1", CARGO_INCREMENTAL = "0" }
+env = { CARGO_INCREMENTAL = "0" }
 run = "cargo test --locked"
 
 [tasks."test:thundermail-sdk"]
