@@ -18,7 +18,7 @@ mise run test
 
 Tasks are named `<action>:<area>`, such as `lint:python`. `fmt` and `lint` run
 every `fmt:*` and `lint:*` task; run one directly to check a single area.
-`mise tasks ls` lists them all.
+`mise tasks ls` lists every task.
 
 `mise.toml` is the source of CLI versions: OpenTofu, TFLint, actionlint, ShellCheck,
 Python, Ruff, Biome, Node.js, Checkov, and the AWS CLI. CI installs the same
