@@ -39,8 +39,13 @@ and 14-day logs.
 ## Build and test
 
 The Dockerfile builds and runs on the same pinned `provided.al2023` image. mise
-installs the Rust version from `mise.toml`. Cargo uses `--locked`. The release
-binary is `/var/runtime/bootstrap`.
+installs the Rust version from `mise.toml`. Cargo uses `--locked` and all
+available cores. The release binary is `/var/runtime/bootstrap`.
+
+Builds on `master` save every Docker layer to the GitHub Actions cache under
+scope `thundermail-image`. Every build reuses unchanged layers from `master`'s
+cache instead of rebuilding them. Pull requests only read that cache and never
+write to it, so a pull request cannot change a published image.
 
 ```sh
 mise install rust

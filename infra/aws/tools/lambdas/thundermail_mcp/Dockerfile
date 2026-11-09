@@ -9,7 +9,7 @@ RUN curl -fSL https://github.com/jdx/mise/releases/download/v2026.10.17/mise-v20
 COPY mise.toml mise.lock ./
 ENV MISE_TRUSTED_CONFIG_PATHS=/build MISE_RUSTUP_HOME=/opt/rustup MISE_CARGO_HOME=/opt/cargo
 RUN mise install rust
-ENV CARGO_BUILD_JOBS=1 CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
+ENV CARGO_INCREMENTAL=0 CARGO_PROFILE_RELEASE_DEBUG=0
 COPY infra/aws/tools/lambdas/thundermail_mcp/Cargo.toml infra/aws/tools/lambdas/thundermail_mcp/Cargo.lock ./
 COPY infra/aws/tools/lambdas/thundermail_mcp/src ./src
 RUN mise exec rust -- cargo test --locked && mise exec rust -- cargo build --locked --release \
