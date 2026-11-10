@@ -10,6 +10,14 @@ resource "aws_cognito_user_pool" "hermes" {
   admin_create_user_config {
     allow_admin_create_user_only = true
   }
+
+  password_policy {
+    minimum_length    = 20
+    require_lowercase = true
+    require_numbers   = true
+    require_symbols   = true
+    require_uppercase = true
+  }
 }
 
 resource "aws_cognito_resource_server" "hermes" {

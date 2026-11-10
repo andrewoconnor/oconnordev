@@ -57,7 +57,8 @@ as a return URL. A link is valid for 10 minutes.
    `target-schwab.tf`, store its Secret as `{"client_secret": "..."}` in the
    secret, and apply again.
 5. With credentials for the TOOLS account, set the password of the Cognito user
-   `owner`. Store it in your password manager:
+   `owner`. Generate it in your password manager. The pool requires at least 20
+   characters, with uppercase, lowercase, a number and a symbol:
    ```sh
    POOL=$(aws cognito-idp list-user-pools --max-results 60 \
      --query "UserPools[?Name=='hermes-mcp-m2m'].Id" --output text)
