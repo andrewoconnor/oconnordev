@@ -10,6 +10,24 @@ resource "aws_kms_key" "oauth_callback" {
   customer_master_key_spec = "HMAC_256"
   key_usage                = "GENERATE_VERIFY_MAC"
   deletion_window_in_days  = 7
+  policy                   = data.aws_iam_policy_document.oauth_callback_key.json
+}
+
+data "aws_iam_policy_document" "oauth_callback_key" {
+  # checkov:skip=CKV_AWS_109:Key policy, not an IAM identity policy. Resource "*" is the one key this policy is attached to; the root statement only delegates access to IAM policies.
+  # checkov:skip=CKV_AWS_111:Key policy, not an IAM identity policy. The account-root grant is the standard statement that lets IAM policies grant kms:GenerateMac and kms:VerifyMac.
+  # checkov:skip=CKV_AWS_356:Key policy, not an IAM identity policy. Resource "*" in a key policy denotes this key only.
+  statement {
+    sid       = "AccountAdministersKey"
+    effect    = "Allow"
+    actions   = ["kms:*"]
+    resources = ["*"]
+
+    principals {
+      type        = "AWS"
+      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
+    }
+  }
 }
 
 resource "aws_cognito_user" "owner" {
