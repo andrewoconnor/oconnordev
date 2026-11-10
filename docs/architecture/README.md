@@ -37,11 +37,11 @@ tool that is not a read tool.
 
 `oauth-callback.tf` exposes the callback Lambda through a Function URL with no
 authentication and a reserved concurrency of 1. The Schwab Lambda signs each
-AgentCore session URI with a KMS HMAC key and sends a `/start` link. `/start`
-sets a cookie with that signature and redirects to AgentCore. `/callback`
-requires the cookie and the password of the Cognito user `owner` before it
-calls `CompleteResourceTokenAuth` with the fixed user ID `owner`. Each link is
-valid for 10 minutes. See the [Schwab runbook](../runbooks/schwab-mcp.md).
+AgentCore session URI and a 10-minute expiry with a KMS HMAC key and sends a
+`/start` link. `/start` sets a cookie with that signed value and redirects to
+AgentCore. `/callback` requires an unexpired cookie and the password of the
+Cognito user `owner` before it calls `CompleteResourceTokenAuth` with the fixed
+user ID `owner`. See the [Schwab runbook](../runbooks/schwab-mcp.md).
 
 ### Static sites
 
