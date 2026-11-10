@@ -12,8 +12,26 @@ ENV = {
     "USER_ID": "owner",
     "PROVIDER_NAME": "hermes-schwab",
     "RETURN_URL": "https://callback.example/callback",
+    "START_URL": "https://callback.example/start",
+    "MAC_KEY_ID": "arn:aws:kms:us-east-1:421680664125:key/mac",
 }
-LINK = "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/authorize?request_uri=x"
+SESSION = "urn:ietf:params:oauth:request_uri:abc"
+AUTHORIZE = "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/authorize?request_uri=x"
+PENDING = {"authorizationUrl": AUTHORIZE, "sessionUri": SESSION}
+LINK = (
+    "https://callback.example/start?session_id=urn%3Aietf%3Aparams%3Aoauth%3A"
+    "request_uri%3Aabc&url=https%3A%2F%2Fbedrock-agentcore.us-east-1.amazonaws.com"
+    "%2Fidentities%2Foauth2%2Fauthorize%3Frequest_uri%3Dx&mac=bWFj"
+)
+
+
+class Kms:
+    def __init__(self):
+        self.calls = []
+
+    def generate_mac(self, **kwargs):
+        self.calls.append(kwargs)
+        return {"Mac": b"mac"}
 
 
 class AgentCore:
@@ -54,8 +72,10 @@ class Opener:
         return Response(self.body)
 
 
-def call(tool, arguments, agentcore, opener):
-    return schwab.handle(arguments, "schwab___" + tool, agentcore, ENV, opener)
+def call(tool, arguments, agentcore, opener, kms=None):
+    return schwab.handle(
+        arguments, "schwab___" + tool, agentcore, kms or Kms(), ENV, opener
+    )
 
 
 class SchwabTests(unittest.TestCase):
@@ -118,21 +138,39 @@ class SchwabTests(unittest.TestCase):
             ({"symbols": "X", "accountHash": "Y"}, "schwab___getQuotes"),
         ]:
             agentcore, opener = AgentCore(), Opener()
-            result = schwab.handle(arguments, name, agentcore, ENV, opener)
+            result = schwab.handle(arguments, name, agentcore, Kms(), ENV, opener)
             self.assertTrue(result["isError"])
             self.assertEqual((agentcore.calls, opener.requests), ([], []))
 
-    def test_missing_token_returns_the_consent_link(self):
-        opener = Opener()
-        result = call(
-            "getAccountNumbers", {}, AgentCore({"authorizationUrl": LINK}), opener
-        )
+    def test_missing_token_returns_a_signed_start_link(self):
+        opener, kms = Opener(), Kms()
+        result = call("getAccountNumbers", {}, AgentCore(PENDING), opener, kms)
         self.assertTrue(result["isError"])
         self.assertIn(LINK, result["content"][0]["text"])
+        self.assertNotIn(AUTHORIZE, result["content"][0]["text"])
         self.assertEqual(opener.requests, [])
+        self.assertEqual(
+            kms.calls,
+            [
+                {
+                    "KeyId": ENV["MAC_KEY_ID"],
+                    "MacAlgorithm": "HMAC_SHA_256",
+                    "Message": b"schwab-consent:" + SESSION.encode(),
+                }
+            ],
+        )
+
+    def test_consent_without_a_session_returns_no_link(self):
+        result = call(
+            "getAccountNumbers",
+            {},
+            AgentCore({"authorizationUrl": AUTHORIZE}),
+            Opener(),
+        )
+        self.assertIn("no consent link", result["content"][0]["text"])
 
     def test_rejected_token_forces_a_new_consent_link(self):
-        agentcore = AgentCore({"accessToken": "t"}, {"authorizationUrl": LINK})
+        agentcore = AgentCore({"accessToken": "t"}, PENDING)
         result = call(
             "listAccounts", {}, agentcore, Opener(status=401, body=b"expired")
         )
