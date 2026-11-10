@@ -25,8 +25,10 @@ have `Content-Type: application/json`.
 Schwab refresh tokens expire seven days after consent. Then AgentCore Identity
 returns an authorization URL and a session URI. If Schwab rejects a stored
 token, the Lambda requests them again with `forceAuthentication`. The Lambda
-signs the session URI and an expiry time 10 minutes later with the KMS HMAC key
-in `oauth-callback.tf`. It returns a link to `/start` on the hosted callback
+signs the session URI and an expiry time 10 minutes later with HMAC-SHA256. The
+key is the SecureString parameter `/hermes/oauth-callback/consent-link-key`,
+which `oauth-callback.tf` fills with a random value that never enters OpenTofu
+state. The Lambda returns a link to `/start` on the hosted callback
 `hermes-oauth-callback` to Hermes as a tool error.
 
 1. `/start` checks the expiry and the signature. It sets a `__Host-consent`

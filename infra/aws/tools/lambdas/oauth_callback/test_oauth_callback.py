@@ -1,4 +1,6 @@
 import base64
+import hashlib
+import hmac
 import json
 import unittest
 import urllib.parse
@@ -13,14 +15,21 @@ AUTHORIZE = (
 )
 NOW = 1_800_000_000
 EXPIRES = NOW + 600
-MAC = f"{EXPIRES}.Z29vZA"
-MESSAGE = f"schwab-consent:{EXPIRES}:{SESSION}".encode()
+KEY = b"k" * 64
+
+
+def binding(expires=EXPIRES, session=SESSION, key=KEY, signed=None):
+    message = f"schwab-consent:{signed or expires}:{session}".encode()
+    mac = hmac.digest(key, message, hashlib.sha256)
+    return f"{expires}.{base64.urlsafe_b64encode(mac).decode().rstrip('=')}"
+
+
+MAC = binding()
 CONFIG = {
     "user_pool_id": "us-east-1_pool",
     "client_id": "client",
     "username": "owner",
     "user_id": "owner",
-    "mac_key_id": "key",
     "region": "us-east-1",
 }
 
@@ -53,19 +62,6 @@ class Cognito:
         return self.result
 
 
-class Kms:
-    def __init__(self, error=None):
-        self.calls, self.error = [], error
-
-    def verify_mac(self, **kwargs):
-        self.calls.append(kwargs)
-        if self.error:
-            raise ClientError(self.error)
-        if kwargs["Mac"] != b"good":
-            raise ClientError("KMSInvalidMacException")
-        return {"MacValid": True}
-
-
 def query(**values):
     return urllib.parse.urlencode(values)
 
@@ -92,23 +88,17 @@ def post(fields, encode=False, cookie=MAC):
     }
 
 
-def run(event, agentcore=None, cognito=None, kms=None, now=NOW):
-    agentcore, cognito, kms = (
-        agentcore or AgentCore(),
-        cognito or Cognito(),
-        kms or Kms(),
-    )
+def run(event, agentcore=None, cognito=None, now=NOW):
+    agentcore, cognito = agentcore or AgentCore(), cognito or Cognito()
     with mock.patch("oauth_callback.time.time", return_value=now + 0.5):
-        response = oauth_callback.handle(event, agentcore, cognito, kms, CONFIG)
+        response = oauth_callback.handle(event, agentcore, cognito, KEY, CONFIG)
     return response, agentcore, cognito
 
 
 class StartTests(unittest.TestCase):
     def test_signed_link_sets_binding_cookie_and_redirects(self):
-        kms = Kms()
         response, _, _ = run(
-            get("/start", query(session_id=SESSION, url=AUTHORIZE, binding=MAC), None),
-            kms=kms,
+            get("/start", query(session_id=SESSION, url=AUTHORIZE, binding=MAC), None)
         )
         self.assertEqual(response["statusCode"], 302)
         self.assertEqual(response["headers"]["location"], AUTHORIZE)
@@ -119,21 +109,30 @@ class StartTests(unittest.TestCase):
                 "SameSite=Lax"
             ],
         )
-        self.assertEqual(
-            kms.calls,
-            [
-                {
-                    "KeyId": "key",
-                    "MacAlgorithm": "HMAC_SHA_256",
-                    "Message": MESSAGE,
-                    "Mac": b"good",
-                }
-            ],
-        )
 
     def test_rejects_unsigned_links_and_other_redirects(self):
         for raw, status in [
             (query(session_id=SESSION, url=AUTHORIZE, binding=f"{EXPIRES}.YmFk"), 403),
+            (
+                query(session_id=SESSION, url=AUTHORIZE, binding=binding(key=b"x")),
+                403,
+            ),
+            (
+                query(
+                    session_id=SESSION,
+                    url=AUTHORIZE,
+                    binding=binding(session=SESSION + "x"),
+                ),
+                403,
+            ),
+            (
+                query(
+                    session_id=SESSION,
+                    url=AUTHORIZE,
+                    binding=binding(expires=EXPIRES - 1, signed=EXPIRES),
+                ),
+                403,
+            ),
             (query(session_id=SESSION, url=AUTHORIZE), 403),
             (
                 query(
@@ -166,27 +165,24 @@ class StartTests(unittest.TestCase):
             self.assertEqual(response["statusCode"], status, raw)
             self.assertNotIn("cookies", response)
 
-    def test_expired_or_far_future_links_set_no_cookie_and_skip_kms(self):
-        for binding, now in [
+    def test_expired_or_far_future_links_set_no_cookie(self):
+        for value, now in [
             (MAC, EXPIRES),
             (MAC, EXPIRES + 3600),
             (MAC, NOW - 1),
-            (f"{NOW + 10**6}.Z29vZA", NOW),
-            ("Z29vZA", NOW),
+            (binding(expires=NOW + 10**6), NOW),
+            (MAC.partition(".")[2], NOW),
         ]:
-            kms = Kms()
             response, _, _ = run(
                 get(
                     "/start",
-                    query(session_id=SESSION, url=AUTHORIZE, binding=binding),
+                    query(session_id=SESSION, url=AUTHORIZE, binding=value),
                     None,
                 ),
-                kms=kms,
                 now=now,
             )
-            self.assertEqual(response["statusCode"], 403, (binding, now))
+            self.assertEqual(response["statusCode"], 403, (value, now))
             self.assertNotIn("cookies", response)
-            self.assertEqual(kms.calls, [])
 
     def test_cookie_lasts_only_until_the_signed_expiry(self):
         response, _, _ = run(
@@ -195,15 +191,39 @@ class StartTests(unittest.TestCase):
         )
         self.assertIn("Max-Age=500;", response["cookies"][0])
 
-    def test_kms_failure_is_unavailable(self):
-        for event in (
-            get("/start", query(session_id=SESSION, url=AUTHORIZE, binding=MAC), None),
-            get(raw=query(session_id=SESSION)),
+    def test_handler_reads_the_key_once_and_fails_closed(self):
+        boto3 = mock.Mock()
+        boto3.client.return_value.get_parameter.return_value = {
+            "Parameter": {"Value": "k" * 64}
+        }
+        env = {
+            "LINK_KEY_PARAMETER": "/hermes/key",
+            "USER_POOL_ID": "p",
+            "CLIENT_ID": "c",
+            "USERNAME": "owner",
+            "USER_ID": "owner",
+            "AWS_REGION": "us-east-1",
+        }
+        event = get("/start", query(session_id=SESSION, url=AUTHORIZE, binding=MAC))
+        with (
+            mock.patch.dict("sys.modules", {"boto3": boto3}),
+            mock.patch.dict("os.environ", env),
+            mock.patch.object(oauth_callback, "KEY", []),
+            mock.patch("oauth_callback.time.time", return_value=NOW),
         ):
-            with mock.patch("builtins.print"):
-                response, _, cognito = run(event, kms=Kms(error="ThrottlingException"))
-            self.assertEqual(response["statusCode"], 503)
-            self.assertEqual(cognito.calls, [])
+            self.assertEqual(oauth_callback.handler(event, None)["statusCode"], 302)
+            self.assertEqual(oauth_callback.handler(event, None)["statusCode"], 302)
+        boto3.client.return_value.get_parameter.assert_called_once_with(
+            Name="/hermes/key", WithDecryption=True
+        )
+        boto3.client.return_value.get_parameter.side_effect = RuntimeError("denied")
+        with (
+            mock.patch.dict("sys.modules", {"boto3": boto3}),
+            mock.patch.dict("os.environ", env),
+            mock.patch.object(oauth_callback, "KEY", []),
+            mock.patch("builtins.print"),
+        ):
+            self.assertEqual(oauth_callback.handler(event, None)["statusCode"], 503)
 
 
 class CallbackTests(unittest.TestCase):
@@ -229,15 +249,14 @@ class CallbackTests(unittest.TestCase):
             self.assertEqual(response["statusCode"], 403)
             self.assertEqual((agentcore.calls, cognito.calls), ([], []))
 
-    def test_expired_cookie_never_reaches_kms_or_cognito(self):
+    def test_expired_cookie_never_reaches_cognito(self):
         for event in (
             get(raw=query(session_id=SESSION)),
             post({"session_id": SESSION, "password": "pw"}),
         ):
-            kms = Kms()
-            response, agentcore, cognito = run(event, kms=kms, now=EXPIRES)
+            response, agentcore, cognito = run(event, now=EXPIRES)
             self.assertEqual(response["statusCode"], 403)
-            self.assertEqual((kms.calls, cognito.calls, agentcore.calls), ([], [], []))
+            self.assertEqual((cognito.calls, agentcore.calls), ([], []))
 
     def test_owner_password_completes_session_and_clears_cookie(self):
         for encode in (False, True):

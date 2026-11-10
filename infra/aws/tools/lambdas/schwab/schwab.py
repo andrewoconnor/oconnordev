@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import base64
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -46,16 +48,14 @@ def request_url(tool: dict, arguments: dict) -> str:
     return f"{UPSTREAM}{path}{'?' + urllib.parse.urlencode(query) if query else ''}"
 
 
-def consent_link(kms, env: dict, response: dict) -> str:
+def consent_link(link_key, env: dict, response: dict) -> str:
     url, session = response.get("authorizationUrl"), response.get("sessionUri")
     if not url or not session:
         return ""
     expires = int(time.time()) + LINK_SECONDS
-    mac = kms.generate_mac(
-        KeyId=env["MAC_KEY_ID"],
-        MacAlgorithm="HMAC_SHA_256",
-        Message=MAC_PREFIX + f"{expires}:{session}".encode(),
-    )["Mac"]
+    mac = hmac.digest(
+        link_key(), MAC_PREFIX + f"{expires}:{session}".encode(), hashlib.sha256
+    )
     query = {
         "session_id": session,
         "url": url,
@@ -64,7 +64,9 @@ def consent_link(kms, env: dict, response: dict) -> str:
     return f"{env['START_URL']}?{urllib.parse.urlencode(query)}"
 
 
-def schwab_token(agentcore, kms, env: dict, force: bool = False) -> tuple[str, str]:
+def schwab_token(
+    agentcore, link_key, env: dict, force: bool = False
+) -> tuple[str, str]:
     try:
         workload = agentcore.get_workload_access_token_for_user_id(
             workloadName=env["WORKLOAD_NAME"], userId=env["USER_ID"]
@@ -77,7 +79,7 @@ def schwab_token(agentcore, kms, env: dict, force: bool = False) -> tuple[str, s
             resourceOauth2ReturnUrl=env["RETURN_URL"],
             forceAuthentication=force,
         )
-        link = consent_link(kms, env, response)
+        link = consent_link(link_key, env, response)
     except Exception as error:
         print(
             json.dumps(
@@ -111,7 +113,9 @@ def result(status: int, body: str) -> object:
     return failure(f"Schwab returned HTTP {status}: {body[:2000]}")
 
 
-def handle(event: dict, tool_name: str, agentcore, kms, env: dict, opener) -> object:
+def handle(
+    event: dict, tool_name: str, agentcore, link_key, env: dict, opener
+) -> object:
     tool = (
         TOOLS.get(tool_name.removeprefix(PREFIX))
         if tool_name.startswith(PREFIX)
@@ -123,12 +127,12 @@ def handle(event: dict, tool_name: str, agentcore, kms, env: dict, opener) -> ob
         url = request_url(tool, event or {})
     except ValueError as error:
         return failure(str(error))
-    token, link = schwab_token(agentcore, kms, env)
+    token, link = schwab_token(agentcore, link_key, env)
     if token:
         status, body = get(url, token, opener)
         if status != 401:
             return result(status, body)
-        link = schwab_token(agentcore, kms, env, force=True)[1]
+        link = schwab_token(agentcore, link_key, env, force=True)[1]
     if not link:
         return failure(
             "AgentCore Identity returned no Schwab token and no consent link."
@@ -140,6 +144,23 @@ def handle(event: dict, tool_name: str, agentcore, kms, env: dict, opener) -> ob
     )
 
 
+KEY: list[bytes] = []
+
+
+def ssm_link_key() -> bytes:
+    import boto3
+
+    if not KEY:
+        KEY.append(
+            boto3.client("ssm")
+            .get_parameter(Name=os.environ["LINK_KEY_PARAMETER"], WithDecryption=True)[
+                "Parameter"
+            ]["Value"]
+            .encode()
+        )
+    return KEY[0]
+
+
 def handler(event, context):
     import boto3
 
@@ -148,7 +169,7 @@ def handler(event, context):
         event,
         custom.get("bedrockAgentCoreToolName", ""),
         boto3.client("bedrock-agentcore"),
-        boto3.client("kms"),
+        ssm_link_key,
         os.environ,
         urllib.request.urlopen,
     )

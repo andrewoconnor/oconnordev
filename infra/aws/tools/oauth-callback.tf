@@ -4,30 +4,18 @@ locals {
   oauth_callback_start_url     = "${aws_lambda_function_url.oauth_callback.function_url}start"
 }
 
-resource "aws_kms_key" "oauth_callback" {
-  # checkov:skip=CKV_AWS_7:KMS does not support automatic rotation for HMAC keys.
-  description              = "Signs Schwab consent links for the OAuth callback."
-  customer_master_key_spec = "HMAC_256"
-  key_usage                = "GENERATE_VERIFY_MAC"
-  deletion_window_in_days  = 7
-  policy                   = data.aws_iam_policy_document.oauth_callback_key.json
+ephemeral "aws_secretsmanager_random_password" "consent_link_key" {
+  password_length     = 64
+  exclude_punctuation = true
 }
 
-data "aws_iam_policy_document" "oauth_callback_key" {
-  # checkov:skip=CKV_AWS_109:Key policy, not an IAM identity policy. Resource "*" is the one key this policy is attached to; the root statement only delegates access to IAM policies.
-  # checkov:skip=CKV_AWS_111:Key policy, not an IAM identity policy. The account-root grant is the standard statement that lets IAM policies grant kms:GenerateMac and kms:VerifyMac.
-  # checkov:skip=CKV_AWS_356:Key policy, not an IAM identity policy. Resource "*" in a key policy denotes this key only.
-  statement {
-    sid       = "AccountAdministersKey"
-    effect    = "Allow"
-    actions   = ["kms:*"]
-    resources = ["*"]
-
-    principals {
-      type        = "AWS"
-      identifiers = ["arn:${data.aws_partition.current.partition}:iam::${data.aws_caller_identity.current.account_id}:root"]
-    }
-  }
+resource "aws_ssm_parameter" "consent_link_key" {
+  # checkov:skip=CKV_AWS_337:The AWS-managed aws/ssm key encrypts this SecureString at no cost; a customer-managed key would add $1 a month.
+  name             = "/hermes/oauth-callback/consent-link-key"
+  description      = "HMAC key that signs Schwab consent links for the OAuth callback."
+  type             = "SecureString"
+  value_wo         = ephemeral.aws_secretsmanager_random_password.consent_link_key.random_password
+  value_wo_version = 1
 }
 
 resource "aws_cognito_user" "owner" {
@@ -81,10 +69,10 @@ data "aws_iam_policy_document" "oauth_callback" {
   }
 
   statement {
-    sid       = "VerifyConsentLinkMac"
+    sid       = "ReadConsentLinkKey"
     effect    = "Allow"
-    actions   = ["kms:VerifyMac"]
-    resources = [aws_kms_key.oauth_callback.arn]
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.consent_link_key.arn]
   }
 
   statement {
@@ -111,7 +99,7 @@ resource "aws_iam_role_policy" "oauth_callback" {
 resource "aws_lambda_function" "oauth_callback" {
   # checkov:skip=CKV_AWS_116:Synchronous Function URL invocations only; there is no asynchronous event to retry.
   # checkov:skip=CKV_AWS_117:The function calls the public AgentCore endpoint; a VPC would need NAT egress for no benefit.
-  # checkov:skip=CKV_AWS_173:The environment holds the owner user ID, user pool ID, app client ID, username and KMS key ARN, not secrets.
+  # checkov:skip=CKV_AWS_173:The environment holds the owner user ID, user pool ID, app client ID, username and key parameter name, not secrets.
   # checkov:skip=CKV_AWS_272:Code signing is not configured for this account; archive_file builds the package and source_code_hash tracks it.
   # checkov:skip=CKV_AWS_50:A single synchronous call per consent; tracing adds no diagnostic value.
   function_name                  = local.oauth_callback_function_name
@@ -127,11 +115,11 @@ resource "aws_lambda_function" "oauth_callback" {
 
   environment {
     variables = {
-      USER_ID      = local.schwab_user_id
-      USER_POOL_ID = aws_cognito_user_pool.hermes.id
-      CLIENT_ID    = aws_cognito_user_pool_client.oauth_callback.id
-      USERNAME     = aws_cognito_user.owner.username
-      MAC_KEY_ID   = aws_kms_key.oauth_callback.arn
+      USER_ID            = local.schwab_user_id
+      USER_POOL_ID       = aws_cognito_user_pool.hermes.id
+      CLIENT_ID          = aws_cognito_user_pool_client.oauth_callback.id
+      USERNAME           = aws_cognito_user.owner.username
+      LINK_KEY_PARAMETER = aws_ssm_parameter.consent_link_key.name
     }
   }
 

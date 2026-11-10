@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import base64
-import binascii
+import hashlib
+import hmac
 import html
 import json
 import os
@@ -13,7 +14,6 @@ SESSION = re.compile(r"urn:ietf:params:oauth:request_uri:[A-Za-z0-9._~-]+")
 MAX_SESSION = 1024
 MAX_BODY = 8192
 MAX_PASSWORD = 256
-MAX_MAC = 128
 MAC_PREFIX = b"schwab-consent:"
 COOKIE = "__Host-consent"
 LINK_SECONDS = 600
@@ -123,26 +123,13 @@ def binding_expiry(binding: str, now: int) -> int:
     return value if now < value <= now + LINK_SECONDS else 0
 
 
-def bound(kms, config: dict, session: str, binding: str, now: int) -> bool:
+def bound(key: bytes, session: str, binding: str, now: int) -> bool:
     expires = binding_expiry(binding, now)
-    mac_text = binding.partition(".")[2]
-    if not expires or not mac_text or len(mac_text) > MAX_MAC:
+    if not expires:
         return False
-    try:
-        mac = base64.urlsafe_b64decode(mac_text + "=" * (-len(mac_text) % 4))
-    except (binascii.Error, ValueError):
-        return False
-    try:
-        return kms.verify_mac(
-            KeyId=config["mac_key_id"],
-            MacAlgorithm="HMAC_SHA_256",
-            Message=MAC_PREFIX + f"{expires}:{session}".encode(),
-            Mac=mac,
-        )["MacValid"]
-    except Exception as error:
-        if error_code(error) == "KMSInvalidMacException":
-            return False
-        raise
+    mac = hmac.digest(key, MAC_PREFIX + f"{expires}:{session}".encode(), hashlib.sha256)
+    expected = base64.urlsafe_b64encode(mac).decode().rstrip("=")
+    return hmac.compare_digest(binding.partition(".")[2], expected)
 
 
 def authorization_url(url: str, region: str) -> bool:
@@ -155,19 +142,15 @@ def authorization_url(url: str, region: str) -> bool:
     )
 
 
-def start(event: dict, kms, config: dict, now: int) -> dict:
+def start(event: dict, key: bytes, config: dict, now: int) -> dict:
     query = fields(event.get("rawQueryString") or "")
     session, url, binding = (
         query.get(key, "") for key in ("session_id", "url", "binding")
     )
     if not valid_session(session) or not authorization_url(url, config["region"]):
         return page(400, "Invalid link", "Ask Hermes again for a new link.")
-    try:
-        if not bound(kms, config, session, binding, now):
-            return page(403, "Invalid link", "Ask Hermes again for a new link.")
-    except Exception as error:
-        log("binding_check_failed", error)
-        return unavailable()
+    if not bound(key, session, binding, now):
+        return page(403, "Invalid link", "Ask Hermes again for a new link.")
     return {
         "statusCode": 302,
         "headers": {**HEADERS, "location": url},
@@ -196,7 +179,9 @@ def sign_in(cognito, config: dict, password: str, session: str) -> dict | None:
     return None
 
 
-def callback(event: dict, agentcore, cognito, kms, config: dict, method: str, now: int):
+def callback(
+    event: dict, agentcore, cognito, key: bytes, config: dict, method: str, now: int
+):
     if method == "GET":
         session = fields(event.get("rawQueryString") or "").get("session_id", "")
     else:
@@ -207,16 +192,12 @@ def callback(event: dict, agentcore, cognito, kms, config: dict, method: str, no
             session = ""
     if not valid_session(session):
         return page(400, "Missing session", "Open the authorization link again.")
-    try:
-        if not bound(kms, config, session, request_cookie(event), now):
-            return page(
-                403,
-                "Link expired or wrong browser",
-                "Ask Hermes for a new link and open it in this browser.",
-            )
-    except Exception as error:
-        log("binding_check_failed", error)
-        return unavailable()
+    if not bound(key, session, request_cookie(event), now):
+        return page(
+            403,
+            "Link expired or wrong browser",
+            "Ask Hermes for a new link and open it in this browser.",
+        )
     if method == "GET":
         return page(200, "Approve access", "Enter the owner password.", session)
     failed = sign_in(cognito, config, password, session)
@@ -250,33 +231,47 @@ def callback(event: dict, agentcore, cognito, kms, config: dict, method: str, no
     )
 
 
-def handle(event: dict, agentcore, cognito, kms, config: dict) -> dict:
+def handle(event: dict, agentcore, cognito, key: bytes, config: dict) -> dict:
     path = event.get("rawPath")
     method = event.get("requestContext", {}).get("http", {}).get("method")
     now = int(time.time())
     if path == "/start" and method == "GET":
-        return start(event, kms, config, now)
+        return start(event, key, config, now)
     if path == "/callback" and method in ("GET", "POST"):
-        return callback(event, agentcore, cognito, kms, config, method, now)
+        return callback(event, agentcore, cognito, key, config, method, now)
     if path in ("/start", "/callback"):
         return page(405, "Not allowed", "Open the authorization link again.")
     return page(404, "Not found", "This page does not exist.")
 
 
+KEY: list[bytes] = []
+
+
 def handler(event, context):
     import boto3
 
+    if not KEY:
+        try:
+            KEY.append(
+                boto3.client("ssm")
+                .get_parameter(
+                    Name=os.environ["LINK_KEY_PARAMETER"], WithDecryption=True
+                )["Parameter"]["Value"]
+                .encode()
+            )
+        except Exception as error:
+            log("link_key_read_failed", error)
+            return unavailable()
     return handle(
         event,
         boto3.client("bedrock-agentcore"),
         boto3.client("cognito-idp"),
-        boto3.client("kms"),
+        KEY[0],
         {
             "user_pool_id": os.environ["USER_POOL_ID"],
             "client_id": os.environ["CLIENT_ID"],
             "username": os.environ["USERNAME"],
             "user_id": os.environ["USER_ID"],
-            "mac_key_id": os.environ["MAC_KEY_ID"],
             "region": os.environ["AWS_REGION"],
         },
     )

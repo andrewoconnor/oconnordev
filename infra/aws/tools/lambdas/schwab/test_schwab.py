@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import hmac
 import io
 import json
 import unittest
@@ -13,7 +16,6 @@ ENV = {
     "PROVIDER_NAME": "hermes-schwab",
     "RETURN_URL": "https://callback.example/callback",
     "START_URL": "https://callback.example/start",
-    "MAC_KEY_ID": "arn:aws:kms:us-east-1:421680664125:key/mac",
 }
 SESSION = "urn:ietf:params:oauth:request_uri:abc"
 AUTHORIZE = "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/authorize?request_uri=x"
@@ -21,17 +23,20 @@ PENDING = {"authorizationUrl": AUTHORIZE, "sessionUri": SESSION}
 LINK = (
     "https://callback.example/start?session_id=urn%3Aietf%3Aparams%3Aoauth%3A"
     "request_uri%3Aabc&url=https%3A%2F%2Fbedrock-agentcore.us-east-1.amazonaws.com"
-    "%2Fidentities%2Foauth2%2Fauthorize%3Frequest_uri%3Dx&binding=1800000600.bWFj"
+    "%2Fidentities%2Foauth2%2Fauthorize%3Frequest_uri%3Dx&binding=1800000600."
+)
+MAC = hmac.digest(
+    b"k" * 64, b"schwab-consent:1800000600:" + SESSION.encode(), hashlib.sha256
 )
 
 
-class Kms:
+class Key:
     def __init__(self):
-        self.calls = []
+        self.calls = 0
 
-    def generate_mac(self, **kwargs):
-        self.calls.append(kwargs)
-        return {"Mac": b"mac"}
+    def __call__(self):
+        self.calls += 1
+        return b"k" * 64
 
 
 class AgentCore:
@@ -72,10 +77,10 @@ class Opener:
         return Response(self.body)
 
 
-def call(tool, arguments, agentcore, opener, kms=None):
+def call(tool, arguments, agentcore, opener, key=None):
     with mock.patch("schwab.time.time", return_value=1_800_000_000.5):
         return schwab.handle(
-            arguments, "schwab___" + tool, agentcore, kms or Kms(), ENV, opener
+            arguments, "schwab___" + tool, agentcore, key or Key(), ENV, opener
         )
 
 
@@ -139,27 +144,24 @@ class SchwabTests(unittest.TestCase):
             ({"symbols": "X", "accountHash": "Y"}, "schwab___getQuotes"),
         ]:
             agentcore, opener = AgentCore(), Opener()
-            result = schwab.handle(arguments, name, agentcore, Kms(), ENV, opener)
+            result = schwab.handle(arguments, name, agentcore, Key(), ENV, opener)
             self.assertTrue(result["isError"])
             self.assertEqual((agentcore.calls, opener.requests), ([], []))
 
     def test_missing_token_returns_a_signed_start_link(self):
-        opener, kms = Opener(), Kms()
-        result = call("getAccountNumbers", {}, AgentCore(PENDING), opener, kms)
+        opener, key = Opener(), Key()
+        result = call("getAccountNumbers", {}, AgentCore(PENDING), opener, key)
         self.assertTrue(result["isError"])
-        self.assertIn(LINK, result["content"][0]["text"])
+        mac = base64.urlsafe_b64encode(MAC).decode().rstrip("=")
+        self.assertIn(LINK + mac, result["content"][0]["text"])
         self.assertNotIn(AUTHORIZE, result["content"][0]["text"])
         self.assertEqual(opener.requests, [])
-        self.assertEqual(
-            kms.calls,
-            [
-                {
-                    "KeyId": ENV["MAC_KEY_ID"],
-                    "MacAlgorithm": "HMAC_SHA_256",
-                    "Message": b"schwab-consent:1800000600:" + SESSION.encode(),
-                }
-            ],
-        )
+        self.assertEqual(key.calls, 1)
+
+    def test_valid_token_does_not_read_the_link_key(self):
+        key = Key()
+        call("listAccounts", {}, AgentCore({"accessToken": "t"}), Opener(), key)
+        self.assertEqual(key.calls, 0)
 
     def test_consent_without_a_session_returns_no_link(self):
         result = call(

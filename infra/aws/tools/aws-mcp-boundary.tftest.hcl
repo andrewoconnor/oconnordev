@@ -393,7 +393,7 @@ run "schwab_is_read_only_with_owner_consent_in_agentcore_identity" {
   }
 
   assert {
-    condition     = aws_lambda_function.schwab.environment[0].variables.START_URL == "${aws_lambda_function_url.oauth_callback.function_url}start" && aws_lambda_function.schwab.environment[0].variables.MAC_KEY_ID == aws_lambda_function.oauth_callback.environment[0].variables.MAC_KEY_ID
+    condition     = aws_lambda_function.schwab.environment[0].variables.START_URL == "${aws_lambda_function_url.oauth_callback.function_url}start" && aws_lambda_function.schwab.environment[0].variables.LINK_KEY_PARAMETER == aws_lambda_function.oauth_callback.environment[0].variables.LINK_KEY_PARAMETER
     error_message = "Schwab consent links must start at the hosted callback and be signed with the key that the callback verifies."
   }
 
