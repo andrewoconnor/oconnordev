@@ -27,7 +27,11 @@ returns an authorization link, and the Lambda returns it to Hermes as a tool
 error. If Schwab rejects a stored token, the Lambda requests a new link with
 `forceAuthentication`. After you sign in to Schwab, AgentCore redirects to the
 hosted callback `hermes-oauth-callback` (`oauth-callback.tf`). The callback
-calls `CompleteResourceTokenAuth` with the user ID `owner`. AgentCore exchanges
+shows a password form. It checks the password of the Cognito user `owner` in the
+`hermes-mcp-m2m` user pool with `AdminInitiateAuth` through its own app client
+`hermes-oauth-callback`. Only after that check does it call
+`CompleteResourceTokenAuth` with the user ID `owner`. Anyone else who opens the
+link cannot complete it. AgentCore exchanges
 the code with the callback's credentials, so the callback role can read the app
 secret. The callback never sees Schwab tokens. The `hermes-schwab` workload identity allows only this callback
 as a return URL. A link is valid for 10 minutes.
@@ -43,7 +47,18 @@ as a return URL. A link is valid for 10 minutes.
 4. When the app is *Ready For Use*, put its App Key in `local.schwab_app_key` in
    `target-schwab.tf`, store its Secret as `{"client_secret": "..."}` in the
    secret, and apply again.
-5. Ask Hermes for your Schwab accounts. Open the link that Hermes sends, sign in
-   to Schwab and approve. Then ask again.
+5. With credentials for the TOOLS account, set the password of the Cognito user
+   `owner`. Store it in your password manager:
+   ```sh
+   POOL=$(aws cognito-idp list-user-pools --max-results 60 \
+     --query "UserPools[?Name=='hermes-mcp-m2m'].Id" --output text)
+   read -rs PASSWORD
+   aws cognito-idp admin-set-user-password --user-pool-id "$POOL" \
+     --username owner --password "$PASSWORD" --permanent
+   unset PASSWORD
+   ```
+6. Ask Hermes for your Schwab accounts. Open the link that Hermes sends, sign in
+   to Schwab and approve. On the callback page, enter the `owner` password. Then
+   ask again.
 
-Repeat step 5 when Hermes sends a new link, about once a week.
+Repeat step 6 when Hermes sends a new link, about once a week.

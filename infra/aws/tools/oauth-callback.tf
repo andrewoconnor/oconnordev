@@ -3,6 +3,19 @@ locals {
   oauth_callback_return_url    = "${aws_lambda_function_url.oauth_callback.function_url}callback"
 }
 
+resource "aws_cognito_user" "owner" {
+  user_pool_id   = aws_cognito_user_pool.hermes.id
+  username       = local.schwab_user_id
+  message_action = "SUPPRESS"
+}
+
+resource "aws_cognito_user_pool_client" "oauth_callback" {
+  name                          = "hermes-oauth-callback"
+  user_pool_id                  = aws_cognito_user_pool.hermes.id
+  explicit_auth_flows           = ["ALLOW_ADMIN_USER_PASSWORD_AUTH"]
+  prevent_user_existence_errors = "ENABLED"
+}
+
 data "archive_file" "oauth_callback" {
   type        = "zip"
   source_dir  = "${local.repo_root}/infra/aws/tools/lambdas/oauth_callback"
@@ -34,6 +47,13 @@ data "aws_iam_policy_document" "oauth_callback" {
   }
 
   statement {
+    sid       = "VerifyOwnerPassword"
+    effect    = "Allow"
+    actions   = ["cognito-idp:AdminInitiateAuth"]
+    resources = [aws_cognito_user_pool.hermes.arn]
+  }
+
+  statement {
     sid       = "ReadSchwabOauthClientSecret"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
@@ -57,7 +77,7 @@ resource "aws_iam_role_policy" "oauth_callback" {
 resource "aws_lambda_function" "oauth_callback" {
   # checkov:skip=CKV_AWS_116:Synchronous Function URL invocations only; there is no asynchronous event to retry.
   # checkov:skip=CKV_AWS_117:The function calls the public AgentCore endpoint; a VPC would need NAT egress for no benefit.
-  # checkov:skip=CKV_AWS_173:The only environment variable is the Schwab owner user ID, not a secret.
+  # checkov:skip=CKV_AWS_173:The environment holds the owner user ID, user pool ID, app client ID and username, not secrets.
   # checkov:skip=CKV_AWS_272:Code signing is not configured for this account; archive_file builds the package and source_code_hash tracks it.
   # checkov:skip=CKV_AWS_50:A single synchronous call per consent; tracing adds no diagnostic value.
   function_name                  = local.oauth_callback_function_name
@@ -73,7 +93,10 @@ resource "aws_lambda_function" "oauth_callback" {
 
   environment {
     variables = {
-      USER_ID = local.schwab_user_id
+      USER_ID      = local.schwab_user_id
+      USER_POOL_ID = aws_cognito_user_pool.hermes.id
+      CLIENT_ID    = aws_cognito_user_pool_client.oauth_callback.id
+      USERNAME     = aws_cognito_user.owner.username
     }
   }
 
@@ -81,13 +104,13 @@ resource "aws_lambda_function" "oauth_callback" {
 }
 
 resource "aws_lambda_function_url" "oauth_callback" {
-  # checkov:skip=CKV_AWS_258:A browser redirect cannot carry AWS credentials. The function only binds AgentCore consent sessions to the Schwab owner user ID.
+  # checkov:skip=CKV_AWS_258:A browser redirect cannot carry AWS credentials. The function completes consent only after the owner's Cognito password check.
   function_name      = aws_lambda_function.oauth_callback.function_name
   authorization_type = "NONE"
 }
 
 resource "aws_lambda_permission" "oauth_callback_url" {
-  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function only binds AgentCore consent sessions to the Schwab owner user ID.
+  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function completes consent only after the owner's Cognito password check.
   statement_id           = "PublicFunctionUrl"
   action                 = "lambda:InvokeFunctionUrl"
   function_name          = aws_lambda_function.oauth_callback.function_name
@@ -96,7 +119,7 @@ resource "aws_lambda_permission" "oauth_callback_url" {
 }
 
 resource "aws_lambda_permission" "oauth_callback_invoke" {
-  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function only binds AgentCore consent sessions to the Schwab owner user ID.
+  # checkov:skip=CKV_AWS_301:The browser redirect from AgentCore is anonymous. The function completes consent only after the owner's Cognito password check.
   statement_id             = "InvokeThroughFunctionUrl"
   action                   = "lambda:InvokeFunction"
   function_name            = aws_lambda_function.oauth_callback.function_name

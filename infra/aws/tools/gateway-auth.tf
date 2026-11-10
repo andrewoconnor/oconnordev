@@ -6,6 +6,10 @@ locals {
 
 resource "aws_cognito_user_pool" "hermes" {
   name = "hermes-mcp-m2m"
+
+  admin_create_user_config {
+    allow_admin_create_user_only = true
+  }
 }
 
 resource "aws_cognito_resource_server" "hermes" {
