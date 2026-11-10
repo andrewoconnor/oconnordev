@@ -22,8 +22,9 @@ every `fmt:*` and `lint:*` task; run one directly to check a single area.
 
 `mise.toml` is the source of CLI versions: OpenTofu, TFLint, actionlint, ShellCheck,
 Python, Ruff, Biome, Node.js, Checkov, and the AWS CLI. CI installs the same
-locked tools through `jdx/mise-action`; it does not separately install Biome or Checkov or
-rely on the runner's AWS CLI. Checkov uses the Aqua standalone release, so its
+locked tools through `jdx/mise-action`; it does not separately install Biome or
+Checkov. Deploy and publish jobs are the exception: they use the runner's
+preinstalled AWS CLI and Python. Checkov uses the Aqua standalone release, so its
 bundled Python dependencies are isolated from repository application libraries.
 Keep application/library dependencies in their existing dependency files, not
 in mise. Git, Bash, and standard POSIX utilities are host prerequisites; Hermes
@@ -47,14 +48,23 @@ report new advisories for dependencies already on `master`.
 
 `dependabot-auto-merge.yml` turns on squash auto-merge for every Dependabot pull
 request, major updates included, so GitHub merges it once every required check
-passes. It skips updates to actions that pull request CI never runs: those used
-only in deploy or publish jobs, and this workflow's own actions, because
-`pull_request_target` runs the copy on `master`. Those need a manual merge. The
-workflow never checks out pull request code. It turns on auto-merge with a token
-from a dedicated GitHub App (Actions secrets `DEPENDABOT_AUTO_MERGE_CLIENT_ID` and
-`DEPENDABOT_AUTO_MERGE_PRIVATE_KEY`), because pushes caused by `GITHUB_TOKEN` do
-not start workflows, and the merge must start the deploy workflows. To stop
-automatic merges, turn off **Allow auto-merge** in the repository settings.
+passes. It runs the copy on `master` through `pull_request_target`, checks that
+every commit is a verified Dependabot commit, and never checks out pull request
+code. It signs a short-lived GitHub App token itself (Actions secrets
+`DEPENDABOT_AUTO_MERGE_CLIENT_ID` and `DEPENDABOT_AUTO_MERGE_PRIVATE_KEY`) and
+revokes it afterwards, because pushes caused by `GITHUB_TOKEN` do not start the
+deploy workflows. To stop automatic merges, turn off **Allow auto-merge** in the
+repository settings.
+
+Jobs that can get AWS credentials through OIDC or read a secret run no code that
+Dependabot updates: no actions, `actions/checkout`, `mise` or package managers.
+They fetch the tested commit with `git`, download their run's artifact with `gh`,
+and use the AWS CLI, Python and other tools preinstalled on the GitHub runner, with
+repository scripts that import only the standard library. Build and test jobs keep
+using pinned actions and `mise`, with read-only permissions and no secrets.
+`scripts/ci/tests/test_privileged_jobs.py` enforces both rules. A digest check
+proves that a deploy job received the bytes its build job produced, not that a
+compromised build action left those bytes unchanged.
 
 When adding or updating a CLI, pin its version in `mise.toml`, run `mise lock`
 to refresh `mise.lock`, and commit both files. Existing lock targets cover

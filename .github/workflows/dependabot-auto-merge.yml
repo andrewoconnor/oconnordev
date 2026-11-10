@@ -22,40 +22,39 @@ jobs:
       contents: read
       pull-requests: read
     steps:
-      - id: metadata
-        uses: dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98 # v3.1.0
-        with:
-          github-token: ${{ github.token }}
-      - id: policy
-        name: Skip actions that pull request CI never runs
+      - name: Require Dependabot-only signed commits
         env:
-          DEPENDENCY_NAMES: ${{ steps.metadata.outputs.dependency-names }}
-          UNTESTED_BEFORE_MERGE: >-
-            actions/create-github-app-token actions/download-artifact
-            aws-actions/configure-aws-credentials dependabot/fetch-metadata
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
         run: |
-          eligible=true
-          for name in $(printf '%s' "$DEPENDENCY_NAMES" | tr ',' ' '); do
-            for untested in $UNTESTED_BEFORE_MERGE; do
-              if [ "$name" = "$untested" ]; then
-                eligible=false
-                printf '%s never runs in pull request CI, so it needs a manual merge.\n' "$name" >> "$GITHUB_STEP_SUMMARY"
-              fi
-            done
-          done
-          printf 'eligible=%s\n' "$eligible" >> "$GITHUB_OUTPUT"
-      - id: app-token
-        if: steps.policy.outputs.eligible == 'true'
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
-        with:
-          client-id: ${{ secrets.DEPENDABOT_AUTO_MERGE_CLIENT_ID }}
-          private-key: ${{ secrets.DEPENDABOT_AUTO_MERGE_PRIVATE_KEY }}
-          repositories: ${{ github.event.repository.name }}
-          permission-contents: write
-          permission-pull-requests: write
+          gh api --paginate "repos/$REPOSITORY/pulls/$NUMBER/commits" | jq -es '
+            add | length > 0 and all(.author.login == "dependabot[bot]" and .commit.verification.verified)'
       - name: Merge once every required check passes
-        if: steps.policy.outputs.eligible == 'true'
         env:
-          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          CLIENT_ID: ${{ secrets.DEPENDABOT_AUTO_MERGE_CLIENT_ID }}
+          PRIVATE_KEY: ${{ secrets.DEPENDABOT_AUTO_MERGE_PRIVATE_KEY }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          api() { curl -fsS -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $1" "${@:2}"; }
+          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          key=$(mktemp)
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$key"
+          now=$(date +%s)
+          header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+          claims=$(jq -cn --arg iss "$CLIENT_ID" --argjson now "$now" '{iat: ($now - 60), exp: ($now + 540), iss: $iss}' | b64url)
+          signature=$(printf '%s.%s' "$header" "$claims" | openssl dgst -sha256 -sign "$key" -binary | b64url)
+          jwt="$header.$claims.$signature"
+          echo "::add-mask::$jwt"
+          installation=$(api "$jwt" "https://api.github.com/repos/$REPOSITORY/installation" | jq -er .id)
+          request=$(jq -cn --arg repo "$REPOSITORY_NAME" \
+            '{repositories: [$repo], permissions: {contents: "write", pull_requests: "write"}}')
+          token=$(api "$jwt" -X POST -d "$request" \
+            "https://api.github.com/app/installations/$installation/access_tokens" | jq -er .token)
+          echo "::add-mask::$token"
+          trap 'api "$token" -X DELETE https://api.github.com/installation/token >/dev/null; rm -f "$key"' EXIT
+          GH_TOKEN="$token" gh pr merge --auto --squash "$PR_URL"
