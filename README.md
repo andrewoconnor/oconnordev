@@ -45,6 +45,17 @@ scope. It reads the dependency graph, which parses the npm, Cargo, pip and
 workflow files. It only checks what a pull request changes; Dependabot alerts
 report new advisories for dependencies already on `master`.
 
+`dependabot-auto-merge.yml` turns on squash auto-merge for every Dependabot pull
+request, major updates included, so GitHub merges it once every required check
+passes. It skips updates to actions that pull request CI never runs: those used
+only in deploy or publish jobs, and this workflow's own actions, because
+`pull_request_target` runs the copy on `master`. Those need a manual merge. The
+workflow never checks out pull request code. It turns on auto-merge with a token
+from a dedicated GitHub App (Actions secrets `DEPENDABOT_AUTO_MERGE_CLIENT_ID` and
+`DEPENDABOT_AUTO_MERGE_PRIVATE_KEY`), because pushes caused by `GITHUB_TOKEN` do
+not start workflows, and the merge must start the deploy workflows. To stop
+automatic merges, turn off **Allow auto-merge** in the repository settings.
+
 When adding or updating a CLI, pin its version in `mise.toml`, run `mise lock`
 to refresh `mise.lock`, and commit both files. Existing lock targets cover
 Linux x64 and macOS x64/arm64; Checkov's macOS arm64 release uses Rosetta.
