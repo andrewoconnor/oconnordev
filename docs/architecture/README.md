@@ -1,5 +1,55 @@
 # Architecture
 
+## Threat model
+
+These principals have less trust than the owner:
+
+- A process that can write to the adapter's stdin.
+- Authors of remote MCP tool descriptions and provider content, such as mail,
+  calendar events and GitHub data.
+- An anonymous browser that calls the OAuth callback URL.
+- A contributor who controls pull request code, workflow inputs or build files.
+- Public visitors to the static sites.
+
+The protected assets are Cognito and OAuth tokens, provider passwords and API
+keys, private mail and financial records, cloud read access, GitHub write
+access, the site deploy roles, the integrity of released site bytes and tool
+images, and owner approval of tool calls.
+
+### Adapter
+
+`hermes_agentcore_adapter.py` reads newline-delimited JSON-RPC from stdin. It
+forwards only `initialize`, `notifications/initialized`, `tools/list`,
+`tools/call` and `ping`. A `tools/call` name must belong to exactly one target
+in the adapter manifests. The adapter rejects a tool name that two targets
+claim. It limits a stdin line to 1 MiB and a gateway response to 2 MiB. It sends
+requests only over HTTPS on port 443, to `mcp.oconnor.dev` or an AgentCore
+gateway host at `/mcp` and to a Cognito domain at `/oauth2/token`.
+
+### Provider content
+
+Tool descriptions and provider responses reach the model as untrusted input.
+After a session reads mail or calendar data, the
+[mail guard](../runbooks/hermes-mail-guard.md) requires owner approval for every
+tool that is not a read tool.
+
+### OAuth callback
+
+`oauth-callback.tf` exposes the callback Lambda through a Function URL with no
+authentication and a reserved concurrency of 1. On `/callback`, the Lambda
+accepts a `session_id` of at most 2048 characters and calls
+`CompleteResourceTokenAuth` with the fixed Schwab owner user ID. The Lambda has
+no state check of its own. AgentCore owns the binding between the session and
+the consent that the owner started.
+
+### Static sites
+
+Each site bucket blocks public access. Its bucket policy allows CloudFront to
+read objects only when `AWS:SourceArn` matches the site's distribution.
+CloudFront redirects HTTP to HTTPS and sets HSTS, CSP and Permissions-Policy.
+See [static-site headers](../static-site-security-headers.md) and
+[GitHub Actions site deployment](#github-actions-site-deployment).
+
 ## Account and stack boundaries
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to OpenTofu data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
