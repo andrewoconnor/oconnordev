@@ -21,7 +21,7 @@ PENDING = {"authorizationUrl": AUTHORIZE, "sessionUri": SESSION}
 LINK = (
     "https://callback.example/start?session_id=urn%3Aietf%3Aparams%3Aoauth%3A"
     "request_uri%3Aabc&url=https%3A%2F%2Fbedrock-agentcore.us-east-1.amazonaws.com"
-    "%2Fidentities%2Foauth2%2Fauthorize%3Frequest_uri%3Dx&mac=bWFj"
+    "%2Fidentities%2Foauth2%2Fauthorize%3Frequest_uri%3Dx&binding=1800000600.bWFj"
 )
 
 
@@ -73,9 +73,10 @@ class Opener:
 
 
 def call(tool, arguments, agentcore, opener, kms=None):
-    return schwab.handle(
-        arguments, "schwab___" + tool, agentcore, kms or Kms(), ENV, opener
-    )
+    with mock.patch("schwab.time.time", return_value=1_800_000_000.5):
+        return schwab.handle(
+            arguments, "schwab___" + tool, agentcore, kms or Kms(), ENV, opener
+        )
 
 
 class SchwabTests(unittest.TestCase):
@@ -155,7 +156,7 @@ class SchwabTests(unittest.TestCase):
                 {
                     "KeyId": ENV["MAC_KEY_ID"],
                     "MacAlgorithm": "HMAC_SHA_256",
-                    "Message": b"schwab-consent:" + SESSION.encode(),
+                    "Message": b"schwab-consent:1800000600:" + SESSION.encode(),
                 }
             ],
         )

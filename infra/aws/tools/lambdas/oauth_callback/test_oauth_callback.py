@@ -11,7 +11,10 @@ AUTHORIZE = (
     "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/authorize"
     "?request_uri=abc-123"
 )
-MAC = "Z29vZA"
+NOW = 1_800_000_000
+EXPIRES = NOW + 600
+MAC = f"{EXPIRES}.Z29vZA"
+MESSAGE = f"schwab-consent:{EXPIRES}:{SESSION}".encode()
 CONFIG = {
     "user_pool_id": "us-east-1_pool",
     "client_id": "client",
@@ -89,24 +92,22 @@ def post(fields, encode=False, cookie=MAC):
     }
 
 
-def run(event, agentcore=None, cognito=None, kms=None):
+def run(event, agentcore=None, cognito=None, kms=None, now=NOW):
     agentcore, cognito, kms = (
         agentcore or AgentCore(),
         cognito or Cognito(),
         kms or Kms(),
     )
-    return (
-        oauth_callback.handle(event, agentcore, cognito, kms, CONFIG),
-        agentcore,
-        cognito,
-    )
+    with mock.patch("oauth_callback.time.time", return_value=now + 0.5):
+        response = oauth_callback.handle(event, agentcore, cognito, kms, CONFIG)
+    return response, agentcore, cognito
 
 
 class StartTests(unittest.TestCase):
     def test_signed_link_sets_binding_cookie_and_redirects(self):
         kms = Kms()
         response, _, _ = run(
-            get("/start", query(session_id=SESSION, url=AUTHORIZE, mac=MAC), None),
+            get("/start", query(session_id=SESSION, url=AUTHORIZE, binding=MAC), None),
             kms=kms,
         )
         self.assertEqual(response["statusCode"], 302)
@@ -124,7 +125,7 @@ class StartTests(unittest.TestCase):
                 {
                     "KeyId": "key",
                     "MacAlgorithm": "HMAC_SHA_256",
-                    "Message": b"schwab-consent:" + SESSION.encode(),
+                    "Message": MESSAGE,
                     "Mac": b"good",
                 }
             ],
@@ -132,13 +133,13 @@ class StartTests(unittest.TestCase):
 
     def test_rejects_unsigned_links_and_other_redirects(self):
         for raw, status in [
-            (query(session_id=SESSION, url=AUTHORIZE, mac="YmFk"), 403),
+            (query(session_id=SESSION, url=AUTHORIZE, binding=f"{EXPIRES}.YmFk"), 403),
             (query(session_id=SESSION, url=AUTHORIZE), 403),
             (
                 query(
                     session_id=SESSION,
                     url="https://evil.example/identities/oauth2/authorize",
-                    mac=MAC,
+                    binding=MAC,
                 ),
                 400,
             ),
@@ -146,26 +147,57 @@ class StartTests(unittest.TestCase):
                 query(
                     session_id=SESSION,
                     url=AUTHORIZE.replace("us-east-1", "us-west-2"),
-                    mac=MAC,
+                    binding=MAC,
                 ),
                 400,
             ),
             (
                 query(
-                    session_id=SESSION, url=AUTHORIZE.replace("https", "http"), mac=MAC
+                    session_id=SESSION,
+                    url=AUTHORIZE.replace("https", "http"),
+                    binding=MAC,
                 ),
                 400,
             ),
-            (query(session_id="urn:s", url=AUTHORIZE, mac=MAC), 400),
-            (query(session_id=SESSION, url=AUTHORIZE, mac=MAC) + "&mac=x", 403),
+            (query(session_id="urn:s", url=AUTHORIZE, binding=MAC), 400),
+            (query(session_id=SESSION, url=AUTHORIZE, binding=MAC) + "&binding=x", 403),
         ]:
             response, _, _ = run(get("/start", raw, None))
             self.assertEqual(response["statusCode"], status, raw)
             self.assertNotIn("cookies", response)
 
+    def test_expired_or_far_future_links_set_no_cookie_and_skip_kms(self):
+        for binding, now in [
+            (MAC, EXPIRES),
+            (MAC, EXPIRES + 3600),
+            (MAC, NOW - 1),
+            (f"{NOW + 10**6}.Z29vZA", NOW),
+            ("Z29vZA", NOW),
+        ]:
+            kms = Kms()
+            response, _, _ = run(
+                get(
+                    "/start",
+                    query(session_id=SESSION, url=AUTHORIZE, binding=binding),
+                    None,
+                ),
+                kms=kms,
+                now=now,
+            )
+            self.assertEqual(response["statusCode"], 403, (binding, now))
+            self.assertNotIn("cookies", response)
+            self.assertEqual(kms.calls, [])
+
+    def test_cookie_lasts_only_until_the_signed_expiry(self):
+        response, _, _ = run(
+            get("/start", query(session_id=SESSION, url=AUTHORIZE, binding=MAC), None),
+            now=NOW + 100,
+        )
+        self.assertIn("Max-Age=500;", response["cookies"][0])
+
     def test_kms_failure_is_unavailable(self):
         for event in (
-            get("/start", query(session_id=SESSION, url=AUTHORIZE, mac=MAC), None),
+            get("/start", query(session_id=SESSION, url=AUTHORIZE, binding=MAC), None),
             get(raw=query(session_id=SESSION)),
         ):
             with mock.patch("builtins.print"):
@@ -189,13 +221,23 @@ class CallbackTests(unittest.TestCase):
     def test_browser_without_binding_cookie_is_rejected_before_sign_in(self):
         for event in (
             get(raw=query(session_id=SESSION), cookie=None),
-            get(raw=query(session_id=SESSION), cookie="YmFk"),
+            get(raw=query(session_id=SESSION), cookie=f"{EXPIRES}.YmFk"),
             post({"session_id": SESSION, "password": "pw"}, cookie=None),
-            post({"session_id": SESSION, "password": "pw"}, cookie="YmFk"),
+            post({"session_id": SESSION, "password": "pw"}, cookie=f"{EXPIRES}.YmFk"),
         ):
             response, agentcore, cognito = run(event)
             self.assertEqual(response["statusCode"], 403)
             self.assertEqual((agentcore.calls, cognito.calls), ([], []))
+
+    def test_expired_cookie_never_reaches_kms_or_cognito(self):
+        for event in (
+            get(raw=query(session_id=SESSION)),
+            post({"session_id": SESSION, "password": "pw"}),
+        ):
+            kms = Kms()
+            response, agentcore, cognito = run(event, kms=kms, now=EXPIRES)
+            self.assertEqual(response["statusCode"], 403)
+            self.assertEqual((kms.calls, cognito.calls, agentcore.calls), ([], [], []))
 
     def test_owner_password_completes_session_and_clears_cookie(self):
         for encode in (False, True):

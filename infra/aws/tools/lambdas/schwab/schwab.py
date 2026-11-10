@@ -4,6 +4,7 @@ import base64
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -18,6 +19,7 @@ TOOLS = {
 }
 PATH_VALUE = re.compile(r"[A-Za-z0-9_-]{1,128}")
 MAC_PREFIX = b"schwab-consent:"
+LINK_SECONDS = 600
 
 
 def failure(text: str) -> dict:
@@ -48,15 +50,16 @@ def consent_link(kms, env: dict, response: dict) -> str:
     url, session = response.get("authorizationUrl"), response.get("sessionUri")
     if not url or not session:
         return ""
+    expires = int(time.time()) + LINK_SECONDS
     mac = kms.generate_mac(
         KeyId=env["MAC_KEY_ID"],
         MacAlgorithm="HMAC_SHA_256",
-        Message=MAC_PREFIX + session.encode(),
+        Message=MAC_PREFIX + f"{expires}:{session}".encode(),
     )["Mac"]
     query = {
         "session_id": session,
         "url": url,
-        "mac": base64.urlsafe_b64encode(mac).decode().rstrip("="),
+        "binding": f"{expires}.{base64.urlsafe_b64encode(mac).decode().rstrip('=')}",
     }
     return f"{env['START_URL']}?{urllib.parse.urlencode(query)}"
 
