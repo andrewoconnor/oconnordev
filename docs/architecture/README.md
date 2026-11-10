@@ -37,13 +37,11 @@ tool that is not a read tool.
 
 `oauth-callback.tf` exposes the callback Lambda through a Function URL with no
 authentication and a reserved concurrency of 1. On `/callback`, the Lambda
-accepts a `session_id` of at most 2048 characters and calls
-`CompleteResourceTokenAuth` with the fixed user ID `owner`. AgentCore binds
+accepts a `session_id` and shows a password form. It checks the password of the
+Cognito user `owner` with `AdminInitiateAuth`. Only after that check does it
+call `CompleteResourceTokenAuth` with the fixed user ID `owner`. AgentCore binds
 each session to the user ID that requested it, and each link is valid for 10
-minutes. The callback does not check whose browser makes the request. Anyone
-who opens an unused link in that time can approve it with their own Schwab
-account. Hermes then reads that account as the owner's account. That person gets
-no access to the owner's Schwab data.
+minutes. See the [Schwab runbook](../runbooks/schwab-mcp.md).
 
 ### Static sites
 
