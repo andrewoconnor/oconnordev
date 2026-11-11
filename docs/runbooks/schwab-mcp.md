@@ -23,11 +23,28 @@ bearer token and `Accept: application/json`, because Schwab rejects GETs that
 have `Content-Type: application/json`.
 
 Schwab refresh tokens expire seven days after consent. Then AgentCore Identity
-returns an authorization link, and the Lambda returns it to Hermes as a tool
-error. If Schwab rejects a stored token, the Lambda requests a new link with
-`forceAuthentication`. After you sign in to Schwab, AgentCore redirects to the
-hosted callback `hermes-oauth-callback` (`oauth-callback.tf`). The callback
-calls `CompleteResourceTokenAuth` with the user ID `owner`. AgentCore exchanges
+returns an authorization URL and a session URI. If Schwab rejects a stored
+token, the Lambda requests them again with `forceAuthentication`. The Lambda
+signs the session URI and an expiry time 10 minutes later with HMAC-SHA256. The
+key is the SecureString parameter `/hermes/oauth-callback/consent-link-key`,
+which `oauth-callback.tf` fills with a random value that never enters OpenTofu
+state. The Lambda returns a link to `/start` on the hosted callback
+`hermes-oauth-callback` to Hermes as a tool error.
+
+1. `/start` checks the expiry and the signature. It sets a `__Host-consent`
+   cookie with both, which expires at the same time, and redirects to the
+   AgentCore authorization URL.
+2. After you sign in to Schwab, AgentCore redirects to `/callback`. The callback
+   checks the expiry and the signature in the cookie against the session URI, so
+   it accepts only the browser that opened the link, and only until the link
+   expires.
+3. The callback shows a password form. It checks the password of the Cognito
+   user `owner` in the `hermes-mcp-m2m` user pool with `AdminInitiateAuth`
+   through its own app client `hermes-oauth-callback`.
+4. Only after both checks does it call `CompleteResourceTokenAuth` with the
+   user ID `owner`.
+
+A request without a valid, unexpired cookie never reaches Cognito. AgentCore exchanges
 the code with the callback's credentials, so the callback role can read the app
 secret. The callback never sees Schwab tokens. The `hermes-schwab` workload identity allows only this callback
 as a return URL. A link is valid for 10 minutes.
@@ -43,7 +60,19 @@ as a return URL. A link is valid for 10 minutes.
 4. When the app is *Ready For Use*, put its App Key in `local.schwab_app_key` in
    `target-schwab.tf`, store its Secret as `{"client_secret": "..."}` in the
    secret, and apply again.
-5. Ask Hermes for your Schwab accounts. Open the link that Hermes sends, sign in
-   to Schwab and approve. Then ask again.
+5. With credentials for the TOOLS account, set the password of the Cognito user
+   `owner`. Generate it in your password manager. The pool requires at least 20
+   characters, with uppercase, lowercase, a number and a symbol:
+   ```sh
+   POOL=$(aws cognito-idp list-user-pools --max-results 60 \
+     --query "UserPools[?Name=='hermes-mcp-m2m'].Id" --output text)
+   read -rs PASSWORD
+   aws cognito-idp admin-set-user-password --user-pool-id "$POOL" \
+     --username owner --password "$PASSWORD" --permanent
+   unset PASSWORD
+   ```
+6. Ask Hermes for your Schwab accounts. Open the link that Hermes sends, sign in
+   to Schwab and approve. On the callback page, enter the `owner` password. Use
+   the same browser for the whole flow. Then ask again.
 
-Repeat step 5 when Hermes sends a new link, about once a week.
+Repeat step 6 when Hermes sends a new link, about once a week.

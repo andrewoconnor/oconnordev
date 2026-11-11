@@ -51,6 +51,13 @@ data "aws_iam_policy_document" "schwab" {
   }
 
   statement {
+    sid       = "ReadConsentLinkKey"
+    effect    = "Allow"
+    actions   = ["ssm:GetParameter"]
+    resources = [aws_ssm_parameter.consent_link_key.arn]
+  }
+
+  statement {
     sid       = "ReadSchwabOauthClientSecret"
     effect    = "Allow"
     actions   = ["secretsmanager:GetSecretValue"]
@@ -74,7 +81,7 @@ resource "aws_iam_role_policy" "schwab" {
 resource "aws_lambda_function" "schwab" {
   # checkov:skip=CKV_AWS_116:Synchronous gateway invocations only; there is no asynchronous event to retry.
   # checkov:skip=CKV_AWS_117:The function calls public AgentCore and Schwab endpoints; a VPC would need NAT egress for no benefit.
-  # checkov:skip=CKV_AWS_173:Environment variables hold only names, the user ID and the callback URL, not secrets.
+  # checkov:skip=CKV_AWS_173:Environment variables hold only names, the user ID, callback URLs and the key parameter name, not secrets.
   # checkov:skip=CKV_AWS_272:Code signing is not configured for this account; archive_file builds the package and source_code_hash tracks it.
   # checkov:skip=CKV_AWS_50:One token lookup and one GET per call; tracing adds no diagnostic value.
   function_name                  = local.schwab_function_name
@@ -90,10 +97,12 @@ resource "aws_lambda_function" "schwab" {
 
   environment {
     variables = {
-      WORKLOAD_NAME = aws_bedrockagentcore_workload_identity.schwab.name
-      USER_ID       = local.schwab_user_id
-      PROVIDER_NAME = aws_bedrockagentcore_oauth2_credential_provider.schwab.name
-      RETURN_URL    = local.oauth_callback_return_url
+      WORKLOAD_NAME      = aws_bedrockagentcore_workload_identity.schwab.name
+      USER_ID            = local.schwab_user_id
+      PROVIDER_NAME      = aws_bedrockagentcore_oauth2_credential_provider.schwab.name
+      RETURN_URL         = local.oauth_callback_return_url
+      START_URL          = local.oauth_callback_start_url
+      LINK_KEY_PARAMETER = aws_ssm_parameter.consent_link_key.name
     }
   }
 

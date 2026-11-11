@@ -1,3 +1,6 @@
+import base64
+import hashlib
+import hmac
 import io
 import json
 import unittest
@@ -12,8 +15,28 @@ ENV = {
     "USER_ID": "owner",
     "PROVIDER_NAME": "hermes-schwab",
     "RETURN_URL": "https://callback.example/callback",
+    "START_URL": "https://callback.example/start",
 }
-LINK = "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/authorize?request_uri=x"
+SESSION = "urn:ietf:params:oauth:request_uri:abc"
+AUTHORIZE = "https://bedrock-agentcore.us-east-1.amazonaws.com/identities/oauth2/authorize?request_uri=x"
+PENDING = {"authorizationUrl": AUTHORIZE, "sessionUri": SESSION}
+LINK = (
+    "https://callback.example/start?session_id=urn%3Aietf%3Aparams%3Aoauth%3A"
+    "request_uri%3Aabc&url=https%3A%2F%2Fbedrock-agentcore.us-east-1.amazonaws.com"
+    "%2Fidentities%2Foauth2%2Fauthorize%3Frequest_uri%3Dx&binding=1800000600."
+)
+MAC = hmac.digest(
+    b"k" * 64, b"schwab-consent:1800000600:" + SESSION.encode(), hashlib.sha256
+)
+
+
+class Key:
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self):
+        self.calls += 1
+        return b"k" * 64
 
 
 class AgentCore:
@@ -54,8 +77,11 @@ class Opener:
         return Response(self.body)
 
 
-def call(tool, arguments, agentcore, opener):
-    return schwab.handle(arguments, "schwab___" + tool, agentcore, ENV, opener)
+def call(tool, arguments, agentcore, opener, key=None):
+    with mock.patch("schwab.time.time", return_value=1_800_000_000.5):
+        return schwab.handle(
+            arguments, "schwab___" + tool, agentcore, key or Key(), ENV, opener
+        )
 
 
 class SchwabTests(unittest.TestCase):
@@ -118,21 +144,36 @@ class SchwabTests(unittest.TestCase):
             ({"symbols": "X", "accountHash": "Y"}, "schwab___getQuotes"),
         ]:
             agentcore, opener = AgentCore(), Opener()
-            result = schwab.handle(arguments, name, agentcore, ENV, opener)
+            result = schwab.handle(arguments, name, agentcore, Key(), ENV, opener)
             self.assertTrue(result["isError"])
             self.assertEqual((agentcore.calls, opener.requests), ([], []))
 
-    def test_missing_token_returns_the_consent_link(self):
-        opener = Opener()
-        result = call(
-            "getAccountNumbers", {}, AgentCore({"authorizationUrl": LINK}), opener
-        )
+    def test_missing_token_returns_a_signed_start_link(self):
+        opener, key = Opener(), Key()
+        result = call("getAccountNumbers", {}, AgentCore(PENDING), opener, key)
         self.assertTrue(result["isError"])
-        self.assertIn(LINK, result["content"][0]["text"])
+        mac = base64.urlsafe_b64encode(MAC).decode().rstrip("=")
+        self.assertIn(LINK + mac, result["content"][0]["text"])
+        self.assertNotIn(AUTHORIZE, result["content"][0]["text"])
         self.assertEqual(opener.requests, [])
+        self.assertEqual(key.calls, 1)
+
+    def test_valid_token_does_not_read_the_link_key(self):
+        key = Key()
+        call("listAccounts", {}, AgentCore({"accessToken": "t"}), Opener(), key)
+        self.assertEqual(key.calls, 0)
+
+    def test_consent_without_a_session_returns_no_link(self):
+        result = call(
+            "getAccountNumbers",
+            {},
+            AgentCore({"authorizationUrl": AUTHORIZE}),
+            Opener(),
+        )
+        self.assertIn("no consent link", result["content"][0]["text"])
 
     def test_rejected_token_forces_a_new_consent_link(self):
-        agentcore = AgentCore({"accessToken": "t"}, {"authorizationUrl": LINK})
+        agentcore = AgentCore({"accessToken": "t"}, PENDING)
         result = call(
             "listAccounts", {}, agentcore, Opener(status=401, body=b"expired")
         )
