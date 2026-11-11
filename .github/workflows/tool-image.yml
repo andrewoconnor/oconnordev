@@ -77,17 +77,34 @@ jobs:
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 15
     permissions:
+      actions: read
       contents: read
       id-token: write
     env:
+      AWS_REGION: us-east-1
       IMAGE: ${{ inputs.name }}-tested:local
       IMAGE_REPOSITORY: '421680664125.dkr.ecr.us-east-1.amazonaws.com/oconnordev-tools'
       IMAGE_TAG: ${{ inputs.name }}-${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}
+      PUBLISHER_ROLE_ARN: arn:aws:iam::421680664125:role/hermes-tools-image-publisher
+      TOOLS_ACCOUNT: "421680664125"
     steps:
-      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
-        with:
-          name: ${{ inputs.name }}-${{ github.sha }}
-          path: release
+      - name: Fetch the tested commit with git
+        env:
+          REPOSITORY: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          git init --quiet .
+          git remote add origin "https://github.com/$REPOSITORY.git"
+          git fetch --quiet --no-tags --depth 1 origin "$SHA"
+          git checkout --quiet --detach "$SHA"
+      - name: Download this run's tested image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NAME: ${{ inputs.name }}-${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: bash scripts/ci/download_run_artifact.sh release
       - name: Load the exact tested image
         env:
           EXPECTED_ARCHIVE: ${{ needs.check.outputs.archive_sha256 }}
@@ -96,15 +113,14 @@ jobs:
           printf '%s  release/image.tar\n' "$EXPECTED_ARCHIVE" | sha256sum --check --strict
           docker load --input release/image.tar
           test "$(docker image inspect --format '{{.Id}}' "$IMAGE")" = "$EXPECTED_IMAGE"
-      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
-        with:
-          role-to-assume: arn:aws:iam::421680664125:role/hermes-tools-image-publisher
-          aws-region: us-east-1
-          role-session-name: ${{ inputs.name }}-image-${{ github.run_id }}
-          role-duration-seconds: 900
-          allowed-account-ids: '421680664125'
       - name: Push tested image and read back digest
+        env:
+          INPUT_NAME: ${{ inputs.name }}
+          RUN_ID: ${{ github.run_id }}
         run: |
+          set -euo pipefail
+          source scripts/ci/aws_oidc.sh
+          assume_with_github_oidc "$PUBLISHER_ROLE_ARN" "$INPUT_NAME-image-$RUN_ID" "$TOOLS_ACCOUNT"
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "${IMAGE_REPOSITORY%%/*}"
           trap 'docker logout "${IMAGE_REPOSITORY%%/*}"' EXIT
           docker tag "$IMAGE" "$IMAGE_REPOSITORY:$IMAGE_TAG"

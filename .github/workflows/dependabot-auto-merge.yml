@@ -1,0 +1,60 @@
+name: Dependabot auto-merge
+
+on:
+  pull_request_target:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  enable:
+    name: Enable auto-merge for Dependabot
+    if: github.event.pull_request.user.login == 'dependabot[bot]' && github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Require Dependabot-only signed commits
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh api --paginate "repos/$REPOSITORY/pulls/$NUMBER/commits" | jq -es '
+            add | length > 0 and all(.author.login == "dependabot[bot]" and .commit.verification.verified)'
+      - name: Merge once every required check passes
+        env:
+          CLIENT_ID: ${{ secrets.DEPENDABOT_AUTO_MERGE_CLIENT_ID }}
+          PRIVATE_KEY: ${{ secrets.DEPENDABOT_AUTO_MERGE_PRIVATE_KEY }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          REPOSITORY: ${{ github.repository }}
+          REPOSITORY_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          api() { curl -fsS -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $1" "${@:2}"; }
+          b64url() { openssl base64 -A | tr '+/' '-_' | tr -d '='; }
+          key=$(mktemp)
+          trap 'rm -f "$key"' EXIT
+          printf '%s\n' "$PRIVATE_KEY" > "$key"
+          now=$(date +%s)
+          header=$(printf '{"alg":"RS256","typ":"JWT"}' | b64url)
+          claims=$(jq -cn --arg iss "$CLIENT_ID" --argjson now "$now" '{iat: ($now - 60), exp: ($now + 540), iss: $iss}' | b64url)
+          signature=$(printf '%s.%s' "$header" "$claims" | openssl dgst -sha256 -sign "$key" -binary | b64url)
+          jwt="$header.$claims.$signature"
+          echo "::add-mask::$jwt"
+          installation=$(api "$jwt" "https://api.github.com/repos/$REPOSITORY/installation" | jq -er .id)
+          request=$(jq -cn --arg repo "$REPOSITORY_NAME" \
+            '{repositories: [$repo], permissions: {contents: "write", pull_requests: "write"}}')
+          token=$(api "$jwt" -X POST -d "$request" \
+            "https://api.github.com/app/installations/$installation/access_tokens" | jq -er .token)
+          echo "::add-mask::$token"
+          trap 'api "$token" -X DELETE https://api.github.com/installation/token >/dev/null; rm -f "$key"' EXIT
+          GH_TOKEN="$token" gh pr merge --auto --squash "$PR_URL"

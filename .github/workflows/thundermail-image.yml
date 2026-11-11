@@ -25,6 +25,7 @@ jobs:
     name: Thundermail image
     uses: ./.github/workflows/tool-image.yml
     permissions:
+      actions: read
       contents: read
       id-token: write
     with:

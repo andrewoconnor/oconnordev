@@ -35,20 +35,21 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertEqual(shared.count("timeout-minutes:"), 2)
         self.assertIn("environment: ${{ inputs.name }}-production", deploy)
         self.assertNotIn("ref: master", shared)
-        self.assertEqual(shared.count("ref: ${{ github.sha }}"), 2)
+        self.assertIn("ref: ${{ github.sha }}", check)
+        self.assertIn("SHA: ${{ github.sha }}", deploy)
+        self.assertIn('git checkout --quiet --detach "$SHA"', deploy)
         self.assertRegex(check, r"actions/upload-artifact@[a-f0-9]{40}")
-        self.assertRegex(deploy, r"actions/download-artifact@[a-f0-9]{40}")
-        self.assertEqual(shared.count("name: ${{ inputs.name }}-${{ github.sha }}"), 2)
-        self.assertNotIn("run-id:", deploy)
-        self.assertNotIn("github-token:", deploy)
+        self.assertIn("download_run_artifact.sh release", deploy)
+        self.assertIn("RUN_ID: ${{ github.run_id }}", deploy)
+        self.assertEqual(shared.count("${{ inputs.name }}-${{ github.sha }}"), 2)
         self.assertIn("needs.check.outputs.sha256", deploy)
         self.assertLess(
             deploy.index("site_artifact.py verify"),
-            deploy.index("configure-aws-credentials@"),
+            deploy.index("assume_with_github_oidc"),
         )
         self.assertLess(
             deploy.index("site_freshness.py"),
-            deploy.index("configure-aws-credentials@"),
+            deploy.index("assume_with_github_oidc"),
         )
         self.assertIn('site_freshness.py "$SITE" "$EXPECTED_SHA"', deploy)
         self.assertIn("github.ref == 'refs/heads/master'", deploy)
@@ -68,7 +69,8 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         accounts = json.loads((ROOT / "infra/aws/accounts.json").read_text())
         self.assertEqual(
             re.findall(
-                r'allowed-account-ids: "([0-9]+)"', read(".github/workflows/site.yml")
+                r'(?:TOOLS|PRODUCTION)_ACCOUNT: "([0-9]+)"',
+                read(".github/workflows/site.yml"),
             ),
             [accounts["TOOLS"], accounts["PRODUCTION"]],
         )

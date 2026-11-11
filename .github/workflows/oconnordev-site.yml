@@ -31,6 +31,7 @@ jobs:
   oconnordev:
     uses: ./.github/workflows/site.yml
     permissions:
+      actions: read
       contents: read
       id-token: write
     with:

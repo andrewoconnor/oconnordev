@@ -33,6 +33,7 @@ jobs:
   drumrollworld:
     uses: ./.github/workflows/site.yml
     permissions:
+      actions: read
       contents: read
       id-token: write
     with:
