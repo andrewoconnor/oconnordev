@@ -16,7 +16,8 @@ pinned Actions artifact containing the tested public bytes. Deployment downloads
 that same-run artifact by SHA-qualified name, verifies the check job's SHA256
 before extraction and AWS credentials, and never rebuilds or checks out moving
 `master`. Both jobs have bounded timeouts. Pre-credential app-scoped freshness validation compares tested inputs with
-fetched master. If a newer master commit changed those inputs, the job skips the
+fetched master, and fails unless master contains the tested commit. If a newer
+master commit changed those inputs, the job skips the
 deploy with a notice and succeeds, because that newer commit's own run deploys;
 docs/infrastructure-only successors keep the tested artifact. A test checks that
 every watched input is also in the site's push path filter. Concurrency serializes each site's runs

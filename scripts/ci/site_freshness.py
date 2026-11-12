@@ -45,11 +45,11 @@ def verify(site, tested):
     git("cat-file", "-e", f"{tested}^{{commit}}")
     git("fetch", "--no-tags", "origin", "+refs/heads/master:refs/ci/site-master")
     master = git("rev-parse", "refs/ci/site-master^{commit}")
+    git("merge-base", "--is-ancestor", tested, master)
     changed = git("diff", "--name-only", tested, master, "--", *inputs)
     if not changed:
         print(f"Tested {tested}: {site} deployment inputs match master {master}")
         return True
-    git("merge-base", "--is-ancestor", tested, master)
     print(
         f"::notice title=Skipped {site} deploy::Skipped: newer master commit "
         f"{master} changes {site} deployment inputs and will deploy:\n{changed}"
