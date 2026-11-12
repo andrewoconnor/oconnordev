@@ -52,6 +52,9 @@ class StaticSiteDeploymentTests(unittest.TestCase):
             deploy.index("assume_with_github_oidc"),
         )
         self.assertIn('site_freshness.py "$SITE" "$EXPECTED_SHA"', deploy)
+        gated = deploy.split("id: fresh", 1)[1]
+        self.assertEqual(gated.count("      - name:"), 2)
+        self.assertEqual(gated.count("if: steps.fresh.outputs.deploy == 'true'"), 2)
         self.assertIn("github.ref == 'refs/heads/master'", deploy)
         self.assertNotIn("pull_request_target:", shared)
         self.assertNotIn("mise run build:", deploy)
