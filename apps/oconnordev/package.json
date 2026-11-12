@@ -8,7 +8,7 @@
     "test:frontend": "node --test frontend.test.js"
   },
   "devDependencies": {
-    "pdfjs-dist": "6.4.299",
+    "pdfjs-dist": "6.5.438",
     "playwright": "1.65.0"
   }
 }
