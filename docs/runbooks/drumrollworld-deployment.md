@@ -16,8 +16,11 @@ pinned Actions artifact containing the tested public bytes. Deployment downloads
 that same-run artifact by SHA-qualified name, verifies the check job's SHA256
 before extraction and AWS credentials, and never rebuilds or checks out moving
 `master`. Both jobs have bounded timeouts. Pre-credential app-scoped freshness validation compares tested inputs with
-fetched master and rejects relevant changes; docs/infrastructure-only successors
-can retain the tested artifact. Concurrency serializes each site's runs
+fetched master, and fails unless master contains the tested commit. If a newer
+master commit changed those inputs, the job skips the
+deploy with a notice and succeeds, because that newer commit's own run deploys;
+docs/infrastructure-only successors keep the tested artifact. A test checks that
+every watched input is also in the site's push path filter. Concurrency serializes each site's runs
 without cancelling an active publication. A newer merge during publication is
 handled by the next run. S3 publication is not an atomic release switch.
 
@@ -261,6 +264,6 @@ an applied role, published app, completed invalidation, or working browser UI.
 
 Revert app code on `master` and let the same pipeline publish it; alternatively,
 dispatch a reviewed restoration committed to `master`. The workflow deploys only its tested bytes after app-scoped current-master
-freshness validation; changed release inputs reject a stale run rather than
+freshness validation; changed release inputs skip a stale run rather than
 rebuilding untested bytes. S3 versioning exists, but restoring individual object versions is a separate approved live operation. Disable the site workflow to
 halt automation without deleting its bucket, distribution or image assets.

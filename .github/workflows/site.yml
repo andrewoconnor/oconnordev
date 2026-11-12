@@ -107,12 +107,14 @@ jobs:
           EXPECTED_DIGEST: ${{ needs.check.outputs.sha256 }}
           SITE: ${{ inputs.name }}
         run: python3 scripts/ci/site_artifact.py verify release/release.tar "$EXPECTED_DIGEST" "apps/$SITE/dist"
-      - name: Reject stale master before AWS credentials
+      - name: Skip stale master before AWS credentials
+        id: fresh
         env:
           EXPECTED_SHA: ${{ github.sha }}
           SITE: ${{ inputs.name }}
         run: python3 scripts/ci/site_freshness.py "$SITE" "$EXPECTED_SHA"
       - name: Require deployment configuration
+        if: steps.fresh.outputs.deploy == 'true'
         env:
           BROKER_ROLE_ARN: ${{ inputs.broker_role_arn }}
           DEPLOY_ROLE_ARN: ${{ inputs.deploy_role_arn }}
@@ -122,6 +124,7 @@ jobs:
           test -n "$DEPLOY_ROLE_ARN"
           test -n "$DISTRIBUTION_ID"
       - name: Publish through the TOOLS broker and PRODUCTION deploy role
+        if: steps.fresh.outputs.deploy == 'true'
         env:
           BROKER_ROLE_ARN: ${{ inputs.broker_role_arn }}
           DEPLOY_ROLE_ARN: ${{ inputs.deploy_role_arn }}
