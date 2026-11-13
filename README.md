@@ -62,7 +62,17 @@ They fetch the tested commit with `git`, download their run's artifact with `gh`
 and use the AWS CLI, Python and other tools preinstalled on the GitHub runner, with
 repository scripts that import only the standard library. Build and test jobs keep
 using pinned actions and `mise`, with read-only permissions and no secrets.
-`scripts/ci/tests/test_privileged_jobs.py` enforces both rules. A digest check
+`scripts/ci/tests/test_privileged_jobs.py` enforces both rules.
+
+After every real site deploy, the read-only `verify` job checks production: it
+compares every live file with the tested artifact by SHA-256, checks the cache
+and security headers against `publish_site.sh` and the OpenTofu configuration,
+and checks that unknown paths return HTTP 404 with the real 404 page. The
+CloudFront invalidation is asynchronous, so it repeats the whole comparison for
+up to 10 minutes until every file matches. It then loads the site in Chromium
+with no page errors or CSP violations. If it fails, the `alert` job opens or updates an issue
+assigned to the repository owner. GitHub only emails a failed run to whoever
+started it, and auto-merged runs are started by the auto-merge App. A digest check
 proves that a deploy job received the bytes its build job produced, not that a
 compromised build action left those bytes unchanged.
 

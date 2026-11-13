@@ -36,8 +36,10 @@ jobs:
       actions: read
       contents: read
       id-token: write
+      issues: write
     with:
       name: drumrollworld
       broker_role_arn: ${{ vars.DRUMROLLWORLD_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
       deploy_role_arn: ${{ vars.DRUMROLLWORLD_SITE_DEPLOY_ROLE_ARN }}
       distribution_id: ${{ vars.DRUMROLLWORLD_CLOUDFRONT_DISTRIBUTION_ID }}
+      url: https://drumroll.world
