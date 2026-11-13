@@ -66,17 +66,21 @@ class LiveCheckWorkflowTests(unittest.TestCase):
 
 
 class LiveCheckHttpTests(unittest.TestCase):
-    def serve(self, files, headers, missing=None):
+    RELEASE = {"index.html": b"<html>new</html>", "404.html": b"missing", "a.css": b"x"}
+
+    def serve(self, live, headers, missing_body, missing_status, stale):
+        requests = {"a.css": 0}
+
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
                 key = self.path.lstrip("/") or "index.html"
-                body = files.get(key)
-                status = 200
+                status, body = 200, live.get(key)
+                if key == "a.css":
+                    requests["a.css"] += 1
+                    if requests["a.css"] <= stale:
+                        body = None
                 if body is None:
-                    status, body = (
-                        404,
-                        missing if missing is not None else files["404.html"],
-                    )
+                    status, body = missing_status, missing_body
                 self.send_response(status)
                 for name, value in headers.items():
                     self.send_header(name, value)
@@ -93,24 +97,32 @@ class LiveCheckHttpTests(unittest.TestCase):
         self.addCleanup(server.shutdown)
         return f"http://127.0.0.1:{server.server_address[1]}"
 
-    def check(self, live, headers=None, missing=None):
-        release = {
-            "index.html": b"<html>new</html>",
-            "404.html": b"missing",
-            "a.css": b"x",
-        }
+    def check(
+        self,
+        live=None,
+        headers=None,
+        missing_body=b"missing",
+        missing_status=404,
+        stale=0,
+        timeout=0,
+    ):
         with tempfile.TemporaryDirectory() as temp:
-            for key, body in release.items():
+            for key, body in self.RELEASE.items():
                 (Path(temp) / key).write_bytes(body)
             url = self.serve(
-                {**release, **live},
+                {**self.RELEASE, **(live or {})},
                 headers or verify_live_site.expected_headers("oconnordev"),
-                missing,
+                missing_body,
+                missing_status,
+                stale,
             )
-            verify_live_site.verify("oconnordev", url, temp)
+            verify_live_site.verify("oconnordev", url, temp, timeout, interval=0)
 
     def test_matching_release_passes(self):
-        self.check({})
+        self.check()
+
+    def test_retries_every_file_while_the_release_propagates(self):
+        self.check(stale=3, timeout=30)
 
     def test_changed_file_wrong_header_or_404_fails(self):
         wrong = {
@@ -119,8 +131,10 @@ class LiveCheckHttpTests(unittest.TestCase):
         }
         for case in (
             {"live": {"a.css": b"changed"}},
-            {"live": {}, "headers": wrong},
-            {"live": {}, "missing": b"soft 404"},
+            {"headers": wrong},
+            {"missing_body": b"wrong 404 page"},
+            {"missing_status": 200},
+            {"stale": 1000},
         ):
             with self.subTest(case=case), self.assertRaises(RuntimeError):
                 self.check(**case)

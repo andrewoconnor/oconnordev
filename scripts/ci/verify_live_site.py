@@ -63,23 +63,7 @@ def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def wait_for_release(url, index, timeout=600, interval=15):
-    deadline = time.monotonic() + timeout
-    while True:
-        status, _, body = fetch(f"{url}/")
-        if status == 200 and digest(body) == digest(index):
-            return
-        if time.monotonic() >= deadline:
-            raise RuntimeError(f"{url}/ still serves another release after {timeout}s")
-        time.sleep(interval)
-
-
-def verify(site, url, dist):
-    dist = Path(dist)
-    files = sorted(path for path in dist.rglob("*") if path.is_file())
-    if not (dist / "index.html").is_file():
-        raise ValueError("Tested release has no index.html")
-    wait_for_release(url, (dist / "index.html").read_bytes())
+def mismatches(site, url, dist, files):
     errors = []
     headers_expected = expected_headers(site)
     for path in files:
@@ -98,8 +82,20 @@ def verify(site, url, dist):
     status, _, body = fetch(f"{url}/live-check-missing-{secrets.token_hex(8)}")
     if status != 404 or body != (dist / "404.html").read_bytes():
         errors.append(f"unknown path: HTTP {status}, not the tested 404 page")
-    if errors:
-        raise RuntimeError("\n".join(errors))
+    return errors
+
+
+def verify(site, url, dist, timeout=600, interval=15):
+    dist = Path(dist)
+    files = sorted(path for path in dist.rglob("*") if path.is_file())
+    if not (dist / "index.html").is_file() or not (dist / "404.html").is_file():
+        raise ValueError("Tested release has no index.html or 404.html")
+    deadline = time.monotonic() + timeout
+    while errors := mismatches(site, url, dist, files):
+        if time.monotonic() >= deadline:
+            raise RuntimeError(f"still wrong after {timeout}s:\n" + "\n".join(errors))
+        print(f"Waiting for the release to propagate: {len(errors)} mismatches")
+        time.sleep(interval)
     print(f"{url} serves all {len(files)} tested files with the expected headers")
 
 
