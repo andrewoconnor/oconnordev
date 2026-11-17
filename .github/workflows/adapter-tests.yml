@@ -41,6 +41,14 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-opentofu-tests-
 
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            infra/aws/tools/lambdas/thundermail_mcp/target
+          key: ${{ runner.os }}-${{ runner.arch }}-thundermail-cargo-${{ hashFiles('infra/aws/tools/lambdas/thundermail_mcp/Cargo.lock', 'mise.lock') }}
+
       - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
         with:
           version: '2026.10.17'
