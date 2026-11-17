@@ -67,11 +67,13 @@ using pinned actions and `mise`, with read-only permissions and no secrets.
 After every real site deploy, the read-only `verify` job checks production: it
 compares every live file with the tested artifact by SHA-256, checks the cache
 and security headers against `publish_site.sh` and the OpenTofu configuration,
-and checks that unknown paths return HTTP 404 with the real 404 page. The
-CloudFront invalidation is asynchronous, so it repeats the whole comparison for
-up to 10 minutes until every file matches. It then loads the site in Chromium
-with no page errors or CSP violations. If it fails, the `alert` job opens or updates an issue
-assigned to the repository owner. GitHub only emails a failed run to whoever
+and checks that unknown paths and root files removed by the deploy return HTTP
+404 with the real 404 page. It does not follow redirects. The CloudFront
+invalidation is asynchronous, so it repeats the whole comparison, including
+failed requests, for up to 10 minutes until every file matches. It then loads
+the site in Chromium with no page errors or CSP violations. If the deploy or the
+check fails, the `alert` job opens or updates an issue assigned to the
+repository owner. GitHub only emails a failed run to whoever
 started it, and auto-merged runs are started by the auto-merge App. A digest check
 proves that a deploy job received the bytes its build job produced, not that a
 compromised build action left those bytes unchanged.

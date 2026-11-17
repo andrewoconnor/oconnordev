@@ -85,6 +85,7 @@ jobs:
       id-token: write
     outputs:
       deployed: ${{ steps.fresh.outputs.deploy }}
+      previous_root_keys: ${{ steps.publish.outputs.previous_root_keys }}
     env:
       AWS_REGION: us-east-1
       TOOLS_ACCOUNT: "421680664125"
@@ -129,6 +130,7 @@ jobs:
           test -n "$DEPLOY_ROLE_ARN"
           test -n "$DISTRIBUTION_ID"
       - name: Publish through the TOOLS broker and PRODUCTION deploy role
+        id: publish
         if: steps.fresh.outputs.deploy == 'true'
         env:
           BROKER_ROLE_ARN: ${{ inputs.broker_role_arn }}
@@ -141,6 +143,9 @@ jobs:
           source scripts/ci/aws_oidc.sh
           assume_with_github_oidc "$BROKER_ROLE_ARN" "$SITE-site-broker-$RUN_ID" "$TOOLS_ACCOUNT"
           assume_chained_role "$DEPLOY_ROLE_ARN" "$SITE-site-$RUN_ID" "$PRODUCTION_ACCOUNT"
+          previous=$(aws s3api list-objects-v2 --bucket "$SITE-web" --query 'Contents[].Key' --output json \
+            | jq -c '[.[]? | select(test("^(assets|images)/") | not)]')
+          printf 'previous_root_keys=%s\n' "$previous" >> "$GITHUB_OUTPUT"
           bash scripts/ci/publish_site.sh "apps/$SITE/dist" "$SITE-web"
           aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths "/*"
 
@@ -172,9 +177,10 @@ jobs:
         run: mise exec -- python scripts/ci/site_artifact.py verify release/release.tar "$EXPECTED_DIGEST" "apps/$SITE/dist"
       - name: Compare live files and headers with the tested release
         env:
+          PREVIOUS_ROOT_KEYS: ${{ needs.deploy.outputs.previous_root_keys }}
           SITE: ${{ inputs.name }}
           URL: ${{ inputs.url }}
-        run: mise exec -- python scripts/ci/verify_live_site.py "$SITE" "$URL" "apps/$SITE/dist"
+        run: mise exec -- python scripts/ci/verify_live_site.py "$SITE" "$URL" "apps/$SITE/dist" "$PREVIOUS_ROOT_KEYS"
       - name: Install the locked browser
         env:
           SITE: ${{ inputs.name }}
@@ -188,9 +194,9 @@ jobs:
         run: mise exec -- node scripts/ci/live_site_browser.cjs "$SITE" "$URL"
 
   alert:
-    name: Open an issue when the live check fails
-    if: always() && needs.verify.result == 'failure'
-    needs: verify
+    name: Open an issue when the deploy or live check fails
+    if: always() && (needs.verify.result == 'failure' || (needs.deploy.outputs.deployed == 'true' && needs.deploy.result != 'success'))
+    needs: [deploy, verify]
     timeout-minutes: 5
     runs-on: ubuntu-latest
     permissions:
@@ -209,7 +215,7 @@ jobs:
           set -euo pipefail
           title="Live site check failed: $SITE"
           body=$(printf '%s\n\n- Commit: %s\n- Site: %s\n- Run: %s\n' \
-            "The deploy finished, but the live site did not match the tested release or did not render." \
+            "The deploy failed, or the live site did not match the tested release or did not render." \
             "$SHA" "$URL" "$RUN_URL")
           existing=$(gh issue list --repo "$REPOSITORY" --state open --search "\"$title\" in:title" --json number,title \
             | jq -r --arg title "$title" '[.[] | select(.title == $title)][0].number // empty')

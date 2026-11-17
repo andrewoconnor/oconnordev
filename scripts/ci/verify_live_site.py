@@ -1,11 +1,14 @@
 """Check that the live site serves exactly the tested release with its headers."""
 
 import hashlib
+import http.client
+import json
 import re
 import secrets
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -40,35 +43,38 @@ def cache_control(key):
     return "public,max-age=0,must-revalidate"
 
 
-def fetch(url, attempts=4, delay=5):
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args):
+        return None
+
+
+OPENER = urllib.request.build_opener(NoRedirect)
+
+
+def fetch(url, key):
     request = urllib.request.Request(
-        url, headers={"User-Agent": "oconnordev-live-check"}
+        f"{url}/{urllib.parse.quote(key)}",
+        headers={"User-Agent": "oconnordev-live-check"},
     )
-    for attempt in range(1, attempts + 1):
-        try:
-            with urllib.request.urlopen(request, timeout=30) as response:
-                return response.status, response.headers, response.read()
-        except urllib.error.HTTPError as error:
-            if error.code < 500:
-                return error.code, error.headers, error.read()
-            failure = error
-        except (urllib.error.URLError, TimeoutError, ConnectionError) as error:
-            failure = error
-        if attempt < attempts:
-            time.sleep(delay * attempt)
-    raise RuntimeError(f"{url}: {failure}")
+    try:
+        with OPENER.open(request, timeout=30) as response:
+            return response.status, response.headers, response.read()
+    except urllib.error.HTTPError as error:
+        return error.code, error.headers, error.read()
+    except (OSError, http.client.HTTPException) as error:
+        return error, {}, b""
 
 
 def digest(data):
     return hashlib.sha256(data).hexdigest()
 
 
-def mismatches(site, url, dist, files):
+def mismatches(site, url, dist, files, removed):
     errors = []
     headers_expected = expected_headers(site)
     for path in files:
         key = path.relative_to(dist).as_posix()
-        status, headers, body = fetch(f"{url}/{'' if key == 'index.html' else key}")
+        status, headers, body = fetch(url, "" if key == "index.html" else key)
         if status != 200:
             errors.append(f"{key}: HTTP {status}")
             continue
@@ -79,24 +85,31 @@ def mismatches(site, url, dist, files):
         for name, value in headers_expected.items():
             if headers.get(name) != value:
                 errors.append(f"{key}: {name} {headers.get(name)!r}")
-    status, _, body = fetch(f"{url}/live-check-missing-{secrets.token_hex(8)}")
-    if status != 404 or body != (dist / "404.html").read_bytes():
-        errors.append(f"unknown path: HTTP {status}, not the tested 404 page")
+    missing = (dist / "404.html").read_bytes()
+    for key in [*removed, f"live-check-missing-{secrets.token_hex(8)}"]:
+        status, _, body = fetch(url, key)
+        if status != 404 or body != missing:
+            errors.append(f"{key}: HTTP {status}, not the tested 404 page")
     return errors
 
 
-def verify(site, url, dist, timeout=600, interval=15):
+def verify(site, url, dist, previous_root_keys="[]", timeout=600, interval=15):
     dist = Path(dist)
     files = sorted(path for path in dist.rglob("*") if path.is_file())
+    keys = {path.relative_to(dist).as_posix() for path in files}
+    removed = sorted(set(json.loads(previous_root_keys)) - keys)
     if not (dist / "index.html").is_file() or not (dist / "404.html").is_file():
         raise ValueError("Tested release has no index.html or 404.html")
     deadline = time.monotonic() + timeout
-    while errors := mismatches(site, url, dist, files):
+    while errors := mismatches(site, url, dist, files, removed):
         if time.monotonic() >= deadline:
             raise RuntimeError(f"still wrong after {timeout}s:\n" + "\n".join(errors))
         print(f"Waiting for the release to propagate: {len(errors)} mismatches")
         time.sleep(interval)
-    print(f"{url} serves all {len(files)} tested files with the expected headers")
+    print(
+        f"{url} serves all {len(files)} tested files with the expected headers"
+        f" and 404 for {len(removed)} removed files"
+    )
 
 
 if __name__ == "__main__":

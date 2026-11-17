@@ -23,7 +23,16 @@ def job(name):
 
 class LiveCheckWorkflowTests(unittest.TestCase):
     def test_deploy_reports_whether_it_deployed(self):
-        self.assertIn("deployed: ${{ steps.fresh.outputs.deploy }}", job("deploy"))
+        deploy = job("deploy")
+        self.assertIn("deployed: ${{ steps.fresh.outputs.deploy }}", deploy)
+        self.assertIn(
+            "previous_root_keys: ${{ steps.publish.outputs.previous_root_keys }}",
+            deploy,
+        )
+        self.assertLess(
+            deploy.index("list-objects-v2"), deploy.index("publish_site.sh")
+        )
+        self.assertIn('select(test("^(assets|images)/") | not)', deploy)
 
     def test_verify_runs_after_real_deploys_without_credentials(self):
         verify = job("verify")
@@ -32,12 +41,18 @@ class LiveCheckWorkflowTests(unittest.TestCase):
         self.assertRegex(verify, r"permissions:\n      contents: read\n    steps:")
         self.assertNotIn("id-token", verify)
         self.assertNotIn("secrets.", verify)
-        self.assertIn("verify_live_site.py", verify)
+        self.assertIn('"apps/$SITE/dist" "$PREVIOUS_ROOT_KEYS"', verify)
         self.assertIn("live_site_browser.cjs", verify)
 
     def test_alert_only_opens_issues_and_runs_no_actions(self):
         alert = job("alert")
-        self.assertIn("if: always() && needs.verify.result == 'failure'", alert)
+        self.assertIn(
+            "if: always() && (needs.verify.result == 'failure' || "
+            "(needs.deploy.outputs.deployed == 'true' && "
+            "needs.deploy.result != 'success'))",
+            alert,
+        )
+        self.assertIn("needs: [deploy, verify]", alert)
         self.assertRegex(alert, r"permissions:\n      issues: write\n    steps:")
         self.assertNotRegex(alert, r"\buses:")
         self.assertIn('--assignee "$OWNER"', alert)
@@ -68,15 +83,25 @@ class LiveCheckWorkflowTests(unittest.TestCase):
 class LiveCheckHttpTests(unittest.TestCase):
     RELEASE = {"index.html": b"<html>new</html>", "404.html": b"missing", "a.css": b"x"}
 
-    def serve(self, live, headers, missing_body, missing_status, stale):
+    def serve(
+        self, live, headers, missing_body, missing_status, stale, failing, redirect
+    ):
         requests = {"a.css": 0}
 
         class Handler(http.server.BaseHTTPRequestHandler):
             def do_GET(self):
                 key = self.path.lstrip("/") or "index.html"
+                if redirect and key.startswith("live-check-missing-"):
+                    self.send_response(302)
+                    self.send_header("location", "/redirected-missing")
+                    self.end_headers()
+                    return
                 status, body = 200, live.get(key)
                 if key == "a.css":
                     requests["a.css"] += 1
+                    if requests["a.css"] <= failing:
+                        self.send_error(503)
+                        return
                     if requests["a.css"] <= stale:
                         body = None
                 if body is None:
@@ -104,6 +129,9 @@ class LiveCheckHttpTests(unittest.TestCase):
         missing_body=b"missing",
         missing_status=404,
         stale=0,
+        failing=0,
+        redirect=False,
+        previous="[]",
         timeout=0,
     ):
         with tempfile.TemporaryDirectory() as temp:
@@ -115,14 +143,24 @@ class LiveCheckHttpTests(unittest.TestCase):
                 missing_body,
                 missing_status,
                 stale,
+                failing,
+                redirect,
             )
-            verify_live_site.verify("oconnordev", url, temp, timeout, interval=0)
+            verify_live_site.verify(
+                "oconnordev", url, temp, previous, timeout, interval=0
+            )
 
     def test_matching_release_passes(self):
         self.check()
 
     def test_retries_every_file_while_the_release_propagates(self):
         self.check(stale=3, timeout=30)
+
+    def test_retries_server_errors_until_the_deadline(self):
+        self.check(failing=3, timeout=30)
+
+    def test_removed_root_files_must_return_the_404_page(self):
+        self.check(previous='["index.html", "removed.html"]')
 
     def test_changed_file_wrong_header_or_404_fails(self):
         wrong = {
@@ -135,6 +173,9 @@ class LiveCheckHttpTests(unittest.TestCase):
             {"missing_body": b"wrong 404 page"},
             {"missing_status": 200},
             {"stale": 1000},
+            {"failing": 1000},
+            {"redirect": True},
+            {"live": {"removed.html": b"stale"}, "previous": '["removed.html"]'},
         ):
             with self.subTest(case=case), self.assertRaises(RuntimeError):
                 self.check(**case)
