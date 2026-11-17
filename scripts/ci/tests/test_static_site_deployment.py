@@ -27,12 +27,13 @@ class StaticSiteDeploymentTests(unittest.TestCase):
     def test_checks_once_and_deploys_exact_same_run_before_credentials(self):
         shared = read(".github/workflows/site.yml")
         check, deploy = shared.split("  deploy:", 1)
+        deploy = deploy.split("\n  verify:", 1)[0]
         self.assertIn("  check:", check)
         self.assertEqual(shared.count('mise run "build:$SITE"'), 1)
         self.assertEqual(shared.count('mise run "test:$SITE"'), 1)
         self.assertNotIn("id-token: write", check)
         self.assertIn("needs: check", deploy)
-        self.assertEqual(shared.count("timeout-minutes:"), 2)
+        self.assertEqual(shared.count("timeout-minutes:"), 4)
         self.assertIn("environment: ${{ inputs.name }}-production", deploy)
         self.assertNotIn("ref: master", shared)
         self.assertIn("ref: ${{ github.sha }}", check)
@@ -41,7 +42,7 @@ class StaticSiteDeploymentTests(unittest.TestCase):
         self.assertRegex(check, r"actions/upload-artifact@[a-f0-9]{40}")
         self.assertIn("download_run_artifact.sh release", deploy)
         self.assertIn("RUN_ID: ${{ github.run_id }}", deploy)
-        self.assertEqual(shared.count("${{ inputs.name }}-${{ github.sha }}"), 2)
+        self.assertEqual(shared.count("${{ inputs.name }}-${{ github.sha }}"), 3)
         self.assertIn("needs.check.outputs.sha256", deploy)
         self.assertLess(
             deploy.index("site_artifact.py verify"),

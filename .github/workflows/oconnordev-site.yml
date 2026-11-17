@@ -34,8 +34,10 @@ jobs:
       actions: read
       contents: read
       id-token: write
+      issues: write
     with:
       name: oconnordev
       broker_role_arn: ${{ vars.OCONNORDEV_TOOLS_GITHUB_ACTIONS_BROKER_ROLE_ARN }}
       deploy_role_arn: ${{ vars.OCONNORDEV_SITE_DEPLOY_ROLE_ARN }}
       distribution_id: ${{ vars.OCONNORDEV_CLOUDFRONT_DISTRIBUTION_ID }}
+      url: https://oconnor.dev
