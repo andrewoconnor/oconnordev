@@ -1,6 +1,6 @@
-//! Runtime-only Secrets Manager adapter. No credential-chain or endpoint overrides.
+//! Runtime-only SSM Parameter Store adapter. No credential-chain or endpoint overrides.
 use crate::{Result, SecretStore};
-use aws_sdk_secretsmanager::Client;
+use aws_sdk_ssm::{Client, types::ParameterType};
 
 pub struct AwsSecretStore {
     secret_arn: String,
@@ -26,18 +26,21 @@ impl SecretStore for AwsSecretStore {
         let output = tokio::time::timeout(
             std::time::Duration::from_secs(2),
             client
-                .get_secret_value()
-                .secret_id(&self.secret_arn)
-                .version_stage("AWSCURRENT")
+                .get_parameter()
+                .name(&self.secret_arn)
+                .with_decryption(true)
                 .send(),
         )
         .await
         .map_err(|_| "SecretStoreGet unavailable".to_string())?
         .map_err(|_| "SecretStoreGet unavailable".to_string())?;
-        if output.arn() != Some(self.secret_arn.as_str()) || output.secret_binary().is_some() {
+        let parameter = output.parameter().ok_or("SecretStoreGet unavailable")?;
+        if parameter.arn() != Some(self.secret_arn.as_str())
+            || parameter.r#type() != Some(&ParameterType::SecureString)
+        {
             return Err("SecretStoreGet unavailable".into());
         }
-        let secret = output.secret_string().ok_or("SecretStoreGet unavailable")?;
+        let secret = parameter.value().ok_or("SecretStoreGet unavailable")?;
         if secret.is_empty() || secret.len() > 4096 || secret.chars().any(char::is_control) {
             return Err("SecretStoreGet unavailable".into());
         }
@@ -74,18 +77,13 @@ fn validate_arn<'a>(secret: &str, function: &'a str) -> Result<&'a str> {
     {
         return Err(bad());
     }
-    let prefix = format!(
-        "arn:aws:secretsmanager:{}:{}:secret:{SECRET_PATH}-",
-        f[3], f[4]
-    );
-    let suffix = secret.strip_prefix(&prefix).ok_or_else(bad)?;
-    if suffix.len() != 6 || !suffix.bytes().all(|b| b.is_ascii_alphanumeric()) {
+    if secret != format!("arn:aws:ssm:{}:{}:parameter{SECRET_PATH}", f[3], f[4]) {
         return Err(bad());
     }
     Ok(f[3])
 }
 fn runtime_client(region: &str) -> Result<Client> {
-    use aws_sdk_secretsmanager::config::{
+    use aws_sdk_ssm::config::{
         BehaviorVersion, Credentials, Region, retry::RetryConfig, timeout::TimeoutConfig,
     };
     let unavailable = || "SecretStoreGet unavailable".to_string();
@@ -103,7 +101,7 @@ fn runtime_client(region: &str) -> Result<Client> {
         ))
         .build_https();
     Ok(Client::from_conf(
-        aws_sdk_secretsmanager::Config::builder()
+        aws_sdk_ssm::Config::builder()
             .behavior_version(BehaviorVersion::latest())
             .region(Region::new(region.to_owned()))
             .credentials_provider(credentials)
@@ -120,10 +118,11 @@ fn runtime_client(region: &str) -> Result<Client> {
 #[cfg(test)]
 pub(crate) mod tests {
     use super::*;
-    use aws_sdk_secretsmanager::config::{BehaviorVersion, Credentials, Region};
+    use aws_sdk_ssm::config::{BehaviorVersion, Credentials, Region};
     use aws_smithy_http_client::test_util::capture_request;
     use aws_smithy_types::body::SdkBody;
-    const ARN: &str = "arn:aws:secretsmanager:us-east-1:123456789012:secret:/hermes/thundermail/app-password-Ab12Cd";
+    const ARN: &str =
+        "arn:aws:ssm:us-east-1:123456789012:parameter/hermes/thundermail/app-password";
     const FUNCTION: &str = "arn:aws:lambda:us-east-1:123456789012:function:thundermail";
     fn mock(
         body: serde_json::Value,
@@ -138,7 +137,7 @@ pub(crate) mod tests {
                 .unwrap(),
         ));
         let client = Client::from_conf(
-            aws_sdk_secretsmanager::Config::builder()
+            aws_sdk_ssm::Config::builder()
                 .behavior_version(BehaviorVersion::latest())
                 .region(Region::new("us-east-1"))
                 .credentials_provider(Credentials::new(
@@ -164,23 +163,20 @@ pub(crate) mod tests {
         AwsSecretStore,
         aws_smithy_http_client::test_util::CaptureRequestReceiver,
     ) {
-        mock(serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only"}))
+        mock(parameter(ARN, "SecureString", "synthetic-only"))
+    }
+    fn parameter(arn: &str, kind: &str, value: &str) -> serde_json::Value {
+        serde_json::json!({"Parameter":{"ARN":arn,"Type":kind,"Value":value}})
     }
     pub(crate) fn assert_get(rx: aws_smithy_http_client::test_util::CaptureRequestReceiver) {
         let request = rx.expect_request();
-        assert_eq!(
-            request.uri(),
-            "https://secretsmanager.us-east-1.amazonaws.com/"
-        );
+        assert_eq!(request.uri(), "https://ssm.us-east-1.amazonaws.com/");
         let body: serde_json::Value =
             serde_json::from_slice(request.body().bytes().unwrap()).unwrap();
-        assert_eq!(
-            body,
-            serde_json::json!({"SecretId":ARN,"VersionStage":"AWSCURRENT"})
-        );
+        assert_eq!(body, serde_json::json!({"Name":ARN,"WithDecryption":true}));
         assert_eq!(
             request.headers().get("x-amz-target"),
-            Some("secretsmanager.GetSecretValue")
+            Some("AmazonSSM.GetParameter")
         );
     }
     fn event(
@@ -224,7 +220,7 @@ pub(crate) mod tests {
                 .header("x-amzn-errortype", "AccessDeniedException")
                 .body(SdkBody::from(r#"{"__type":"AccessDeniedException","Message":"synthetic-provider-private-detail"}"#)).unwrap()));
             let client = Client::from_conf(
-                aws_sdk_secretsmanager::Config::builder()
+                aws_sdk_ssm::Config::builder()
                     .behavior_version(BehaviorVersion::latest())
                     .region(Region::new("us-east-1"))
                     .credentials_provider(Credentials::new(
@@ -269,14 +265,17 @@ pub(crate) mod tests {
             "synthetic\0only".into(),
             "x".repeat(4097),
         ] {
-            let (store, _) = mock(serde_json::json!({"ARN":ARN,"SecretString":secret}));
+            let (store, _) = mock(parameter(ARN, "SecureString", &secret));
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
         }
         for body in [
-            serde_json::json!({"ARN":ARN,"SecretBinary":"c3ludGhldGlj"}),
-            serde_json::json!({"ARN":"other","SecretString":"synthetic-only"}),
-            serde_json::json!({"SecretString":"synthetic-only"}),
-            serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only","SecretBinary":"eA=="}),
+            parameter(ARN, "String", "synthetic-only"),
+            parameter(ARN, "StringList", "synthetic-only"),
+            parameter("other", "SecureString", "synthetic-only"),
+            serde_json::json!({"Parameter":{"Type":"SecureString","Value":"synthetic-only"}}),
+            serde_json::json!({"Parameter":{"ARN":ARN,"Value":"synthetic-only"}}),
+            serde_json::json!({"Parameter":{"ARN":ARN,"Type":"SecureString"}}),
+            serde_json::json!({}),
         ] {
             let (store, _) = mock(body);
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
@@ -288,14 +287,14 @@ pub(crate) mod tests {
             ARN.replace("123456789012", "999999999999"),
             ARN.replace("us-east-1", "us-west-2"),
             ARN.replace("/hermes/thundermail/app-password", "other/credentials"),
-            ARN.replace("-Ab12Cd", "-*"),
-            ARN.replace("-Ab12Cd", ""),
+            ARN.replace(":parameter/", ":parameter//"),
+            ARN.replace("app-password", "app-password*"),
+            ARN.replace("arn:aws:ssm:", "arn:aws:secretsmanager:"),
             ARN.replace("arn:aws:", "arn:aws-cn:"),
             format!("{ARN}:extra"),
             String::new(),
         ] {
-            let (mut store, rx) =
-                mock(serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only"}));
+            let (mut store, rx) = mock(parameter(ARN, "SecureString", "synthetic-only"));
             store.secret_arn = arn;
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
             rx.expect_no_request();
@@ -305,8 +304,7 @@ pub(crate) mod tests {
             "arn:aws:lambda:us-east-1:123:function:x",
             "arn:aws:lambda:us-east-1:123456789012:function:",
         ] {
-            let (mut store, rx) =
-                mock(serde_json::json!({"ARN":ARN,"SecretString":"synthetic-only"}));
+            let (mut store, rx) = mock(parameter(ARN, "SecureString", "synthetic-only"));
             store.function_arn = function.into();
             assert_eq!(store.get().await, Err("SecretStoreGet unavailable".into()));
             rx.expect_no_request();
@@ -316,7 +314,7 @@ pub(crate) mod tests {
     async fn provider_deadline_bounds_mocked_sdk_transport() {
         let http = aws_smithy_http_client::test_util::NeverClient::new();
         let client = Client::from_conf(
-            aws_sdk_secretsmanager::Config::builder()
+            aws_sdk_ssm::Config::builder()
                 .behavior_version(BehaviorVersion::latest())
                 .region(Region::new("us-east-1"))
                 .credentials_provider(Credentials::new(
@@ -346,7 +344,7 @@ pub(crate) mod tests {
             " leading and trailing ",
             r#"{"literal":"text"}"#,
         ] {
-            let (store, rx) = mock(serde_json::json!({"ARN":ARN,"SecretString":password}));
+            let (store, rx) = mock(parameter(ARN, "SecureString", password));
             assert_eq!(store.get().await.unwrap(), password);
             assert_get(rx);
         }

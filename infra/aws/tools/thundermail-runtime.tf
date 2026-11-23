@@ -4,12 +4,13 @@ locals {
   thundermail_function_name = "hermes-thundermail-mcp"
   thundermail_function_arn  = "arn:${data.aws_partition.current.partition}:lambda:us-east-1:${data.aws_caller_identity.current.account_id}:function:${local.thundermail_function_name}"
 }
-resource "aws_secretsmanager_secret" "thundermail" {
-  # checkov:skip=CKV_AWS_149:AWS-managed key; no extra paid CMK.
-  # checkov:skip=CKV2_AWS_57:Owner rotates the app password out of band; runtime has no write permission.
-  name                    = "/hermes/thundermail/app-password"
-  description             = "Single owner Thundermail app password; owner provisions value outside IaC."
-  recovery_window_in_days = 30
+resource "aws_ssm_parameter" "thundermail" {
+  # checkov:skip=CKV_AWS_337:AWS-managed aws/ssm key; no extra paid CMK.
+  name             = "/hermes/thundermail/app-password"
+  description      = "Single owner Thundermail app password; owner provisions value outside IaC."
+  type             = "SecureString"
+  value_wo         = "unset"
+  value_wo_version = 1
 }
 resource "aws_iam_role" "thundermail" {
   name = "hermes-thundermail-runtime"
@@ -30,7 +31,7 @@ resource "aws_iam_role_policy" "thundermail_runtime" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["secretsmanager:GetSecretValue"], Resource = [aws_secretsmanager_secret.thundermail.arn] },
+      { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = [aws_ssm_parameter.thundermail.arn] },
       { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = ["${aws_cloudwatch_log_group.thundermail.arn}:*"] }
     ]
   })
@@ -52,7 +53,7 @@ resource "aws_lambda_function" "thundermail" {
   publish                        = false
   ephemeral_storage { size = 512 }
   tracing_config { mode = "PassThrough" }
-  environment { variables = { THUNDERMAIL_CREDENTIAL_SECRET_ARN = aws_secretsmanager_secret.thundermail.arn } }
+  environment { variables = { THUNDERMAIL_CREDENTIAL_PARAMETER_ARN = aws_ssm_parameter.thundermail.arn } }
   lifecycle {
     precondition {
       condition     = data.aws_region.current.region == "us-east-1" && data.aws_partition.current.partition == "aws"
@@ -72,7 +73,7 @@ resource "aws_iam_role_policy" "thundermail_gateway_invoke" {
 output "thundermail_bootstrap" {
   description = "Nonsecret references only."
   value = {
-    secret_arn     = aws_secretsmanager_secret.thundermail.arn
+    parameter_arn  = aws_ssm_parameter.thundermail.arn
     repository_url = aws_ecr_repository.tools_images.repository_url
   }
 }

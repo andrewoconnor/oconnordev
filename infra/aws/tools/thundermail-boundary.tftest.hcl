@@ -148,11 +148,11 @@ run "thundermail_boundary" {
     error_message = "Gateway gets exact function invoke only, no secret/URL grants."
   }
   assert {
-    condition     = length(jsondecode(aws_iam_role_policy.thundermail_runtime.policy).Statement) == 2 && jsondecode(aws_iam_role_policy.thundermail_runtime.policy).Statement[0].Action == ["secretsmanager:GetSecretValue"] && jsondecode(aws_iam_role_policy.thundermail_runtime.policy).Statement[0].Resource == [aws_secretsmanager_secret.thundermail.arn]
-    error_message = "Runtime gets exact secret read, no write."
+    condition     = length(jsondecode(aws_iam_role_policy.thundermail_runtime.policy).Statement) == 2 && jsondecode(aws_iam_role_policy.thundermail_runtime.policy).Statement[0].Action == ["ssm:GetParameter"] && jsondecode(aws_iam_role_policy.thundermail_runtime.policy).Statement[0].Resource == [aws_ssm_parameter.thundermail.arn]
+    error_message = "Runtime gets exact parameter read, no write."
   }
   assert {
-    condition     = aws_lambda_function.thundermail.architectures == tolist(["arm64"]) && aws_lambda_function.thundermail.package_type == "Image" && aws_lambda_function.thundermail.environment[0].variables.THUNDERMAIL_CREDENTIAL_SECRET_ARN == aws_secretsmanager_secret.thundermail.arn && length(aws_bedrockagentcore_gateway_target.thundermail.target_configuration[0].mcp[0].lambda[0].tool_schema[0].inline_payload) == 4
+    condition     = aws_lambda_function.thundermail.architectures == tolist(["arm64"]) && aws_lambda_function.thundermail.package_type == "Image" && aws_lambda_function.thundermail.environment[0].variables.THUNDERMAIL_CREDENTIAL_PARAMETER_ARN == aws_ssm_parameter.thundermail.arn && length(aws_bedrockagentcore_gateway_target.thundermail.target_configuration[0].mcp[0].lambda[0].tool_schema[0].inline_payload) == 4
     error_message = "Native single ARM64 Lambda and inline four tools, not HTTP."
   }
   assert {
