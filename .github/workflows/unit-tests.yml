@@ -49,7 +49,7 @@ jobs:
             infra/aws/tools/lambdas/thundermail_mcp/target
           key: ${{ runner.os }}-${{ runner.arch }}-thundermail-cargo-${{ hashFiles('infra/aws/tools/lambdas/thundermail_mcp/Cargo.lock', 'mise.lock') }}
 
-      - uses: jdx/mise-action@d5574b52816a478f9d4e6529a3f6ff17a8a36785 # v5.2.8
+      - uses: jdx/mise-action@90f833d396d0cc3674b631d2d225e306476c303a # v5.2.10
         with:
           version: '2026.10.17'
           github_token: ${{ github.token }}
