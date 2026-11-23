@@ -52,7 +52,7 @@ jobs:
           echo "::add-mask::$jwt"
           installation=$(api "$jwt" "https://api.github.com/repos/$REPOSITORY/installation" | jq -er .id)
           request=$(jq -cn --arg repo "$REPOSITORY_NAME" \
-            '{repositories: [$repo], permissions: {contents: "write", pull_requests: "write"}}')
+            '{repositories: [$repo], permissions: {contents: "write", pull_requests: "write", workflows: "write"}}')
           token=$(api "$jwt" -X POST -d "$request" \
             "https://api.github.com/app/installations/$installation/access_tokens" | jq -er .token)
           echo "::add-mask::$token"
