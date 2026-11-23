@@ -136,4 +136,4 @@ class ThundermailDeliveryTests(unittest.TestCase):
         ).read_text()
         iac = (ROOT / "infra/aws/tools/thundermail-runtime.tf").read_text()
         path = re.search(r'pub const SECRET_PATH: &str = "([^"]+)"', runtime)[1]
-        self.assertIn(f'name                    = "{path}"', iac)
+        self.assertIn(f'name             = "{path}"', iac)

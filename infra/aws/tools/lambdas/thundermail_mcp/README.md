@@ -11,17 +11,17 @@ See [operations](../../../../../docs/runbooks/thundermail-mcp.md).
 
 Unknown tools/properties, invalid types, limits, mailbox control characters,
 UIDs and malformed or mismatched cursors fail before secret retrieval.
-`SecretStore` is get-only. The production implementation sends AWS SDK
-`GetSecretValue` with the exact configured ARN and `AWSCURRENT` at invocation
-time, never bootstrap. The ARN must match the invoked function's account/region
-and `/hermes/thundermail/app-password` with its six-character AWS suffix.
+`SecretStore` is get-only. The production implementation sends AWS SDK SSM
+`GetParameter` with the exact configured ARN and `WithDecryption` at invocation
+time, never bootstrap. The ARN must equal the invoked function's account/region
+parameter ARN for `/hermes/thundermail/app-password`.
 Only Lambda execution-role environment credentials are used; no profile, IMDS,
 STS, caller-provided endpoint, or credential-chain lookup. IAM separately limits
-GetSecretValue to the one ARN.
+GetParameter to the one ARN.
 
-The SecretString is a strict JSON object with `version` equal to `1` and
-`password` containing a fresh dedicated owner-provisioned app password. No extra
-keys, binary secret, control characters or empty passwords. The owner supplies
+The parameter is a `SecureString` whose plaintext value is a fresh dedicated
+owner-provisioned app password. Other parameter types, a mismatched ARN, control
+characters and empty passwords are rejected. The owner supplies
 that value out of band; never copy a local mail credential or use a fixture value.
 SDK errors and IMAP failures are redacted.
 

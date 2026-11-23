@@ -26,13 +26,24 @@ requires them to equal `tool-schemas.json`.
 
 ## Secret and permissions
 
-Terraform manages the secret metadata at `/hermes/thundermail/app-password`, not
-the value. Store only the dedicated app password as the plaintext `SecretString`:
-1–4096 bytes with no control characters. The runtime uses it unchanged; do not
-add JSON, quotes or a trailing newline. Never put the value into Terraform, a
-build, a workflow or a chat.
+Terraform manages the SSM `SecureString` parameter at
+`/hermes/thundermail/app-password` with a placeholder value. Terraform never
+reads or writes the real value. Store only the dedicated app password as the
+parameter value: 1–4096 bytes with no control characters. The runtime uses it
+unchanged; do not add JSON, quotes or a trailing newline. Never put the value
+into Terraform, a build, a workflow or a chat.
 
-The runtime role can only read that secret and write its own logs. The gateway
+To set or rotate the app password:
+
+1. Create a new app password in Thundermail.
+2. Run `read -rs THUNDERMAIL_APP_PASSWORD` and paste the password.
+3. Run `aws ssm put-parameter --name /hermes/thundermail/app-password --type SecureString --overwrite --value "$THUNDERMAIL_APP_PASSWORD"` with tools-account credentials.
+4. Run `unset THUNDERMAIL_APP_PASSWORD`.
+
+The runtime reads the parameter on every call, so the new password takes effect
+without a deploy.
+
+The runtime role can only read that parameter and write its own logs. The gateway
 can only invoke the function. The 128 MiB arm64 Lambda has reserved concurrency 1
 and 14-day logs.
 

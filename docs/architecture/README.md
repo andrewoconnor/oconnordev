@@ -75,8 +75,9 @@ change the local and apply the tools stack.
 that reads Thundermail mail over IMAP and the default calendar over CalDAV. The
 gateway invokes it directly as a native Lambda target (`mcp.lambda`), with inline
 schemas and one Cedar read permit for each tool. There is no Function URL, HTTP
-server or Lambda Web Adapter. Only the runtime can read the app-password secret.
-Terraform manages the secret metadata, never the value. The adapter exposes
+server or Lambda Web Adapter. Only the runtime can read the app password, an SSM
+`SecureString` parameter. Terraform manages the parameter with a placeholder value,
+never the real value. The adapter exposes
 `thundermail-` names and forwards them as `thundermail___` actions. See
 [the runbook](../runbooks/thundermail-mcp.md).
 
