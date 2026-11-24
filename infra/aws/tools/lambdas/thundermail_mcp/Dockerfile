@@ -1,6 +1,6 @@
 # Build on the native ARM64 runner, on the same AL2023 ABI as the runtime.
 # No build credentials, Node, HTTP server, Lambda Web Adapter or secret fetch.
-FROM public.ecr.aws/lambda/provided:al2023@sha256:7a99afa4f62c87e039c95dc3e2d307114f35a148ba5e2eb67287a84082521e44 AS build
+FROM public.ecr.aws/lambda/provided:al2023@sha256:22bf663c42c601e43a2bbf21f0f73710494e23447c391fa695908296dc6c9f54 AS build
 RUN dnf install -y gcc glibc-devel binutils make tar gzip xz && dnf clean all
 WORKDIR /build
 RUN curl -fSL https://github.com/jdx/mise/releases/download/v2026.10.17/mise-v2026.10.17-linux-arm64-musl -o /usr/local/bin/mise \
@@ -15,7 +15,7 @@ COPY infra/aws/tools/lambdas/thundermail_mcp/src ./src
 RUN mise exec rust -- cargo test --locked && mise exec rust -- cargo build --locked --release \
     && install -m 755 target/release/thundermail-native-read /build/bootstrap
 # checkov:skip=CKV_DOCKER_2:Native Lambda Runtime API client has no listener; Docker health is not Lambda readiness. See README.md.
-FROM public.ecr.aws/lambda/provided:al2023@sha256:7a99afa4f62c87e039c95dc3e2d307114f35a148ba5e2eb67287a84082521e44
+FROM public.ecr.aws/lambda/provided:al2023@sha256:22bf663c42c601e43a2bbf21f0f73710494e23447c391fa695908296dc6c9f54
 COPY --chmod=0755 --from=build /build/bootstrap /var/runtime/bootstrap
 COPY --chmod=0644 infra/aws/tools/lambdas/thundermail_mcp/LICENSE.upstream /usr/share/licenses/thundermail/LICENSE.upstream
 COPY --chmod=0644 infra/aws/tools/lambdas/thundermail_mcp/extraction.json /usr/share/licenses/thundermail/extraction.json
