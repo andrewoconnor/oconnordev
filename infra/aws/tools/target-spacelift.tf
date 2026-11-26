@@ -9,16 +9,6 @@ variable "hermes_spacelift_mcp_endpoint" {
   }
 }
 
-variable "hermes_spacelift_api_key_secret_name" {
-  description = "Legacy API key secret name retained for the gateway deny guardrail; the owner must preserve the secret during migration."
-  type        = string
-  default     = "/hermes/spacelift/api-key"
-
-  validation {
-    condition     = can(regex("^/[A-Za-z0-9/_+=.@-]{1,500}$", var.hermes_spacelift_api_key_secret_name))
-    error_message = "hermes_spacelift_api_key_secret_name must be an absolute Secrets Manager secret name beginning with a slash."
-  }
-}
 
 
 variable "hermes_spacelift_session_token_secret_name" {

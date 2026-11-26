@@ -15,7 +15,11 @@ class ParameterBoundaryTests(unittest.TestCase):
         self.assertIn("API_KEY_PARAMETER_NAME     = local.spacelift_api_key_parameter_name", function)
         self.assertNotIn('variable "hermes_spacelift_use_ssm_api_key"', target)
         self.assertNotIn("ReadLegacySpaceliftApiKeyDuringMigration", iam)
-        self.assertNotIn("local.spacelift_legacy_api_key_secret_arn", iam)
+        self.assertNotIn('variable "hermes_spacelift_api_key_secret_name"', target)
+        self.assertIn(
+            "!strcontains(arn, local.spacelift_api_key_parameter_name)",
+            (TOOLS / "target-aws.tf").read_text(),
+        )
         self.assertIn("ssm:GetParameter", iam)
 
     def test_api_key_parameter_is_reference_only_and_scoped(self):
@@ -29,7 +33,7 @@ class ParameterBoundaryTests(unittest.TestCase):
         all_tf = "\n".join(path.read_text() for path in TOOLS.glob("*.tf"))
         self.assertNotIn('data "aws_ssm_parameter"', target)
         self.assertNotIn('resource "aws_ssm_parameter"', target)
-        self.assertEqual(all_tf.count("/hermes/spacelift/api-key"), 2)
+        self.assertEqual(all_tf.count("/hermes/spacelift/api-key"), 1)
         self.assertNotIn("aws_ssm_parameter.spacelift", all_tf)
         guardrail = (TOOLS / "target-aws.tf").read_text()
         for action in (

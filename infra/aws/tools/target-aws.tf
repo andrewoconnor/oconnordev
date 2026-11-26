@@ -63,7 +63,7 @@ resource "aws_iam_role_policy" "hermes_gateway_readonly_guardrails" {
     precondition {
       condition = alltrue([
         for arn in local.hermes_gateway_readable_secret_arns :
-        !strcontains(arn, var.hermes_spacelift_api_key_secret_name)
+        !strcontains(arn, local.spacelift_api_key_parameter_name)
       ])
       error_message = "The gateway execution role must never be able to read the long-lived Spacelift API key. Only the short-lived session-token secret belongs in hermes_gateway_readable_secret_arns."
     }
