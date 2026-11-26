@@ -51,6 +51,15 @@ while authorization tests themselves are offline.
 Deployment commands require the existing AWS role chain and are not part of
 local validation; installing the AWS CLI grants no credentials.
 
+Use `import` and `moved` blocks to adopt existing resources or change state
+addresses. A PR that adds them needs a cleanup PR that removes them. Open both
+together, and merge the cleanup PR after Spacelift applies the first one.
+OpenTofu 1.13 crashes in `tofu test` when a root with `mock_provider` tests has
+an `import` block ([opentofu#4776](https://github.com/opentofu/opentofu/issues/4776)).
+The `tools`, `production`, `oconnordev`, `drumrollworld` and `gcp/google-auth`
+roots have such tests; import into them with a Spacelift task that runs
+`tofu import` instead.
+
 The dependency review workflow fails any pull request that adds or updates a
 dependency with a known vulnerability of any severity, in runtime or development
 scope. It reads the dependency graph, which parses the npm, Cargo, pip and
