@@ -15,17 +15,12 @@ locals {
   alarm_webhook_source_account = local.accounts["PRODUCTION"]
 }
 
-ephemeral "aws_secretsmanager_random_password" "alarm_webhook_hmac" {
-  password_length     = 64
-  exclude_punctuation = true
-}
-
 resource "aws_ssm_parameter" "alarm_webhook_hmac" {
   # checkov:skip=CKV_AWS_337:The AWS-managed aws/ssm key encrypts this SecureString at no cost; a customer-managed key would add $1 a month.
-  name             = "/hermes/alarm-webhook/hmac-key"
-  description      = "HMAC secret that signs CloudWatch alarm webhooks to the Hermes aws-alarms route."
+  name             = "/hermes/webhooks/aws-alarms-hmac"
+  description      = "HMAC secret shared with the Hermes aws-alarms webhook route; the owner provisions the value outside OpenTofu."
   type             = "SecureString"
-  value_wo         = ephemeral.aws_secretsmanager_random_password.alarm_webhook_hmac.random_password
+  value_wo         = "unset"
   value_wo_version = 1
 }
 
