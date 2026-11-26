@@ -2,7 +2,7 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[2] / "docs/architecture/overview.svg"
 
-W, H = 1800, 1490
+W, H = 1800, 1650
 S = 56
 FONT = "Helvetica, Arial, sans-serif"
 INK = "#232F3E"
@@ -145,6 +145,12 @@ TILES = {
         PURPLE,
         '<path d="M28 44S12 34 12 22a8 8 0 0116-3 8 8 0 0116 3c0 12-16 22-16 22z"/>'
         '<path d="M16 29h7l3-6 4 10 3-4h7"/>',
+    ),
+    "budget": (
+        GREEN,
+        '<path d="M12 38a16 16 0 0132 0"/><path d="M28 38l8-10"/>'
+        '<circle cx="28" cy="38" r="2.5" fill="#fff"/>'
+        '<path d="M14 44h28"/>',
     ),
     "external": (
         LINE,
@@ -341,7 +347,7 @@ def build():
     out.append(el("rect", width=W, height=H, fill="#fff"))
 
     org_y = 200
-    frame(260, org_y, 1300, 1260, INK, 2)
+    frame(260, org_y, 1300, 1420, INK, 2)
     header(
         260,
         org_y,
@@ -353,7 +359,7 @@ def build():
 
     top, bot = 270, 1040
     ra, rb, rc, rd = top + 140, top + 300, top + 460, top + 620
-    r1, r2 = bot + 140, bot + 300
+    r1, r2, r3 = bot + 140, bot + 300, bot + 460
     ext = 1680
 
     account(
@@ -369,11 +375,11 @@ def build():
         300,
         bot,
         460,
-        380,
+        540,
         "general",
         "management account, stack: oconnordev-general",
     )
-    account(820, bot, 700, 380, "security", "stack: oconnordev-security")
+    account(820, bot, 700, 540, "security", "stack: oconnordev-security")
 
     node("users", 130, ra, "Site visitors")
     node("robot", 130, rc, "Hermes agent", "+ MCP adapter")
@@ -405,6 +411,7 @@ def build():
     node("sso", 400, r2, "IAM Identity", "Center")
     node("billing", 620, r1, "Cost and usage", "export (S3)")
     node("cloudtrail", 620, r2, "Organization", "CloudTrail")
+    node("budget", 400, r3, "Budgets", "$15 a month")
 
     node("athena", 1100, r1, "Athena", "cost analytics")
     node("gateway", 1260, r1, "Security AgentCore", "Gateway (IAM auth)")
@@ -460,6 +467,8 @@ def build():
     arrow([(1230, r1), (1134, r1)])
     arrow([(650, r1), (1066, r1)], "billing data", (860, r1 - 10))
     arrow([(650, r2), (886, r2)], "org trail", (705, r2 - 10))
+    line([(370, r3), (200, r3), (200, bot - 35)])
+    text(230, r3 - 10, "email", size=12.5, fill=MUTED, **HALO)
 
     out.append("</svg>")
     return "\n".join(out) + "\n"

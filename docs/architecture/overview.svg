@@ -1,7 +1,7 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1490" viewBox="0 0 1800 1490" font-family="Helvetica, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1650" viewBox="0 0 1800 1650" font-family="Helvetica, Arial, sans-serif">
 <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#545B64"/></marker></defs>
-<rect width="1800" height="1490" fill="#fff"/>
-<rect x="260" y="200" width="1300" height="1260" fill="none" stroke="#232F3E" stroke-width="2"/>
+<rect width="1800" height="1650" fill="#fff"/>
+<rect x="260" y="200" width="1300" height="1420" fill="none" stroke="#232F3E" stroke-width="2"/>
 <rect x="260" y="200" width="48" height="48" fill="#232F3E"/>
 <g transform="translate(260,200)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 33h-1a6 6 0 010-12 9 9 0 0117-3 7 7 0 014 15z"/></g>
 <text x="318" y="222" font-size="17" text-anchor="start" fill="#232F3E" font-weight="600">AWS Organization</text>
@@ -16,12 +16,12 @@
 <g transform="translate(820,270)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="13" width="11" height="11"/><path d="M31 12l6 10h-12z"/><circle cx="31" cy="31" r="5.5"/><path d="M11 37h11"/></g>
 <text x="878" y="292" font-size="17" text-anchor="start" fill="#232F3E" font-weight="600">tools</text>
 <text x="878" y="310" font-size="12" text-anchor="start" fill="#687078" font-weight="400">stack: oconnordev-tools</text>
-<rect x="300" y="1040" width="460" height="380" fill="none" stroke="#E7157B" stroke-width="2.5"/>
+<rect x="300" y="1040" width="460" height="540" fill="none" stroke="#E7157B" stroke-width="2.5"/>
 <rect x="300" y="1040" width="48" height="48" fill="#E7157B"/>
 <g transform="translate(300,1040)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="13" width="11" height="11"/><path d="M31 12l6 10h-12z"/><circle cx="31" cy="31" r="5.5"/><path d="M11 37h11"/></g>
 <text x="358" y="1062" font-size="17" text-anchor="start" fill="#232F3E" font-weight="600">general</text>
 <text x="358" y="1080" font-size="12" text-anchor="start" fill="#687078" font-weight="400">management account, stack: oconnordev-general</text>
-<rect x="820" y="1040" width="700" height="380" fill="none" stroke="#E7157B" stroke-width="2.5"/>
+<rect x="820" y="1040" width="700" height="540" fill="none" stroke="#E7157B" stroke-width="2.5"/>
 <rect x="820" y="1040" width="48" height="48" fill="#E7157B"/>
 <g transform="translate(820,1040)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="11" y="13" width="11" height="11"/><path d="M31 12l6 10h-12z"/><circle cx="31" cy="31" r="5.5"/><path d="M11 37h11"/></g>
 <text x="878" y="1062" font-size="17" text-anchor="start" fill="#232F3E" font-weight="600">security</text>
@@ -102,6 +102,9 @@
 <g><rect x="592.0" y="1312.0" width="56" height="56" fill="#E7157B"/><g transform="translate(592.0,1312.0)" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M17 36h-1a7 7 0 010-14 10 10 0 0119-3 8 8 0 015 17h-3"/><path d="M20 34h16M23 40h10M26 46h4"/></g></g>
 <text x="620" y="1388" font-size="15" text-anchor="middle" fill="#232F3E" font-weight="400">Organization</text>
 <text x="620" y="1406" font-size="15" text-anchor="middle" fill="#232F3E" font-weight="400">CloudTrail</text>
+<g><rect x="372.0" y="1472.0" width="56" height="56" fill="#7AA116"/><g transform="translate(372.0,1472.0)" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 38a16 16 0 0132 0"/><path d="M28 38l8-10"/><circle cx="28" cy="38" r="2.5" fill="#fff"/><path d="M14 44h28"/></g></g>
+<text x="400" y="1548" font-size="15" text-anchor="middle" fill="#232F3E" font-weight="400">Budgets</text>
+<text x="400" y="1566" font-size="15" text-anchor="middle" fill="#232F3E" font-weight="400">$15 a month</text>
 <g><rect x="1072.0" y="1152.0" width="56" height="56" fill="#8C4FFF"/><g transform="translate(1072.0,1152.0)" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="25" cy="25" r="11"/><path d="M33 33l10 10"/><path d="M19 29v-4M25 29v-8M31 29v-6"/></g></g>
 <text x="1100" y="1228" font-size="15" text-anchor="middle" fill="#232F3E" font-weight="400">Athena</text>
 <text x="1100" y="1246" font-size="15" text-anchor="middle" fill="#232F3E" font-weight="400">cost analytics</text>
@@ -159,4 +162,6 @@
 <text x="860" y="1170" font-size="12.5" text-anchor="middle" fill="#687078" font-weight="400" stroke="#fff" stroke-width="4" paint-order="stroke">billing data</text>
 <path d="M650,1340 L886,1340" fill="none" stroke="#545B64" stroke-width="1.8" marker-end="url(#arrow)"/>
 <text x="705" y="1330" font-size="12.5" text-anchor="middle" fill="#687078" font-weight="400" stroke="#fff" stroke-width="4" paint-order="stroke">org trail</text>
+<path d="M370,1500 L200,1500 L200,1005" fill="none" stroke="#545B64" stroke-width="1.8"/>
+<text x="230" y="1490" font-size="12.5" text-anchor="middle" fill="#687078" font-weight="400" stroke="#fff" stroke-width="4" paint-order="stroke">email</text>
 </svg>
