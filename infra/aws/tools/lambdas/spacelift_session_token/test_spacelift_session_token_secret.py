@@ -86,50 +86,13 @@ class SessionTokenSecretTests(unittest.TestCase):
         ):
             return self.rotation.handler({}, None)
 
-    def test_legacy_only_configuration_reads_api_key_secret(self):
-        self.secrets.get_secret_value.side_effect = lambda *, SecretId: (
-            {
-                "SecretString": json.dumps(
-                    {"api_key_id": "legacy-id", "api_key_secret": "legacy-secret"}
-                )
-            }
-            if SecretId == "legacy-secret-name"
-            else {"SecretString": json.dumps({"token": self.previous_token})}
-        )
-        with (
-            patch.object(self.rotation, "API_KEY_PARAMETER_NAME", ""),
-            patch.object(self.rotation, "API_KEY_SECRET_ID", "legacy-secret-name"),
-            patch.object(self.rotation.time, "time", return_value=1000),
-            patch.object(self.rotation, "_mint", return_value=self.new_token) as mint,
-            patch.object(self.rotation, "_verify", return_value=["query"]),
-            patch.object(self.rotation, "_log"),
-        ):
-            self.rotation.handler({}, None)
-        mint.assert_called_once_with("legacy-id", "legacy-secret", context=None)
-        self.ssm.get_parameter.assert_not_called()
-
-    def test_missing_legacy_api_key_stops_before_minting(self):
-        self.secrets.get_secret_value.side_effect = RuntimeError("missing")
-        with (
-            patch.object(self.rotation, "API_KEY_PARAMETER_NAME", ""),
-            patch.object(self.rotation, "API_KEY_SECRET_ID", "legacy-secret-name"),
-            patch.object(self.rotation, "_mint") as mint,
-            patch.object(self.rotation, "_log"),
-            self.assertRaises(RuntimeError),
-        ):
-            self.rotation.handler({}, None)
-        mint.assert_not_called()
-        self.secrets.put_secret_value.assert_not_called()
-
-    def test_ssm_takes_precedence_over_legacy_secret(self):
-        with patch.object(self.rotation, "API_KEY_SECRET_ID", "legacy-secret-name"):
-            self.run_successful_rotation()
+    def test_api_key_is_read_from_ssm_only(self):
+        self.run_successful_rotation()
         self.ssm.get_parameter.assert_called_once_with(
             Name="api-key-parameter", WithDecryption=True
         )
-        self.assertNotIn(
-            ((), {"SecretId": "legacy-secret-name"}),
-            self.secrets.get_secret_value.call_args_list,
+        self.secrets.get_secret_value.assert_called_once_with(
+            SecretId="session-token-secret"
         )
 
     def test_changed_expiry_is_reported_as_observed_data(self):

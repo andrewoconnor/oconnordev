@@ -11,13 +11,12 @@ class ParameterBoundaryTests(unittest.TestCase):
         function = (TOOLS / "spacelift-token-rotation.tf").read_text()
         target = (TOOLS / "target-spacelift.tf").read_text()
         iam = (TOOLS / "spacelift-token-rotation-iam.tf").read_text()
-        self.assertIn("API_KEY_SECRET_ID", function)
+        self.assertNotIn("API_KEY_SECRET_ID", function)
         self.assertIn("API_KEY_PARAMETER_NAME     = local.spacelift_api_key_parameter_name", function)
         self.assertNotIn('variable "hermes_spacelift_use_ssm_api_key"', target)
-        self.assertIn("secretsmanager:GetSecretValue", iam)
-        self.assertIn("local.spacelift_legacy_api_key_secret_arn", iam)
+        self.assertNotIn("ReadLegacySpaceliftApiKeyDuringMigration", iam)
+        self.assertNotIn("local.spacelift_legacy_api_key_secret_arn", iam)
         self.assertIn("ssm:GetParameter", iam)
-        self.assertIn("${var.hermes_spacelift_api_key_secret_name}-??????", target)
 
     def test_api_key_parameter_is_reference_only_and_scoped(self):
         target = (TOOLS / "target-spacelift.tf").read_text()

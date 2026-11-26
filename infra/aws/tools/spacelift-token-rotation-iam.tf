@@ -94,12 +94,6 @@ data "aws_iam_policy_document" "spacelift_rotation" {
     resources = [local.spacelift_api_key_parameter_arn]
   }
 
-  statement {
-    sid       = "ReadLegacySpaceliftApiKeyDuringMigration"
-    effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [local.spacelift_legacy_api_key_secret_arn]
-  }
 
   statement {
     sid       = "WriteShortLivedSpaceliftSessionToken"

@@ -17,7 +17,7 @@ resource "aws_lambda_function" "spacelift_rotation" {
 
   environment {
     variables = {
-      API_KEY_SECRET_ID          = var.hermes_spacelift_api_key_secret_name
+
       API_KEY_PARAMETER_NAME     = local.spacelift_api_key_parameter_name
       TOKEN_SECRET_ID            = var.hermes_spacelift_session_token_secret_name
       TOKEN_JSON_KEY             = var.hermes_spacelift_session_token_json_key

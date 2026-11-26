@@ -16,12 +16,12 @@ metadata, not API keys or token strings.
 
 ## API key migration and import gate
 
-One apply cuts rotation over to SSM. The previous environment variable and
-permission remain temporarily so the old Lambda code can run during deployment;
-SSM read failures do not fall back silently. After applying, verify rotation logs,
-alarms and MCP access, then the owner can delete the old API-key secret. Do not
-remove the separate session-token secret. Clean up the temporary legacy permission
-and fallback code separately after the cutover.
+One apply cuts rotation over to SSM and removes the rotation role's permission
+for the old API-key secret. During deployment, Lambda code, environment, and IAM
+can update separately; a scheduled rotation may fail temporarily. Verify rotation
+logs, alarms and MCP access after applying. The legacy API-key secret is not
+managed by this stack and must be deleted separately; do not delete the separate
+session-token secret.
 
 The owner must provision the TOOLS account's `/hermes/spacelift/api-key` SSM
 SecureString in the stack region before applying. Its decrypted

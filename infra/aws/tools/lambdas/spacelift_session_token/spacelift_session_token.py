@@ -32,8 +32,7 @@ from spacelift_session_token_http import (
 )
 
 REGION = os.environ.get("AWS_REGION")
-API_KEY_PARAMETER_NAME = os.environ.get("API_KEY_PARAMETER_NAME", "")
-API_KEY_SECRET_ID = os.environ.get("API_KEY_SECRET_ID", "")
+API_KEY_PARAMETER_NAME = os.environ["API_KEY_PARAMETER_NAME"]
 API_KEY_ID_FIELD = os.environ.get("API_KEY_ID_FIELD", "api_key_id")
 API_KEY_SECRET_FIELD = os.environ.get("API_KEY_SECRET_FIELD", "api_key_secret")
 TOKEN_SECRET_ID = os.environ["TOKEN_SECRET_ID"]
@@ -143,15 +142,10 @@ def _previous_token(secrets):
 def handler(event, context):
     secrets = boto3.client("secretsmanager", region_name=REGION)
     try:
-        if API_KEY_PARAMETER_NAME:
-            ssm = boto3.client("ssm", region_name=REGION)
-            raw = ssm.get_parameter(Name=API_KEY_PARAMETER_NAME, WithDecryption=True)[
-                "Parameter"
-            ]["Value"]
-        elif API_KEY_SECRET_ID:
-            raw = secrets.get_secret_value(SecretId=API_KEY_SECRET_ID)["SecretString"]
-        else:
-            raise RotationError("api_key_source_not_configured")
+        ssm = boto3.client("ssm", region_name=REGION)
+        raw = ssm.get_parameter(Name=API_KEY_PARAMETER_NAME, WithDecryption=True)[
+            "Parameter"
+        ]["Value"]
         document = json.loads(raw)
         key_id = document[API_KEY_ID_FIELD]
         key_secret = document[API_KEY_SECRET_FIELD]

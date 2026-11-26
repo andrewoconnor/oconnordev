@@ -54,8 +54,7 @@ locals {
   # Owner-managed SecureString. Do not read or import its value into Terraform.
   spacelift_api_key_parameter_name = "/hermes/spacelift/api-key"
   spacelift_api_key_parameter_arn  = "arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${local.spacelift_api_key_parameter_name}"
-  # Secrets Manager appends a six-character suffix to the secret ARN.
-  spacelift_legacy_api_key_secret_arn = "arn:${data.aws_partition.current.partition}:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:${var.hermes_spacelift_api_key_secret_name}-??????"
+
 }
 
 resource "aws_secretsmanager_secret" "spacelift_session_token" {
