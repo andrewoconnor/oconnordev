@@ -7,13 +7,21 @@ locals {
   oauth_return_url       = "http://localhost:9090/oauth2/callback"
   google_oauth_client_id = "693193037198-cgg4gr2q675dt3t18c74uhafgbrfdle3.apps.googleusercontent.com"
   google_oauth_secret_arns = compact([
-    data.aws_secretsmanager_secret.google_oauth_client.arn,
+    aws_secretsmanager_secret.google_oauth_client.arn,
     try(aws_bedrockagentcore_oauth2_credential_provider.google.client_secret_arn[0].secret_arn, ""),
   ])
 }
 
-data "aws_secretsmanager_secret" "google_oauth_client" {
-  name = "/hermes/google/oauth-client-secret"
+resource "aws_secretsmanager_secret" "google_oauth_client" {
+  # checkov:skip=CKV_AWS_149:The AWS-managed Secrets Manager key encrypts this owner-managed OAuth client secret.
+  # checkov:skip=CKV2_AWS_57:The provider issues the client secret; it is rotated by hand in the provider console, so a rotation Lambda would have nothing to call.
+  name                    = "/hermes/google/oauth-client-secret"
+  description             = "Google Web OAuth client secret as {\"client_secret\": ...}; read by the hermes-google AgentCore credential provider. The owner stores the value outside OpenTofu."
+  recovery_window_in_days = 30
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_bedrockagentcore_oauth2_credential_provider" "google" {
@@ -26,7 +34,7 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "google" {
       client_secret_source = "EXTERNAL"
 
       client_secret_config {
-        secret_id = data.aws_secretsmanager_secret.google_oauth_client.arn
+        secret_id = aws_secretsmanager_secret.google_oauth_client.arn
         json_key  = "client_secret"
       }
     }
