@@ -1,5 +1,11 @@
 # Architecture
 
+![oconnordev AWS architecture](overview.svg)
+
+`overview.svg` is generated. To change it, edit
+`scripts/docs/generate_architecture_diagram.py` and run
+`python3 scripts/docs/generate_architecture_diagram.py`. Commit both files.
+
 ## Threat model
 
 These principals have less trust than the owner:
@@ -55,7 +61,7 @@ See [static-site headers](../static-site-security-headers.md) and
 
 The account map in `infra/aws/accounts.json` is the sole repository source for cross-account IDs and the Organizations ID. A stack uses `aws_caller_identity.current.account_id` for its own account; provider assume-role configuration reads its own ID from the same file because provider blocks cannot refer to OpenTofu data sources. Account IDs are deterministic, so they are not passed as Spacelift stack outputs. Only generated resources create cross-stack output references.
 
-`general` owns Organizations and management-account identity/delegation. `security` owns centralized audit storage and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Outlook, Thundermail, Google, Schwab and Plaid targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint and shared oconnor.dev zone, wildcard certificate and DNSSEC; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site.
+`general` owns Organizations, the service control policy, IAM Identity Center, the organization CloudTrail trail, the cost and usage export, and delegation of Config, CloudTrail and Access Analyzer administration to `security`. `security` owns centralized audit storage, the organization Access Analyzer, the CloudWatch logs sink, Athena cost analytics and the security-account AgentCore gateway. `tools` owns the shared Cognito-protected gateway and its GitHub, AWS, Spacelift, Outlook, Thundermail, Google, Schwab and Plaid targets; OpenTofu resource and service labels remain Hermes-specific. `production` owns the public MCP endpoint, the shared oconnor.dev zone, the wildcard certificate and the DNSSEC signing key; `oconnordev-resume` owns the resume site (`infra/aws/oconnordev`); `drumrollworld` owns its static site, the drumroll.world zone and that zone's certificate. Both zones sign with production's DNSSEC key. The `oconnordev-resume` and `drumrollworld` stacks deploy into the PRODUCTION account.
 
 ## Tools-account Lambdas
 
@@ -132,9 +138,15 @@ provider preservation and owner plan gates.
 
 ## Audit architecture
 
-`general` owns the organization CloudTrail trail. `security` owns the CloudTrail and AWS Config destination buckets, their explicit S3 bucket policies, the Config organization aggregator, and the security-account gateway. Member-account Config recorders deliver to the central Config bucket. The trail and bucket policy intentionally avoid a reverse stack dependency: the trail uses the bucket name as configuration, while the bucket policy constructs the trail ARN from the account map.
+`general` owns the organization CloudTrail trail. `security` owns the CloudTrail and AWS Config destination buckets, their explicit S3 bucket policies, the Config organization aggregator, and the security-account gateway. The Config recorders in all four accounts deliver to the central Config bucket. The trail and bucket policy intentionally avoid a reverse stack dependency: the trail uses the bucket name as configuration, while the bucket policy constructs the trail ARN from the account map.
 
 The bucket policies remain explicit policy documents attached directly to `aws_s3_bucket_policy` resources. Keep their principals, account conditions, and service conditions directly reviewable.
+
+## Monitoring and cost data
+
+TOOLS and PRODUCTION link their CloudWatch log groups to the `oconnordev-security-logs` OAM sink in `security`. See [cross-account CloudWatch log queries](../aws-cloudwatch-log-sharing.md).
+
+`general` exports organization cost and usage data to the `oconnordev-org-cost-usage` bucket. `security` queries that data through the `hermes-analytics` Athena workgroup, which the security gateway role can use. See [cost analytics](../aws-cost-analytics.md).
 
 ## AgentCore trust boundaries
 
@@ -173,4 +185,12 @@ See [DrumrollWorld deployment](../runbooks/drumrollworld-deployment.md).
 
 ## Stack dependency order
 
-`general -> security -> tools -> production -> {oconnordev-resume, drumrollworld}`. Both site workloads consume production's DNSSEC key ARN; resume also consumes the shared zone ID and wildcard certificate ARN. The zone/certificate remain in production for the Hermes endpoint. Site resources share the local `infra/modules/static-site` module. `security` waits for management-account delegated-administrator setup. TOOLS consumes the generated security gateway URL and ARN. PRODUCTION consumes the generated TOOLS outputs used by its workloads. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow [`docs/runbooks/infrastructure-bootstrap.md`](../runbooks/infrastructure-bootstrap.md).
+`general -> security -> tools -> production -> {oconnordev-resume, drumrollworld}`. `infra/spacelift/dependencies.tf` defines each edge and the outputs it passes:
+
+- `security` consumes the cost export bucket name and data location from `general`. It also waits for management-account delegated-administrator setup.
+- `tools` consumes the security gateway URL and ARN and the CloudWatch logs sink ARN from `security`.
+- `production` consumes the gateway origin hostname from `tools` and the CloudWatch logs sink ARN from `security`.
+- Both site workloads consume production's DNSSEC key ARN. Resume also consumes the shared zone ID and wildcard certificate ARN.
+- When enabled, `oconnordev-github-repository-config` consumes the site deploy role ARNs and CloudFront distribution IDs from both sites, and the broker role ARNs from `tools`.
+
+The zone/certificate remain in production for the Hermes endpoint. Site resources share the local `infra/modules/static-site` module. Those generated values retain explicit Spacelift dependency references; deterministic account IDs and role names stay file-based cross-account references. Audit destination buckets live in `security`, while the organization trail is owned in `general`; first creation and enablement follow [`docs/runbooks/infrastructure-bootstrap.md`](../runbooks/infrastructure-bootstrap.md).
