@@ -27,6 +27,13 @@ supplies the validated production-owned wildcard certificate shared with Hermes
 MCP; that certificate and validation remain at their existing production state
 addresses. Hosted zones and DNSSEC signing resources remain root-owned.
 
+`health_check_search_string` and `alert_topic_arn` are required. The module
+creates an `HTTPS_STR_MATCH` Route 53 health check on the apex from three US
+regions, because the distribution's geo allowlist blocks other checkers. Its
+`<name>-site-unhealthy` alarm notifies `alert_topic_arn` after five unhealthy
+minutes and on recovery. The text must appear in the first 5,120 bytes of the
+home page; change it before deploying a page that removes it.
+
 Public deployment/DNS outputs are `deploy_role_arn`, `distribution_id`,
 `distribution_domain_name`, `certificate_arn`, `bucket_name`, `apex_fqdn`,
 `www_fqdn`. Additional settings/resource outputs support the actual-provider

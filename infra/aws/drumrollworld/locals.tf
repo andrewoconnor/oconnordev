@@ -3,7 +3,8 @@ locals {
   web_bucket_name = "drumrollworld-web"
   s3_origin_id    = "drumrollworldS3Origin"
 
-  accounts = jsondecode(file("${path.module}/../accounts.json"))
+  accounts        = jsondecode(file("${path.module}/../accounts.json"))
+  alert_topic_arn = "arn:aws:sns:us-east-1:${local.accounts["PRODUCTION"]}:oconnordev-alerts"
 
   tools_github_actions_broker_role_arn = "arn:aws:iam::${local.accounts["TOOLS"]}:role/drumrollworld-github-actions-broker"
 }

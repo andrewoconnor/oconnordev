@@ -99,6 +99,9 @@ resource "aws_cloudwatch_metric_alarm" "spacelift_session_token_stale" {
   comparison_operator = "LessThanThreshold"
   treat_missing_data  = "breaching"
 
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
   dimensions = {
     SecretId = var.hermes_spacelift_session_token_secret_name
   }
@@ -115,6 +118,9 @@ resource "aws_cloudwatch_metric_alarm" "spacelift_rotation_errors" {
   threshold           = 1
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
 
   dimensions = {
     FunctionName = aws_lambda_function.spacelift_rotation.function_name

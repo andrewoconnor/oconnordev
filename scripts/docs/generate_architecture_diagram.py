@@ -2,7 +2,7 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parents[2] / "docs/architecture/overview.svg"
 
-W, H = 1800, 1330
+W, H = 1800, 1490
 S = 56
 FONT = "Helvetica, Arial, sans-serif"
 INK = "#232F3E"
@@ -135,6 +135,17 @@ TILES = {
         GREEN,
         '<circle cx="28" cy="28" r="16"/>' + glyph_text(28, 35, 20, "$"),
     ),
+    "sns": (
+        PINK,
+        '<circle cx="28" cy="28" r="4" fill="#fff"/>'
+        '<path d="M20 20a11 11 0 000 16M36 20a11 11 0 010 16"/>'
+        '<path d="M14 14a19 19 0 000 28M42 14a19 19 0 010 28"/>',
+    ),
+    "healthcheck": (
+        PURPLE,
+        '<path d="M28 44S12 34 12 22a8 8 0 0116-3 8 8 0 0116 3c0 12-16 22-16 22z"/>'
+        '<path d="M16 29h7l3-6 4 10 3-4h7"/>',
+    ),
     "external": (
         LINE,
         '<circle cx="28" cy="28" r="15"/>'
@@ -157,6 +168,11 @@ OUTLINES = {
         '<circle cx="20" cy="30" r="4"/><circle cx="36" cy="30" r="4"/>'
         '<path d="M28 16V8"/><circle cx="28" cy="6" r="2" fill="#232F3E"/>'
         '<path d="M4 26v8M52 26v8"/>',
+    ),
+    "mail": (
+        INK,
+        '<rect x="8" y="14" width="40" height="28" rx="3"/>'
+        '<path d="M9 16l19 14 19-14"/>',
     ),
     "users": (
         INK,
@@ -325,7 +341,7 @@ def build():
     out.append(el("rect", width=W, height=H, fill="#fff"))
 
     org_y = 200
-    frame(260, org_y, 1300, 1100, INK, 2)
+    frame(260, org_y, 1300, 1260, INK, 2)
     header(
         260,
         org_y,
@@ -335,8 +351,8 @@ def build():
         "one OpenTofu root and Spacelift stack per workload",
     )
 
-    top, bot = 270, 880
-    ra, rb, rc = top + 140, top + 300, top + 460
+    top, bot = 270, 1040
+    ra, rb, rc, rd = top + 140, top + 300, top + 460, top + 620
     r1, r2 = bot + 140, bot + 300
     ext = 1680
 
@@ -344,11 +360,11 @@ def build():
         300,
         top,
         460,
-        540,
+        700,
         "production",
         "stacks: oconnordev-production, oconnordev-resume, drumrollworld",
     )
-    account(820, top, 700, 540, "tools", "stack: oconnordev-tools")
+    account(820, top, 700, 700, "tools", "stack: oconnordev-tools")
     account(
         300,
         bot,
@@ -361,6 +377,7 @@ def build():
 
     node("users", 130, ra, "Site visitors")
     node("robot", 130, rc, "Hermes agent", "+ MCP adapter")
+    node("mail", 130, rd, "Owner email")
     node("spacelift", 560, 80, "Spacelift")
     node("github", 1030, 80, "GitHub Actions")
     node("github", ext, ra, "GitHub, Spacelift", "MCP servers")
@@ -373,12 +390,16 @@ def build():
     node("route53", 400, rb, "Route 53", "zones + DNSSEC")
     node("role", 620, rb, "Site deploy", "roles")
     node("cloudfront", 400, rc, "CloudFront", "mcp.oconnor.dev")
+    node("sns", 400, rd, "SNS topic", "oconnordev-alerts")
+    node("healthcheck", 620, rd, "Route 53 health", "checks, both sites")
 
     node("role", 1030, rb, "GitHub OIDC", "broker roles")
     node("cognito", 1140, ra, "Cognito", "M2M tokens")
     node("gateway", 1140, rc, "AgentCore Gateway", "+ Cedar policies")
     node("identity", 1400, rb, "AgentCore Identity", "OAuth tokens")
     node("lambda", 1400, rc, "Lambda", "Thundermail, Schwab, Plaid")
+    node("sns", 960, rd, "SNS topic", "oconnordev-alerts")
+    node("cloudwatch", 1140, rd, "CloudWatch alarms", "gateway, token rotation")
 
     node("organizations", 400, r1, "Organizations", "+ SCPs")
     node("sso", 400, r2, "IAM Identity", "Center")
@@ -427,6 +448,14 @@ def build():
         anchor="start",
     )
 
+    arrow([(590, rd), (434, rd)], "unhealthy 5 min", (512, rd - 10))
+    arrow([(370, rd), (164, rd)], "email", (205, rd - 10))
+    arrow([(1110, rd), (994, rd)])
+    arrow(
+        [(926, rd), (790, rd), (790, bot - 35), (130, bot - 35), (130, rd + 60)],
+        "email",
+        (460, bot - 45),
+    )
     arrow([(1290, r1), (ext - 34, r1)])
     arrow([(1230, r1), (1134, r1)])
     arrow([(650, r1), (1066, r1)], "billing data", (860, r1 - 10))

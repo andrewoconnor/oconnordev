@@ -21,3 +21,5 @@ output "dns_records" {
     www_ipv6  = aws_route53_record.www_ipv6
   }
 }
+output "health_check" { value = aws_route53_health_check.site }
+output "health_alarm" { value = aws_cloudwatch_metric_alarm.site_unhealthy }
