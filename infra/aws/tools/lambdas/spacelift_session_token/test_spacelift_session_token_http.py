@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 ROTATION_MODULE = Path(__file__).resolve().with_name("spacelift_session_token.py")
 TEST_ENV = {
-    "API_KEY_SECRET_ID": "api-key-secret",
+    "API_KEY_PARAMETER_NAME": "api-key-parameter",
     "TOKEN_SECRET_ID": "session-token-secret",
     "GRAPHQL_ENDPOINT": "https://example.invalid/graphql",
     "VERIFY_ENDPOINT": "https://example.invalid/mcp",

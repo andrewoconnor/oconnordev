@@ -14,6 +14,54 @@ publish anything. Use
 lifetime from JWT claims, never assumes a fixed provider lifetime, and logs only
 metadata, not API keys or token strings.
 
+## API key migration and import gate
+
+The migration uses two separate applies. Keep the legacy secret and both scoped
+permissions throughout; the legacy ARN policy uses the secret name plus the
+Secrets Manager six-character suffix pattern, without a secret data lookup.
+
+1. Apply with `hermes_spacelift_use_ssm_api_key = false` (the default). This
+   installs the compatible runtime and both permissions while continuing to read
+   the legacy secret. Verify successful rotation and allow IAM propagation.
+2. Provision and securely verify the SSM parameter as described below, then apply
+   with `hermes_spacelift_use_ssm_api_key = true`. Verify rotation logs, alarms,
+   and MCP access. SSM is selected whenever configured; an SSM read failure does
+   not silently fall back to the legacy secret.
+3. For rollback, set the flag to false and apply; keep the legacy secret current
+   and IAM permission in place. The legacy environment variable also remains
+   present so old code can run if the code is rolled back. Narrow the policy only
+   in a separately reviewed later change after the rollback window has closed and
+   all deployed versions are confirmed to use SSM. Do not delete the legacy secret
+   as part of this migration.
+
+The owner must provision the TOOLS account's `/hermes/spacelift/api-key` SSM
+SecureString in the stack region before enabling phase 2. Its decrypted
+value must be a JSON object with `api_key_id` and `api_key_secret`, matching
+the prior secret's schema. Use the AWS-managed SSM KMS key; a customer-managed
+key additionally requires a narrowly scoped `kms:Decrypt` grant and key policy
+for the rotation role, which this configuration does not provide. Transfer and
+verify the credential through an owner-controlled secure channel, without putting
+values in shell history, logs, Terraform inputs, plans, or state. Preserve the
+old Secrets Manager API key and the separate session-token secret for rollback.
+
+Terraform constructs the parameter ARN from its constant name and does not read,
+create, or import the parameter. **Import is blocked.** An offline synthetic
+experiment against a local mock SSM endpoint with AWS provider 6.70.0 showed that
+importing an `aws_ssm_parameter` configured with `value_wo` placed the existing
+decrypted synthetic value in state; the subsequent plan also proposed an update
+that could overwrite it with the configured value. The mock blocked all writes;
+this is provider behavior observed locally, not a live AWS test. A sensitive or
+write-only configuration alone is therefore not a safe adoption path. Keep the
+parameter owner-managed; do not add an import, resource, or value-reading data
+source. Any future adoption method requires separate review and a synthetic proof
+covering import, refresh, plan, state, logs, and overwrite safety with the exact
+provider and workflow. Never test with the real credential.
+After deployment, the owner should verify rotation logs, alarms and MCP access;
+if rollback is needed restore the previous Lambda configuration and IAM policy
+while retaining both secrets. Do not delete the old secret as part of this change.
+
+## Publication safeguards
+
 The publication safeguards are mandatory:
 
 - Reject expired candidates, malformed expiry claims, and regressed expiry.

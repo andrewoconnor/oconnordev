@@ -10,7 +10,7 @@ variable "hermes_spacelift_mcp_endpoint" {
 }
 
 variable "hermes_spacelift_api_key_secret_name" {
-  description = "Name of the existing Secrets Manager secret holding the read-only Spacelift API key. Only the rotation function may read it; the gateway execution role is explicitly denied it by hermes-agentcore-readonly-guardrails."
+  description = "Legacy API key secret name retained for the gateway deny guardrail; the owner must preserve the secret during migration."
   type        = string
   default     = "/hermes/spacelift/api-key"
 
@@ -18,6 +18,12 @@ variable "hermes_spacelift_api_key_secret_name" {
     condition     = can(regex("^/[A-Za-z0-9/_+=.@-]{1,500}$", var.hermes_spacelift_api_key_secret_name))
     error_message = "hermes_spacelift_api_key_secret_name must be an absolute Secrets Manager secret name beginning with a slash."
   }
+}
+
+variable "hermes_spacelift_use_ssm_api_key" {
+  description = "Enable SSM only after the compatible runtime and dual permissions are deployed and verified."
+  type        = bool
+  default     = false
 }
 
 variable "hermes_spacelift_session_token_secret_name" {
@@ -49,8 +55,12 @@ locals {
   spacelift_required_scope = aws_cognito_resource_server.hermes.scope_identifiers[0]
 }
 
-data "aws_secretsmanager_secret" "spacelift_api_key" {
-  name = var.hermes_spacelift_api_key_secret_name
+locals {
+  # Owner-managed SecureString. Do not read or import its value into Terraform.
+  spacelift_api_key_parameter_name = "/hermes/spacelift/api-key"
+  spacelift_api_key_parameter_arn  = "arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${local.spacelift_api_key_parameter_name}"
+  # Secrets Manager appends a six-character suffix to the secret ARN.
+  spacelift_legacy_api_key_secret_arn = "arn:${data.aws_partition.current.partition}:secretsmanager:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:secret:${var.hermes_spacelift_api_key_secret_name}-??????"
 }
 
 resource "aws_secretsmanager_secret" "spacelift_session_token" {

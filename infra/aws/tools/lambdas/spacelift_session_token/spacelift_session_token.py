@@ -32,7 +32,8 @@ from spacelift_session_token_http import (
 )
 
 REGION = os.environ.get("AWS_REGION")
-API_KEY_SECRET_ID = os.environ["API_KEY_SECRET_ID"]
+API_KEY_PARAMETER_NAME = os.environ.get("API_KEY_PARAMETER_NAME", "")
+API_KEY_SECRET_ID = os.environ.get("API_KEY_SECRET_ID", "")
 API_KEY_ID_FIELD = os.environ.get("API_KEY_ID_FIELD", "api_key_id")
 API_KEY_SECRET_FIELD = os.environ.get("API_KEY_SECRET_FIELD", "api_key_secret")
 TOKEN_SECRET_ID = os.environ["TOKEN_SECRET_ID"]
@@ -141,15 +142,21 @@ def _previous_token(secrets):
 
 def handler(event, context):
     secrets = boto3.client("secretsmanager", region_name=REGION)
-
     try:
-        document = json.loads(
-            secrets.get_secret_value(SecretId=API_KEY_SECRET_ID)["SecretString"]
-        )
+        if API_KEY_PARAMETER_NAME:
+            ssm = boto3.client("ssm", region_name=REGION)
+            raw = ssm.get_parameter(Name=API_KEY_PARAMETER_NAME, WithDecryption=True)[
+                "Parameter"
+            ]["Value"]
+        elif API_KEY_SECRET_ID:
+            raw = secrets.get_secret_value(SecretId=API_KEY_SECRET_ID)["SecretString"]
+        else:
+            raise RotationError("api_key_source_not_configured")
+        document = json.loads(raw)
         key_id = document[API_KEY_ID_FIELD]
         key_secret = document[API_KEY_SECRET_FIELD]
     except Exception as error:
-        _log("failed", stage="api_key_secret_read", error=type(error).__name__)
+        _log("failed", stage="api_key_parameter_read", error=type(error).__name__)
         raise
 
     _log("api_key_loaded", key_id_length=len(key_id))
