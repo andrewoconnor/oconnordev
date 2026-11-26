@@ -20,11 +20,6 @@ variable "hermes_spacelift_api_key_secret_name" {
   }
 }
 
-variable "hermes_spacelift_use_ssm_api_key" {
-  description = "Enable SSM only after the compatible runtime and dual permissions are deployed and verified."
-  type        = bool
-  default     = false
-}
 
 variable "hermes_spacelift_session_token_secret_name" {
   description = "Name of the secret the rotation function writes and the AgentCore credential provider reads. Deliberately separate from the long-lived API key so no principal holds both."
