@@ -16,11 +16,20 @@ metadata, not API keys or token strings.
 
 ## API key
 
-The rotation function reads `/hermes/spacelift/api-key` from Parameter Store
-as an owner-managed `SecureString`. Its JSON value contains `api_key_id` and
-`api_key_secret`. Use the AWS-managed SSM KMS key; a customer-managed key needs
-an additional scoped `kms:Decrypt` grant and key policy. The value is not managed
-in OpenTofu state. The separate session-token secret remains in Secrets Manager.
+The rotation function reads `/hermes/spacelift/api-key` from Parameter Store.
+OpenTofu creates it as a `SecureString` with the placeholder value `unset`
+through the write-only `value_wo` argument, so state never holds the key. The
+owner stores the real value: JSON containing `api_key_id` and `api_key_secret`.
+To set or rotate it with TOOLS credentials:
+
+1. Run `read -rs SPACELIFT_API_KEY_JSON` and paste the JSON.
+2. Run `aws ssm put-parameter --name /hermes/spacelift/api-key --type SecureString --overwrite --value "$SPACELIFT_API_KEY_JSON"`.
+3. Run `unset SPACELIFT_API_KEY_JSON`.
+
+Do not import an existing parameter into this resource: a refresh of an imported
+write-only parameter stores its decrypted value in state. Use the AWS-managed SSM
+KMS key; a customer-managed key needs an additional scoped `kms:Decrypt` grant
+and key policy. The separate session-token secret remains in Secrets Manager.
 
 During deployment, Lambda configuration and IAM can update separately; a
 scheduled rotation may fail temporarily. Verify rotation logs, alarms and MCP
