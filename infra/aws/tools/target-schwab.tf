@@ -4,13 +4,21 @@ locals {
   schwab_tools       = toset(local.schwab_manifest.tools)
   schwab_app_key     = "9UXqjUwlrByk8rd5iOqH7pvlxFYJtWJcTNzHzfy336iDP2nx"
   schwab_secret_arns = compact([
-    data.aws_secretsmanager_secret.schwab_oauth_client.arn,
+    aws_secretsmanager_secret.schwab_oauth_client.arn,
     try(aws_bedrockagentcore_oauth2_credential_provider.schwab.client_secret_arn[0].secret_arn, ""),
   ])
 }
 
-data "aws_secretsmanager_secret" "schwab_oauth_client" {
-  name = "/hermes/schwab/oauth-client-secret"
+resource "aws_secretsmanager_secret" "schwab_oauth_client" {
+  # checkov:skip=CKV_AWS_149:The AWS-managed Secrets Manager key encrypts this owner-managed OAuth client secret.
+  # checkov:skip=CKV2_AWS_57:The provider issues the client secret; it is rotated by hand in the provider console, so a rotation Lambda would have nothing to call.
+  name                    = "/hermes/schwab/oauth-client-secret"
+  description             = "Schwab app secret as {\"client_secret\": ...}; read by the hermes-schwab AgentCore credential provider and the OAuth callback. The owner stores the value outside OpenTofu."
+  recovery_window_in_days = 30
+
+  lifecycle {
+    prevent_destroy = true
+  }
 }
 
 resource "aws_bedrockagentcore_oauth2_credential_provider" "schwab" {
@@ -24,7 +32,7 @@ resource "aws_bedrockagentcore_oauth2_credential_provider" "schwab" {
       client_secret_source         = "EXTERNAL"
 
       client_secret_config {
-        secret_id = data.aws_secretsmanager_secret.schwab_oauth_client.arn
+        secret_id = aws_secretsmanager_secret.schwab_oauth_client.arn
         json_key  = "client_secret"
       }
 

@@ -51,9 +51,10 @@ as a return URL. A link is valid for 10 minutes.
 
 ## Setup
 
-1. Before the first apply, create the secret with a placeholder:
-   `{"client_secret": "pending"}` in `/hermes/schwab/oauth-client-secret`.
-2. Apply the `oconnordev-tools` stack.
+1. Apply the `oconnordev-tools` stack. It manages the secret
+   `/hermes/schwab/oauth-client-secret` but never its value.
+2. Store the placeholder `{"client_secret": "pending"}` in the secret with
+   `aws secretsmanager put-secret-value` and tools-account credentials.
 3. At developer.schwab.com, create an app for **Accounts and Trading Production**
    and **Market Data Production**. Use the stack output
    `schwab_oauth_callback_url` as its exact callback URL.

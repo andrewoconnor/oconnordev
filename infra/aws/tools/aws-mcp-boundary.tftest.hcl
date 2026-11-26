@@ -350,7 +350,7 @@ run "google_is_read_only_user_delegated_oauth" {
   }
 
   assert {
-    condition     = contains(local.hermes_gateway_readable_secret_arns, data.aws_secretsmanager_secret.google_oauth_client.arn)
+    condition     = contains(local.hermes_gateway_readable_secret_arns, aws_secretsmanager_secret.google_oauth_client.arn)
     error_message = "The gateway guardrail must allow reading only the named Google client secret."
   }
 }

@@ -25,9 +25,10 @@ role to read only that secret and the other named credentials.
    Google expires the refresh token after seven days.
 2. Create a **Web application** OAuth client. Its client ID is
    `local.google_oauth_client_id` in `target-google.tf`.
-3. Before the first apply, store the client secret as
-   `{"client_secret": "..."}` in `/hermes/google/oauth-client-secret`.
-4. Apply the `oconnordev-tools` stack.
+3. Apply the `oconnordev-tools` stack. It manages the secret
+   `/hermes/google/oauth-client-secret` but never its value.
+4. Store the client secret as `{"client_secret": "..."}` in the secret with
+   `aws secretsmanager put-secret-value` and tools-account credentials.
 5. Add the stack output `google_oauth_callback_url` to the Web client's
    *Authorized redirect URIs*.
 6. Grant consent on the computer where your browser runs, with the adapter's
