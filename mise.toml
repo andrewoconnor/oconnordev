@@ -121,6 +121,7 @@ fi
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/oauth_callback -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/schwab -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/plaid -p 'test_*.py' -v
+"$CI_PYTHON" -m unittest discover -s infra/aws/tools/lambdas/alarm_webhook -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s scripts/bootstrap -p 'test_plaid.py' -v
 "$CI_PYTHON" -m unittest discover -s scripts/plaid -p 'test_*.py' -v
 "$CI_PYTHON" -m unittest discover -s scripts/ci/tests -p 'test_*.py' -v

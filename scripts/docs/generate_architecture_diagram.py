@@ -390,6 +390,7 @@ def build():
     node("external", ext, rb, "Microsoft Graph,", "Gmail, Google Calendar")
     node("external", ext, rc, "Thundermail, Schwab,", "Plaid APIs")
     node("aws", ext, r1, "AWS MCP Server")
+    node("robot", ext, rd, "Hermes webhook", "Telegram alert")
 
     node("cloudfront", 400, ra, "CloudFront", "oconnor.dev, drumroll.world")
     node("s3", 620, ra, "S3", "site buckets")
@@ -406,6 +407,7 @@ def build():
     node("lambda", 1400, rc, "Lambda", "Thundermail, Schwab, Plaid")
     node("sns", 960, rd, "SNS topic", "oconnordev-alerts")
     node("cloudwatch", 1140, rd, "CloudWatch alarms", "gateway, token rotation")
+    node("lambda", 1400, rd, "Lambda alarm webhook", "alarms, both accounts")
 
     node("organizations", 400, r1, "Organizations", "+ SCPs")
     node("sso", 400, r2, "IAM Identity", "Center")
@@ -458,6 +460,8 @@ def build():
     arrow([(590, rd), (434, rd)], "unhealthy 5 min", (512, rd - 10))
     arrow([(370, rd), (164, rd)], "email", (205, rd - 10))
     arrow([(1110, rd), (994, rd)])
+    arrow([(1170, rd), (1366, rd)], "EventBridge", (1313, rd - 10))
+    arrow([(1430, rd), (ext - 34, rd)], "HMAC signed", (1603, rd - 10))
     arrow(
         [(926, rd), (790, rd), (790, bot - 35), (130, bot - 35), (130, rd + 60)],
         "email",
