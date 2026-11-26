@@ -14,38 +14,18 @@ publish anything. Use
 lifetime from JWT claims, never assumes a fixed provider lifetime, and logs only
 metadata, not API keys or token strings.
 
-## API key migration and import gate
+## API key
 
-One apply cuts rotation over to SSM and removes the rotation role's permission
-for the old API-key secret. During deployment, Lambda code, environment, and IAM
-can update separately; a scheduled rotation may fail temporarily. Verify rotation
-logs, alarms and MCP access after applying. The legacy API-key secret is not
-managed by this stack and must be deleted separately; do not delete the separate
-session-token secret.
+The rotation function reads `/hermes/spacelift/api-key` from Parameter Store
+as an owner-managed `SecureString`. Its JSON value contains `api_key_id` and
+`api_key_secret`. Use the AWS-managed SSM KMS key; a customer-managed key needs
+an additional scoped `kms:Decrypt` grant and key policy. The value is not managed
+in OpenTofu state. The separate session-token secret remains in Secrets Manager.
 
-The owner must provision the TOOLS account's `/hermes/spacelift/api-key` SSM
-SecureString in the stack region before applying. Its decrypted
-value must be a JSON object with `api_key_id` and `api_key_secret`, matching
-the prior secret's schema. Use the AWS-managed SSM KMS key; a customer-managed
-key additionally requires a narrowly scoped `kms:Decrypt` grant and key policy
-for the rotation role, which this configuration does not provide. Transfer and
-verify the credential through an owner-controlled secure channel, without putting
-values in shell history, logs, Terraform inputs, plans, or state. Preserve the
-old Secrets Manager API key and the separate session-token secret for rollback.
-
-Terraform constructs the parameter ARN from its constant name and does not read,
-create, or import the parameter. **Import is blocked.** An offline synthetic
-experiment against a local mock SSM endpoint with AWS provider 6.70.0 showed that
-importing an `aws_ssm_parameter` configured with `value_wo` placed the existing
-decrypted synthetic value in state; the subsequent plan also proposed an update
-that could overwrite it with the configured value. The mock blocked all writes;
-this is provider behavior observed locally, not a live AWS test. A sensitive or
-write-only configuration alone is therefore not a safe adoption path. Keep the
-parameter owner-managed; do not add an import, resource, or value-reading data
-source. Any future adoption method requires separate review and a synthetic proof
-covering import, refresh, plan, state, logs, and overwrite safety with the exact
-provider and workflow. Never test with the real credential.
-Before deleting the old secret, verify rotation logs, alarms, and MCP access.
+During deployment, Lambda configuration and IAM can update separately; a
+scheduled rotation may fail temporarily. Verify rotation logs, alarms and MCP
+access after applying. The old API-key secret is not managed by this stack and
+must be deleted separately.
 
 ## Publication safeguards
 
