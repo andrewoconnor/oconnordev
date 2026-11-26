@@ -114,10 +114,12 @@ run "reject_{index}" {{
         self.assertRegex(errors, r"evaluation_periods\s*=\s*1")
         self.assertRegex(errors, r'treat_missing_data\s*=\s*"notBreaching"')
         self.assertIn("local.spacelift_rotation_alarm_period", errors)
-        # Preserve the current notification boundary: neither alarm has actions.
-        self.assertNotRegex(
-            stale + errors, r"\b(?:alarm|ok|insufficient_data)_actions\b"
-        )
+        for alarm in (stale, errors):
+            self.assertRegex(
+                alarm, r"alarm_actions\s*=\s*\[aws_sns_topic\.alerts\.arn\]"
+            )
+            self.assertRegex(alarm, r"ok_actions\s*=\s*\[aws_sns_topic\.alerts\.arn\]")
+            self.assertNotRegex(alarm, r"\binsufficient_data_actions\b")
 
     def test_gateway_m2m_access_token_lasts_one_hour_in_explicit_minutes(self):
         gateway = (CONFIG_PATH.parent / "gateway-auth.tf").read_text()

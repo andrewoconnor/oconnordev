@@ -8,6 +8,10 @@ module "site" {
   zone_id                  = var.site_zone_id
   broker_role_arn          = local.tools_github_actions_broker_role_arn
   content_security_policy  = "default-src 'none'; script-src 'sha256-4JHmSUmc1wePxlVTxsVTwn6GgpQ+Oa79jBlKuyYIE5c='; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"
+
+  alert_topic_arn            = local.alert_topic_arn
+  health_check_search_string = "Andrew Vincent O'Connor - Resume"
+
   error_responses = [for code in [403, 404] : {
     error_code            = code
     response_code         = 404

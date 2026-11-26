@@ -28,3 +28,11 @@ variable "existing_certificate_arn" {
   type        = string
   default     = null
 }
+variable "health_check_search_string" {
+  description = "Text that must appear in the first 5,120 bytes of the site's home page."
+  type        = string
+}
+variable "alert_topic_arn" {
+  description = "SNS topic in the caller's account that receives the health alarm."
+  type        = string
+}

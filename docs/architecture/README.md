@@ -148,6 +148,12 @@ TOOLS and PRODUCTION link their CloudWatch log groups to the `oconnordev-securit
 
 `general` exports organization cost and usage data to the `oconnordev-org-cost-usage` bucket. `security` queries that data through the `hermes-analytics` Athena workgroup, which the security gateway role can use. See [cost analytics](../aws-cost-analytics.md).
 
+## Alerts
+
+TOOLS and PRODUCTION each have an `oconnordev-alerts` SNS topic with an email subscription to `andrew@oconnor.dev`. Email delivery starts after the owner confirms the subscription email that AWS sends. The topics are unencrypted: CloudWatch alarms can publish to an encrypted topic only through a customer-managed KMS key, and alerts hold only alarm names and metric values.
+
+The TOOLS topic receives the gateway user-error and Spacelift session-token alarms. In PRODUCTION, `infra/modules/static-site` creates a Route 53 health check for each site. It requests `https://<domain>/` every 30 seconds from us-east-1, us-west-1 and us-west-2 and requires the site's configured text in the first 5,120 bytes. Checkers outside the US would receive 403 from the distributions' geo allowlist. Each site's alarm notifies the PRODUCTION topic after five minutes unhealthy and again when the site recovers. The `general` budget emails the owner directly.
+
 ## AgentCore trust boundaries
 
 `tools` owns one Cognito-protected AgentCore Gateway, one execution role, and the ENFORCE policy engine. Cognito client-credentials authentication establishes the machine caller; Cedar policies authorize target-prefixed action names. M2M access tokens have an explicit 60-minute validity; ID/refresh-token settings are not configured for this flow. The adapter caches the returned `expires_in` lifetime and refreshes with its existing 60-second skew, or once after a gateway 401; extending validity does not force periodic token requests when idle. Shared gateway and authentication resources are in `gateway.tf` and `gateway-auth.tf`; target-specific credentials, target definitions, and Cedar rules are in `target-github.tf`, `target-aws.tf`, `target-spacelift.tf`, `target-thundermail.tf`, `target-google.tf`, `target-outlook.tf`, `target-schwab.tf`, and `target-plaid.tf`. GitHub PAT and Spacelift credentials remain separate from gateway-wide IAM.

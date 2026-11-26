@@ -1,5 +1,10 @@
 
 mock_provider "aws" {
+  mock_resource "aws_sns_topic" {
+    defaults = {
+      arn = "arn:aws:sns:us-east-1:421680664125:oconnordev-alerts"
+    }
+  }
   # Policy preconditions decode Statement during plan, so return a minimal
   # valid policy document instead of the mock provider's generated placeholder.
   mock_data "aws_iam_policy_document" {

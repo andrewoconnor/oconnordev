@@ -50,6 +50,9 @@ resource "aws_cloudwatch_metric_alarm" "gateway_user_errors" {
   comparison_operator = "GreaterThanOrEqualToThreshold"
   treat_missing_data  = "notBreaching"
 
+  alarm_actions = [aws_sns_topic.alerts.arn]
+  ok_actions    = [aws_sns_topic.alerts.arn]
+
   dimensions = {
     Resource = aws_bedrockagentcore_gateway.hermes.gateway_arn
   }

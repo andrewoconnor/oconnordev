@@ -67,3 +67,26 @@ run "dnssec_requires_explicit_key_arn" {
   variables { dnssec_key_arn = "alias/dnssec" }
   expect_failures = [var.dnssec_key_arn]
 }
+
+run "health_check_alerts_the_production_topic" {
+  command = plan
+
+  assert {
+    condition = (
+      module.site.health_check.type == "HTTPS_STR_MATCH" &&
+      module.site.health_check.fqdn == local.zone_name &&
+      module.site.health_check.request_interval == 30 &&
+      length(module.site.health_check.regions) >= 3 &&
+      alltrue([for region in module.site.health_check.regions : startswith(region, "us-")])
+    )
+    error_message = "Check the apex over HTTPS with a content match, from at least three US regions; the distribution geo allowlist blocks checkers elsewhere."
+  }
+
+  assert {
+    condition = (
+      module.site.health_alarm.alarm_actions == toset(["arn:aws:sns:us-east-1:767397796791:oconnordev-alerts"]) &&
+      module.site.health_alarm.ok_actions == toset(["arn:aws:sns:us-east-1:767397796791:oconnordev-alerts"])
+    )
+    error_message = "The health alarm must notify the PRODUCTION alerts topic on failure and recovery."
+  }
+}
