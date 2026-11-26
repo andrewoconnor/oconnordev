@@ -14,10 +14,19 @@ class StoredTokenVerificationTests(unittest.TestCase):
 
     def setUp(self):
         self.secrets = Mock()
+        self.ssm = Mock()
+        self.ssm.get_parameter.return_value = {
+            "Parameter": {
+                "Value": json.dumps(
+                    {"api_key_id": "test-id", "api_key_secret": "test-secret"}
+                )
+            }
+        }
         self.cloudwatch = Mock()
         self.rotation.boto3.client = Mock(
             side_effect=lambda service, **kwargs: {
                 "secretsmanager": self.secrets,
+                "ssm": self.ssm,
                 "cloudwatch": self.cloudwatch,
             }[service]
         )
@@ -25,12 +34,6 @@ class StoredTokenVerificationTests(unittest.TestCase):
         self.previous_token = jwt_with_claims(iat=800, exp=1010)
 
         def get_secret_value(*, SecretId):
-            if SecretId == "api-key-secret":
-                return {
-                    "SecretString": json.dumps(
-                        {"api_key_id": "test-id", "api_key_secret": "test-secret"}
-                    )
-                }
             return {"SecretString": json.dumps({"token": self.previous_token})}
 
         self.secrets.get_secret_value.side_effect = get_secret_value

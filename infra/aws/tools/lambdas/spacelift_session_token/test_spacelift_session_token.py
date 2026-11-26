@@ -12,7 +12,7 @@ from unittest.mock import Mock, patch
 
 ROTATION_MODULE = Path(__file__).resolve().with_name("spacelift_session_token.py")
 TEST_ENV = {
-    "API_KEY_SECRET_ID": "api-key-secret",
+    "API_KEY_PARAMETER_NAME": "api-key-parameter",
     "TOKEN_SECRET_ID": "session-token-secret",
     "GRAPHQL_ENDPOINT": "https://example.invalid/graphql",
     "VERIFY_ENDPOINT": "https://example.invalid/mcp",
@@ -47,10 +47,19 @@ class SessionTokenRotationTests(unittest.TestCase):
 
     def setUp(self):
         self.secrets = Mock()
+        self.ssm = Mock()
+        self.ssm.get_parameter.return_value = {
+            "Parameter": {
+                "Value": json.dumps(
+                    {"api_key_id": "test-id", "api_key_secret": "test-secret"}
+                )
+            }
+        }
         self.cloudwatch = Mock()
         self.rotation.boto3.client = Mock(
             side_effect=lambda service, **kwargs: {
                 "secretsmanager": self.secrets,
+                "ssm": self.ssm,
                 "cloudwatch": self.cloudwatch,
             }[service]
         )
@@ -59,12 +68,6 @@ class SessionTokenRotationTests(unittest.TestCase):
         self.previous_secret_error = None
 
         def get_secret_value(*, SecretId):
-            if SecretId == "api-key-secret":
-                return {
-                    "SecretString": json.dumps(
-                        {"api_key_id": "test-id", "api_key_secret": "test-secret"}
-                    )
-                }
             if self.previous_secret_error:
                 raise self.previous_secret_error
             return {"SecretString": json.dumps({"token": self.previous_token})}
@@ -79,6 +82,32 @@ class SessionTokenRotationTests(unittest.TestCase):
             patch.object(self.rotation, "_log"),
         ):
             return self.rotation.handler({}, None)
+
+    def test_api_key_is_decrypted_from_ssm_not_secrets_manager(self):
+        ssm = Mock()
+        ssm.get_parameter.return_value = {
+            "Parameter": {
+                "Value": json.dumps(
+                    {"api_key_id": "test-id", "api_key_secret": "test-secret"}
+                )
+            }
+        }
+        self.rotation.boto3.client.side_effect = lambda service, **kwargs: {
+            "ssm": ssm,
+            "secretsmanager": self.secrets,
+            "cloudwatch": self.cloudwatch,
+        }[service]
+        self.run_successful_rotation()
+        ssm.get_parameter.assert_called_once_with(
+            Name="api-key-parameter", WithDecryption=True
+        )
+        self.assertNotIn(
+            "api-key-secret",
+            [
+                call.kwargs["SecretId"]
+                for call in self.secrets.get_secret_value.call_args_list
+            ],
+        )
 
     def test_same_expiry_near_expiration_does_not_replace_healthy_current_token(self):
         self.new_token = jwt_with_claims(iat=900, exp=1010)

@@ -11,7 +11,7 @@ from unittest.mock import Mock, patch
 
 ROTATION_MODULE = Path(__file__).resolve().with_name("spacelift_session_token.py")
 TEST_ENV = {
-    "API_KEY_SECRET_ID": "api-key-secret",
+    "API_KEY_PARAMETER_NAME": "api-key-parameter",
     "TOKEN_SECRET_ID": "session-token-secret",
     "GRAPHQL_ENDPOINT": "https://example.invalid/graphql",
     "VERIFY_ENDPOINT": "https://example.invalid/mcp",
@@ -50,10 +50,19 @@ class SessionTokenSecretTests(unittest.TestCase):
 
     def setUp(self):
         self.secrets = Mock()
+        self.ssm = Mock()
+        self.ssm.get_parameter.return_value = {
+            "Parameter": {
+                "Value": json.dumps(
+                    {"api_key_id": "test-id", "api_key_secret": "test-secret"}
+                )
+            }
+        }
         self.cloudwatch = Mock()
         self.rotation.boto3.client = Mock(
             side_effect=lambda service, **kwargs: {
                 "secretsmanager": self.secrets,
+                "ssm": self.ssm,
                 "cloudwatch": self.cloudwatch,
             }[service]
         )
@@ -62,12 +71,6 @@ class SessionTokenSecretTests(unittest.TestCase):
         self.previous_secret_error = None
 
         def get_secret_value(*, SecretId):
-            if SecretId == "api-key-secret":
-                return {
-                    "SecretString": json.dumps(
-                        {"api_key_id": "test-id", "api_key_secret": "test-secret"}
-                    )
-                }
             if self.previous_secret_error:
                 raise self.previous_secret_error
             return {"SecretString": json.dumps({"token": self.previous_token})}
@@ -82,6 +85,15 @@ class SessionTokenSecretTests(unittest.TestCase):
             patch.object(self.rotation, "_log"),
         ):
             return self.rotation.handler({}, None)
+
+    def test_api_key_is_read_from_ssm_only(self):
+        self.run_successful_rotation()
+        self.ssm.get_parameter.assert_called_once_with(
+            Name="api-key-parameter", WithDecryption=True
+        )
+        self.secrets.get_secret_value.assert_called_once_with(
+            SecretId="session-token-secret"
+        )
 
     def test_changed_expiry_is_reported_as_observed_data(self):
         self.previous_token = jwt_with_claims(iat=800, exp=1500)
@@ -125,7 +137,7 @@ class SessionTokenSecretTests(unittest.TestCase):
         self.assertFalse(result["expiry_changed"])
 
     def test_api_key_read_failure_stops_before_minting_or_writing(self):
-        self.secrets.get_secret_value.side_effect = RuntimeError("secret read failed")
+        self.ssm.get_parameter.side_effect = RuntimeError("secret read failed")
         mint = Mock()
 
         with (

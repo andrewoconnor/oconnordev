@@ -14,6 +14,21 @@ publish anything. Use
 lifetime from JWT claims, never assumes a fixed provider lifetime, and logs only
 metadata, not API keys or token strings.
 
+## API key
+
+The rotation function reads `/hermes/spacelift/api-key` from Parameter Store
+as an owner-managed `SecureString`. Its JSON value contains `api_key_id` and
+`api_key_secret`. Use the AWS-managed SSM KMS key; a customer-managed key needs
+an additional scoped `kms:Decrypt` grant and key policy. The value is not managed
+in OpenTofu state. The separate session-token secret remains in Secrets Manager.
+
+During deployment, Lambda configuration and IAM can update separately; a
+scheduled rotation may fail temporarily. Verify rotation logs, alarms and MCP
+access after applying. The old API-key secret is not managed by this stack and
+must be deleted separately.
+
+## Publication safeguards
+
 The publication safeguards are mandatory:
 
 - Reject expired candidates, malformed expiry claims, and regressed expiry.

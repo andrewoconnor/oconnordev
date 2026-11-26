@@ -17,6 +17,19 @@ locals {
 
 data "aws_iam_policy_document" "hermes_gateway_readonly_guardrails" {
   statement {
+    sid     = "DenySpaceliftApiKeyParameterReads"
+    effect  = "Deny"
+    actions = ["ssm:GetParameter", "ssm:GetParameters", "ssm:GetParametersByPath", "ssm:GetParameterHistory"]
+    resources = [
+      local.spacelift_api_key_parameter_arn,
+      "${local.spacelift_api_key_parameter_arn}/*",
+      "arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter/",
+      "arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter/hermes",
+      "arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter/hermes/spacelift",
+    ]
+  }
+
+  statement {
     sid     = "DenySecretValueReadsOutsideApprovedRuntimeCredentials"
     effect  = "Deny"
     actions = ["secretsmanager:GetSecretValue"]
@@ -50,7 +63,7 @@ resource "aws_iam_role_policy" "hermes_gateway_readonly_guardrails" {
     precondition {
       condition = alltrue([
         for arn in local.hermes_gateway_readable_secret_arns :
-        !strcontains(arn, var.hermes_spacelift_api_key_secret_name)
+        !strcontains(arn, local.spacelift_api_key_parameter_name)
       ])
       error_message = "The gateway execution role must never be able to read the long-lived Spacelift API key. Only the short-lived session-token secret belongs in hermes_gateway_readable_secret_arns."
     }

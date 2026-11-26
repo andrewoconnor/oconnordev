@@ -90,9 +90,10 @@ data "aws_iam_policy_document" "spacelift_rotation" {
   statement {
     sid       = "ReadLongLivedSpaceliftApiKey"
     effect    = "Allow"
-    actions   = ["secretsmanager:GetSecretValue"]
-    resources = [data.aws_secretsmanager_secret.spacelift_api_key.arn]
+    actions   = ["ssm:GetParameter"]
+    resources = [local.spacelift_api_key_parameter_arn]
   }
+
 
   statement {
     sid       = "WriteShortLivedSpaceliftSessionToken"

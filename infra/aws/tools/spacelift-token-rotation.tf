@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "spacelift_rotation" {
   # checkov:skip=CKV_AWS_116:Async failures are routed to an on-failure destination by aws_lambda_function_event_invoke_config, which supersedes the deprecated dead_letter_config block.
-  # checkov:skip=CKV_AWS_117:The function must reach Spacelift's public GraphQL and MCP endpoints; a VPC attachment would require NAT egress and add a failure mode with no security benefit, since the credential is held in Secrets Manager rather than reached over a private network.
+  # checkov:skip=CKV_AWS_117:The function must reach Spacelift's public GraphQL and MCP endpoints; a VPC attachment would require NAT egress and add a failure mode.
   # checkov:skip=CKV_AWS_173:Every environment variable is a secret name, endpoint or timeout. The API key and the session JWT are never placed in the environment.
   # checkov:skip=CKV_AWS_272:Code signing is not configured for this account. The deployment package is built from the repository at plan time by archive_file and its hash is tracked in source_code_hash.
   # checkov:skip=CKV_AWS_50:Active tracing is not enabled. Rotation is a single synchronous call whose outcome is already alarmed on by remaining token lifetime and by the function's error metric, so distributed tracing adds no diagnostic value here.
@@ -17,7 +17,8 @@ resource "aws_lambda_function" "spacelift_rotation" {
 
   environment {
     variables = {
-      API_KEY_SECRET_ID          = var.hermes_spacelift_api_key_secret_name
+
+      API_KEY_PARAMETER_NAME     = local.spacelift_api_key_parameter_name
       TOKEN_SECRET_ID            = var.hermes_spacelift_session_token_secret_name
       TOKEN_JSON_KEY             = var.hermes_spacelift_session_token_json_key
       GRAPHQL_ENDPOINT           = local.spacelift_graphql_endpoint
@@ -105,7 +106,7 @@ resource "aws_cloudwatch_metric_alarm" "spacelift_session_token_stale" {
 
 resource "aws_cloudwatch_metric_alarm" "spacelift_rotation_errors" {
   alarm_name          = "hermes-spacelift-session-token-rotation-errors"
-  alarm_description   = "The Spacelift session-token rotation function failed. The API key secret, the Spacelift GraphQL endpoint and the post-mint MCP verification are the only things it can fail on."
+  alarm_description   = "The Spacelift session-token rotation function failed. Inspect parameter access, minting, verification, token secret access and metrics."
   namespace           = "AWS/Lambda"
   metric_name         = "Errors"
   statistic           = "Sum"
