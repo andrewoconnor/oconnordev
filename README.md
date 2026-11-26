@@ -2,6 +2,17 @@
 
 Infrastructure and agent code for oconnordev.
 
+## Architecture
+
+![oconnordev AWS architecture](docs/architecture/overview.svg)
+
+Four AWS accounts sit in one organization. Hermes reaches its tools through
+the AgentCore Gateway in `tools`, and its AWS tools go through a second gateway in
+`security`. `production` serves the static sites and the `mcp.oconnor.dev`
+endpoint. `general` and `security` hold organization management, audit and cost
+data. See [architecture](docs/architecture/README.md) for trust boundaries and
+stack order.
+
 ## Development commands
 
 Install [mise](https://mise.jdx.dev/) and run these from the repository root:
@@ -100,28 +111,32 @@ The production workflow publishes only that directory to the existing bucket.
 
 ```
 .
-├── .github/workflows/        CI: Checkov, TFLint, adapter tests
+├── .github/workflows/        CI checks, site deploys, tool images, Dependabot
 ├── agents/hermes/adapter/    AgentCore MCP adapter and target manifests
 ├── agents/hermes/plugins/    Hermes plugins, such as the mail guard
+├── apps/                     Static sites: oconnordev (resume), drumrollworld
 ├── docs/
-│   ├── architecture/        System boundaries and stack dependencies
+│   ├── architecture/        Diagram, system boundaries and stack dependencies
+│   ├── assets/              Recorded asset and settings inventories
 │   ├── decisions/           Architecture decision records
 │   └── runbooks/            Bootstrap and operations
 ├── infra/
 │   ├── aws/
 │   │   ├── accounts.json    Account and organization identifiers
-│   │   ├── drumrollworld/   Static-site workload (PRODUCTION account)
-│   │   ├── oconnordev/      Resume workload (stack oconnordev-resume)
-│   │   ├── general/         Organizations management account
-│   │   ├── tools/           Shared AgentCore gateway and target policies
-│   │   ├── production/      Public MCP endpoint
-│   │   └── security/        Central audit and security gateway
+│   │   ├── drumrollworld/   drumroll.world zone and site (PRODUCTION account)
+│   │   ├── oconnordev/      Resume site, stack oconnordev-resume (PRODUCTION account)
+│   │   ├── general/         Organizations, Identity Center, org trail, cost export
+│   │   ├── tools/           Shared AgentCore gateway, targets and site deploy brokers
+│   │   ├── production/      Public MCP endpoint, oconnor.dev zone and certificate
+│   │   └── security/        Audit storage, log sink, cost analytics, security gateway
 │   ├── modules/static-site/ Shared local storage/delivery/deploy module
 │   ├── gcp/google-auth/     Google Auth project and scoped IAM
+│   ├── github/oconnordev/   GitHub repository settings and site environments
 │   └── spacelift/           Spacelift management stack
 ├── scripts/
 │   ├── adapter/             Adapter deploy/smoke commands and offline tests
 │   ├── ci/                  CI path selection, validation, and policy tests
+│   ├── docs/                Architecture diagram generator
 │   └── drumrollworld/       Image/texture asset pipelines and offline tests
 └── README.md
 ```
@@ -131,8 +146,11 @@ mapped to a Spacelift stack. `infra/spacelift/` owns stack mapping and explicit
 producer dependencies. The separate `infra/gcp/google-auth/` root uses native
 GCP integration; see its [runbook](docs/runbooks/gcp-google-auth-discovery.md).
 Both static-site roots use `../../modules/static-site`; no registry credentials
-are needed. PRODUCTION owns the shared zone, DNSSEC, wildcard certificate and
-Hermes endpoint. Root lockfiles resolve providers from `registry.opentofu.org`.
+are needed. PRODUCTION owns the oconnor.dev zone, the DNSSEC signing key, the
+wildcard certificate and the Hermes endpoint. DrumrollWorld owns the
+drumroll.world zone and its certificate; both zones sign with PRODUCTION's key.
+The separate `infra/github/oconnordev/` root manages repository settings and
+site deploy environments. Root lockfiles resolve providers from `registry.opentofu.org`.
 
 AWS account identifiers and the Organizations ID are centralized in `infra/aws/accounts.json`. A stack uses `data.aws_caller_identity.current.account_id` for its own account; the JSON map is for cross-account references. Spacelift dependencies remain only where one stack consumes a generated output, such as the AgentCore gateway URL/ARN.
 
