@@ -40,11 +40,19 @@ locals {
   spacelift_required_scope = aws_cognito_resource_server.hermes.scope_identifiers[0]
 }
 
-locals {
+resource "aws_ssm_parameter" "spacelift_api_key" {
   # Owner-managed SecureString. Do not read or import its value into Terraform.
-  spacelift_api_key_parameter_name = "/hermes/spacelift/api-key"
-  spacelift_api_key_parameter_arn  = "arn:${data.aws_partition.current.partition}:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter${local.spacelift_api_key_parameter_name}"
+  # checkov:skip=CKV_AWS_337:The AWS-managed aws/ssm key encrypts this SecureString at no cost; a customer-managed key would need a scoped kms:Decrypt grant and key policy.
+  name             = "/hermes/spacelift/api-key"
+  description      = "Spacelift read-only API key ID and secret as JSON; the owner provisions the value outside OpenTofu."
+  type             = "SecureString"
+  value_wo         = "unset"
+  value_wo_version = 1
+}
 
+locals {
+  spacelift_api_key_parameter_name = aws_ssm_parameter.spacelift_api_key.name
+  spacelift_api_key_parameter_arn  = aws_ssm_parameter.spacelift_api_key.arn
 }
 
 resource "aws_secretsmanager_secret" "spacelift_session_token" {

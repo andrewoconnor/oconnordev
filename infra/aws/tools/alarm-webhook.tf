@@ -11,10 +11,17 @@ variable "hermes_alarm_webhook_url" {
 
 locals {
   alarm_webhook_function_name  = "hermes-alarm-webhook"
-  alarm_webhook_secret_name    = "/hermes/webhooks/aws-alarms-hmac"
-  alarm_webhook_secret_arn     = "arn:aws:ssm:us-east-1:${local.accounts["TOOLS"]}:parameter${local.alarm_webhook_secret_name}"
   alarm_webhook_default_bus    = "arn:aws:events:us-east-1:${local.accounts["TOOLS"]}:event-bus/default"
   alarm_webhook_source_account = local.accounts["PRODUCTION"]
+}
+
+resource "aws_ssm_parameter" "alarm_webhook_hmac" {
+  # checkov:skip=CKV_AWS_337:The AWS-managed aws/ssm key encrypts this SecureString at no cost; a customer-managed key would add $1 a month.
+  name             = "/hermes/webhooks/aws-alarms-hmac"
+  description      = "HMAC secret shared with the Hermes aws-alarms webhook route; the owner provisions the value outside OpenTofu."
+  type             = "SecureString"
+  value_wo         = "unset"
+  value_wo_version = 1
 }
 
 data "archive_file" "alarm_webhook" {
@@ -45,7 +52,7 @@ resource "aws_iam_role_policy" "alarm_webhook" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = [local.alarm_webhook_secret_arn] },
+      { Effect = "Allow", Action = ["ssm:GetParameter"], Resource = [aws_ssm_parameter.alarm_webhook_hmac.arn] },
       { Effect = "Allow", Action = ["logs:CreateLogStream", "logs:PutLogEvents"], Resource = ["${aws_cloudwatch_log_group.alarm_webhook.arn}:*"] }
     ]
   })
@@ -71,7 +78,7 @@ resource "aws_lambda_function" "alarm_webhook" {
   environment {
     variables = {
       WEBHOOK_URL           = var.hermes_alarm_webhook_url
-      SECRET_PARAMETER_NAME = local.alarm_webhook_secret_name
+      SECRET_PARAMETER_NAME = aws_ssm_parameter.alarm_webhook_hmac.name
     }
   }
 
