@@ -20,7 +20,8 @@ These principals have less trust than the owner:
 The protected assets are Cognito and OAuth tokens, provider passwords and API
 keys, private mail and financial records, cloud read access, GitHub write
 access, the site deploy roles, the integrity of released site bytes and tool
-images, and owner approval of tool calls.
+images, owner approval of tool calls, and the HMAC secret that signs alarm
+messages to Hermes.
 
 ### Adapter
 
@@ -66,7 +67,7 @@ The account map in `infra/aws/accounts.json` is the sole repository source for c
 ## Tools-account Lambdas
 
 Lambda sources live under `infra/aws/tools/lambdas/`: `spacelift_session_token/`,
-`thundermail_mcp/`, `schwab/`, `plaid/` and `oauth_callback/`. The tools project root covers them,
+`thundermail_mcp/`, `schwab/`, `plaid/`, `oauth_callback/` and `alarm_webhook/`. The tools project root covers them,
 so no extra Spacelift project glob is needed.
 
 `ecr.tf` defines the shared `oconnordev-tools` image repository, its Lambda pull
@@ -153,6 +154,8 @@ TOOLS and PRODUCTION link their CloudWatch log groups to the `oconnordev-securit
 TOOLS and PRODUCTION each have an `oconnordev-alerts` SNS topic with an email subscription to `andrew@oconnor.dev`. Email delivery starts after the owner confirms the subscription email that AWS sends. The topics are unencrypted: CloudWatch alarms can publish to an encrypted topic only through a customer-managed KMS key, and alerts hold only alarm names and metric values.
 
 The TOOLS topic receives the gateway user-error and Spacelift session-token alarms. In PRODUCTION, `infra/modules/static-site` creates a Route 53 health check for each site. It requests `https://<domain>/` every 30 seconds from us-east-1, us-west-1 and us-west-2 and requires the site's configured text in the first 5,120 bytes. Checkers outside the US would receive 403 from the distributions' geo allowlist. Each site's alarm notifies the PRODUCTION topic after five minutes unhealthy and again when the site recovers. The `general` budget emails the owner directly.
+
+CloudWatch alarm state changes also reach Hermes. An EventBridge rule in PRODUCTION forwards `ALARM` and `OK` state changes to the TOOLS default event bus, whose bus policy admits only the PRODUCTION account. A TOOLS rule sends those events and TOOLS's own alarm state changes to the `hermes-alarm-webhook` Lambda. The Lambda reads the HMAC secret from the owner-managed SSM SecureString `/hermes/webhooks/aws-alarms-hmac` and POSTs the alarm name, states, reason, account and region to the Hermes Cloud `aws-alarms` route. It signs each request with the route's generic scheme: HMAC-SHA256 of `<timestamp>.<body>` in `X-Webhook-Signature-V2`, with `X-Webhook-Timestamp` and the event ID as `X-Request-ID`. The route is deliver-only with no toolsets, so Hermes forwards the rendered text to Telegram without an agent run. Email remains the fallback when a webhook delivery fails.
 
 ## AgentCore trust boundaries
 
